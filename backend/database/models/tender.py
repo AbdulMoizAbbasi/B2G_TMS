@@ -108,3 +108,22 @@ class Tender(Base):
         "TenderSource",
         back_populates="tenders",
     )
+
+    relevance = relationship(
+        "TenderRelevance",
+        back_populates="tender",
+        uselist=False,
+    )
+
+    documents = relationship(
+        "TenderDocument",
+        back_populates="tender",
+        cascade="all, delete-orphan",
+    )
+
+    participation = relationship(
+        "TenderParticipation",
+        back_populates="tender",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )

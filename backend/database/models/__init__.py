@@ -2,3 +2,10 @@ from database.models.base import Base
 from database.models.region import Region
 from database.models.tender_source import TenderSource
 from database.models.tender import Tender
+from database.models.tender_relevance import TenderRelevance
+from database.models.tender_document import TenderDocument
+from database.models.tender_participation import TenderParticipation
+from database.models.role import Role
+from database.models.user import User
+from database.models.employee import Employee
+from database.models.coordinator import Coordinator
