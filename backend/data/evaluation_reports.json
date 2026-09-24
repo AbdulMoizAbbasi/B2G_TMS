@@ -1,0 +1,348 @@
+[
+    {
+        "evaluation_id": "EVL00000003147",
+        "scraped_data": {
+            "source": "Federal PPRA",
+            "tender_no": "TS0000012466E",
+            "evaluation_date": "Sep 01, 2026",
+            "detail_page_data": {
+                "BID DOCUMENT FOR LNG SPOT TENDER ON A DELIVERED EX SHIP BASIS Evaluation No": "EVL00000003147 Tender No: TS0000012466E Published Download Evaluation Report Print Details Back to Listing",
+                "Evaluation No": "EVL00000003147",
+                "Tender No": "TS0000012466E",
+                "Tender Closing Date September 01, 2026 at 02": "00 PM"
+            }
+        },
+        "ocr_data": {
+            "raw_text": "Islamabad, 01 September 2026\n\nEVALUATION REPORT\n(As Per Rule 35 of PP Rules, 2004)\n\n“SUPPLY OF LIQUEFIED NATURAL GAS (LNG)”\n\n1. Name of Procuring Agency: Pakistan LNG Limited (PLL)\n\n2. Method of Procurement: Single stage — two envelope procedure\n\n3. Title of Procurement: Invitation to Bid for Supply of Liquefied Natural Gas (LNG)\n4. Tender Inquiry No. No. PLL/IMP/LNGT77\n\n5. PPRA Ref. No. (TSE): TS00000012466E\n\n6. Date & Time of Bid Closing: 01 September 2026, 1400 hours (PST)\n\n7. Date & Time of Bid Opening: 01 September 2026, 1430 hours (PST)\n\n8. No of Bids Received: 01\n\n9. Criteria for Bid Evaluation: As per Bid Documents\n\n10. Date & Time of Financial Bid Opening: 01 September 2026, 1515 hours (PST)\n11. Details of Bids Evaluation:\n\nRule/Regulation/\nTechnics Contract Price SBD*/Policy/Basis for\n‘echnically Sant\nwr Name of Bidder | Qualified (USS/MMBtu) oa eee Rules,\n(Yes / No) 2004.\nCargo 1\n04 — 08 September 2026\n1 BP Singapore Yes 26.969\n\n12. Lowest Evaluated Bidder(s):\n\n7 : Cargo 1\nDelivery Periods 04 — 08 September 2026\nLowest Commercial Offer\n(Contract Price - $/MMBtu) chad\nLowest Evaluated Bidder Name BP Singapore\n\n13. Any other additional / supporting information, the procuring agency may like to share: N/A\n\nPage 1 of 1",
+            "procuring_agency": "Pakistan LNG Limited (PLL)",
+            "procurement_method": "Single stage — two envelope procedure",
+            "procurement_title": "Invitation to Bid for Supply of Liquefied Natural Gas (LNG)",
+            "tender_inquiry_no": "PLL/IMP/LNGT77",
+            "ppra_ref_no": "TS00000012466E",
+            "bid_closing": "01 September 2026, 1400 hours (PST)",
+            "bid_opening": "01 September 2026, 1430 hours (PST)",
+            "bids_received": 1,
+            "evaluation_criteria": "As per Bid Documents",
+            "financial_bid_opening": "01 September 2026, 1515 hours (PST)",
+            "bid_evaluations": [
+                {
+                    "bidder": "BP Singapore",
+                    "technically_qualified": "Yes",
+                    "contract_price": "26.969",
+                    "delivery_period": null
+                }
+            ],
+            "lowest_evaluated_bidder": {
+                "name": "BP Singapore",
+                "contract_price": null,
+                "delivery_period": null
+            },
+            "additional_information": "N/A"
+        },
+        "detail_url": "https://epms.ppra.gov.pk/public/evaluations/evaluation-details/EVL00000003147",
+        "pdf_url": "https://epms.ppra.gov.pk/pdf?file=ZXZhbHVhdGlvbl9yZXBvcnRzL0ZpbmFsX0V2YWx1YXRpb25fUmVwb3J0X0xOR1Q3Ny5wZGY=",
+        "pdf_path": "TS0000012466E/EVL00000003147.pdf"
+    },
+    {
+        "evaluation_id": "EVL00000003146",
+        "scraped_data": {
+            "source": "Federal PPRA",
+            "tender_no": "TS0000012466E",
+            "evaluation_date": "Sep 01, 2026",
+            "detail_page_data": {
+                "BID DOCUMENT FOR LNG SPOT TENDER ON A DELIVERED EX SHIP BASIS Evaluation No": "EVL00000003146 Tender No: TS0000012466E Published Download Evaluation Report Print Details Back to Listing",
+                "Evaluation No": "EVL00000003146",
+                "Tender No": "TS0000012466E",
+                "Tender Closing Date September 01, 2026 at 02": "00 PM"
+            }
+        },
+        "ocr_data": {
+            "raw_text": "Islamabad, 01 September 2026\nEVALUATION REPORT\n(As Per Rule 35 of PP Rules, 2004)\n“SUPPLY OF LIQUEFIED NATURAL GAS (LNG)”\n\n1. Name of Procuring Agency: Pakistan LNG Limited (PLL)\n\n2. Method of Procurement: Single stage — two envelope procedure\n\n3. Title of Procurement: Invitation to Bid for Supply of Liquefied Natural Gas (LNG)\n4. Tender Inquiry No. No. PLL/IMP/LNGT77\n\n5. PPRA Ref. No. (TSE): TS00000012466E\n\n6. Date & Time of Bid Closing: 01 September 2026, 1400 hours (PST)\n\n7. Date & Time of Bid Opening: 01 September 2026, 1430 hours (PST)\n\n8. No of Bids Received: 01\n\n9. Criteria for Bid Evaluation: As per Bid Documents\n\n10. Date & Time of Financial Bid Opening: 01 September 2026, 1515 hours (PST)\n11. Details of Bids Evaluation:\n\nTechnical Qualification Rule/Regulation/\nSr. Name of Bidder Status SBD*/Policy/Basis for Technical\n# Rejection/Acceptance as per\nRule 35 of PP Rules, 2004.\n1. | BP Singapore Technically Qualified.\n\n12. Any other additional / supporting information, the procuring agency may like to share.\n\nCommercial / Financial Proposals of the Technically Qualified Bidders to be opened on 01 September\n2026, 03:15 PM in Pakistan LNG Limited, 9\" Floor, Petroleum House, Ataturk Avenue, G-5/2, Islamabad.\n\n*Standard Bidding Documents (SBD).",
+            "procuring_agency": "Pakistan LNG Limited (PLL)",
+            "procurement_method": "Single stage — two envelope procedure",
+            "procurement_title": "Invitation to Bid for Supply of Liquefied Natural Gas (LNG)",
+            "tender_inquiry_no": "PLL/IMP/LNGT77",
+            "ppra_ref_no": "TS00000012466E",
+            "bid_closing": "01 September 2026, 1400 hours (PST)",
+            "bid_opening": "01 September 2026, 1430 hours (PST)",
+            "bids_received": 1,
+            "evaluation_criteria": "As per Bid Documents",
+            "financial_bid_opening": "01 September 2026, 1515 hours (PST)",
+            "bid_evaluations": [],
+            "lowest_evaluated_bidder": null,
+            "additional_information": null
+        },
+        "detail_url": "https://epms.ppra.gov.pk/public/evaluations/evaluation-details/EVL00000003146",
+        "pdf_url": "https://epms.ppra.gov.pk/pdf?file=ZXZhbHVhdGlvbl9yZXBvcnRzL1RlY2huaWNhbF9FdmFsdWF0aW9uX1JlcG9ydF9MTkdUNzcucGRm",
+        "pdf_path": "TS0000012466E/EVL00000003146.pdf"
+    },
+    {
+        "evaluation_id": "32815",
+        "scraped_data": {
+            "source": "KP PPRA",
+            "tender_no": "32505",
+            "evaluation_date": null,
+            "detail_page_data": {
+                "procurement_entity": "Local Govt. & Rural Development Department, Kohat",
+                "description": "Tender for PCC Streets, Drains, Culverts and solar based based pressure pumps etc",
+                "advertisement_date": "20-Jul-2026",
+                "closing_date": "11-Aug-2026",
+                "tender_id": "32815",
+                "documents": [
+                    {
+                        "document_type": "Comparative Statement",
+                        "document_name": null,
+                        "uploaded_on": null,
+                        "pdf_url": null,
+                        "ocr_data": {}
+                    },
+                    {
+                        "document_type": "Technical Document",
+                        "document_name": null,
+                        "uploaded_on": null,
+                        "pdf_url": null,
+                        "ocr_data": {}
+                    },
+                    {
+                        "document_type": "Financial Document",
+                        "document_name": null,
+                        "uploaded_on": null,
+                        "pdf_url": null,
+                        "ocr_data": {}
+                    },
+                    {
+                        "document_type": "Final Document",
+                        "document_name": "Report 1",
+                        "uploaded_on": "09-09-2026 06:02:25 AM",
+                        "pdf_url": "http://www.kppra.gov.pk/kppra/staff/force_download.php?file=dept/upload/1788933745BidEvaluation32505.pdf",
+                        "pdf_path": "C:\\Users\\PMLS\\Desktop\\Jazzworld\\B2G_tendersportal\\backend\\data\\evaluation_pdfs\\32505\\32505_Report_1.pdf",
+                        "ocr_data": {
+                            "raw_text": "OFFICE OF THE ASSISTANT DIRECTOR (SENIOR) » |\nLOCAL GOVT & RURAL DEVELOPMENT DEPARTMENT |\n\nKOHAT.\nKigtertatnenivwe EMall: adiqkohat@qmail.com Ph # 0922-513940\n\nFB: www.fb.com/LGRDDKT\nNo. 677 JADIKT |,\nDate: 08 10912026\nTo\n\nThe Managing Director KPPRA,\nKhyber PakhtunKhwa, Peshawar.\n\nSubject: REQUEST FOR PUBLISHING BID EVALUATION REPORT ON KPPRA\nWEBSITE.\n\nEnclosed please find herewith the bid evaluation report to be published'on\nthe KPPRA website as per KPPRA rules.\n\nIt is therefore requsted that the Bid evaluation report may kindly be\npublished on KPPRA website under intimation to this office.\n\nruled\n\nLG&RDD, Kohat. ’ le\n\nCe:\n\n4. The Director (Technical), LG&RDD, Khyber PakhtunKhwa Peshawar. a\n2. The Assistant Engineer, LG&RDD Kohat.\n\n. i a\n\nLG&RDD, Kohat.\n\nOFFICE OF THE ASSISTANT DIRECTOR (Sr.)\nLOCAL GOVERNMENT AND RURAL DEVELOPMENT DEPARTMENT\n\nTEHSIL HEAD QUARTER DISTRICT KOHAT.\nE-mail: adigkohat@gmail.com Tel: 0922-513940\n\nMINUT! IF THE MEETING\nA meeting of the Tender Opening and Evaluation Committee (Notification, Annex-A) was held on 27\" August 2026\nat 02:00 PM in the office of the Assistant Director (Sr.) LG & RDD Tehsil Head Quarter, Kohat under the Chairmanship\n\nof Assistant Director (Sr.) LG & RDDD Tehsil Head Quarter, Kohat. Following member of the committee attended the\nmeeting:~\n\n1. Assistant Director (Sr.) LG&RDD Kohat.\n\nChairman Committee.\n2. Assistant Engineer (Sr.) LG&RDD Kohat. Secretary Committee.\n3. Accountant, LG&RDD, Kohat. Member.\n4. Sub Engineer, LG&RDD, Kohat. Member.\n5. Sub Engineer, LG&RDD, Kohat. Member.\n\nThe Chair welcomed the participants and allowed to start the meeting. The Assistant Engineer (Sr.) briefed the forum\nabout the schemes as per detail mentioned below,\n\nKPPRA Tender No, 32505\n\nTender Opening Date: 11\" August, 2026\nInformation No. INF (P) 3718/26\n\nTender No. K-26070707157\nKOHAT AREA EVELOPMENT PROJECT (ADP No. 200153)\n\nS# | Scheme Name E/Cost (M) | Successful Bid Rate (%\nBidder Below)\n1. | PCC Street, Drain, Culverts & Solar based Pressure Pumps at 11.30 M/S MRK 21.25%\nVillage Rehmanabad CNG, Noor Elahil Colony Hafizabad, Builder\nBahadar Kot & Behzadi Chakarkot\n\nAs per KPPRA Notification No. $.R.O (14)Vol: 1-24/2021-22:/6058-71 Dated 10” May 2022, “The Contractor\nquoting their bids up to a limit of 10% below Engincer’s Estimate shall submit bid security @2% only of Engineer's\nEstimate and the contractors quoting their bids more than 10% below upto 20% below on Engineer's Estimated shall\nsubmit along with their bids 8% Additional Securities of Engineer's ated cost in addition to 2% bid security,\nSimilarly, a contractor quoting bid more than 20% below shall submit with his bid an additional security on Engince\nEstimated cost equal to the differential amount of submitted bid and Engineers Estimate along with detailed rate analy:\n\nAll the Tender documents were opened in the presence of the representativsof the contractors on tender opening\nday (Attendance Sheet, Annex-B). the 2% eamest money and additional security will be deposited in the official\ndesignated account of Assistant Director (Sr.) Local Government & Rural Development Department, Kohat.\n\nM/S MRK Builder quoted lowest rate 21.25% Below on the engincering estimate for the aforementioned scheme\naccompanied with detailed rate analysis. Rate analysis was thoroughly examined by the Technical Staff and found\nconvincing and therefore suggests declaring their bid as responsive.\n\nBased on the above, the committee recommended to award the tender to the success:\n\nful bidder as mentioned in the\nabove table. The detail of 2% eamest money and additional security is as follow.\n\nS# | 2% (Earnest Money) 8% (Additional Security) Bank Name Dated\n\nCDR No. & Amount CDR No. & Amount\n1 No. 00293918 No. 00293917 UBL-Ameen Billitang Branch, 10/08/20:\n\nRs. 226,000/- Rs. 2,402,000/- | Kohat (0450) . ‘ | iii\n\n*\nNa is +]\nSi ‘ngineer Sub Engineer ct it\nLG&RDD K; LG&RDD Kohat LG&RDD Kohat\nngineer (Sr.) A Direftor (Sr.)\nEG&RDD Kohat G&RDD Kohat\n\nCamScanner\n\n/\n\nComparative Statement\n\nTender Title: Tender No:\nPCC STREET, DRAIN, CULVERTS & SOLAR BASED PRESSURE PUMPS AT VILLAGE REHMANABAD CNG, NOOR ELAHI COLONY K-\nHAFIZABAD, BAHADAR KOT & BEHZADI CHAKARKOT 26070707157\nUpload Date: Expiry Date: Opening Date: Nature: cost\n27/07/2026 09/11/2026 11/08/2026, 14:00:00 Single Stage Single Envelope a\n11300000\nCategory Contractor Name Quoted Bid (%) Bid Security Inst No. Submitted Date Remarks\nBice MIL iis: sal 2125 ‘azeaore—o02eser7 210872008 = aad\n2 cs RAHEEL KHAN CONSTRUCTION COMPANY -20.00 311911 21/08/2026 Velo\nJ c3 Tahir khan shinwari “13.71 2305347 21/08/2026 2\n4 C5 Sajidhaleemandbrothers -13.65 | 2305338 21/08/2026 ©\nya a _\n? C4 M/S Irfan Ullah Construction -10.00 | 3547923 vines | >\nL ca2 M/S BADSHAH ALI AND ZEB WAZIR CONTRACTOR -2.00 1752911 21/08/2026 -\n{= — _—_ = i ,\n4 c2 Abdur Raziq Afridi | 01651984 21/08/2026 oe\n——— —_——_—_— —— —- _ ear a —— — — — —\n4 null Al Haj Ghulam Siddiq & Sons Govt Contractor | -20.00 | 02086537 21/08/2026 =\nee season ma 7 . i ; a ——-\n4 C4 KHAWASKHAN&SONS | -20.00 | 01760424 | 21/08/2026 i\nle C1 M/S ASG Brothers Construction Pvt Ltd | 1752910-1752912 | 21/08/2026 es\n— —_—_____— ——— = — — 1 — — —\n|\nC3 Barkhi Construction Company Pvt Ltd | 3145661 | 21/08/2026 og\nsy F -\net\nSe jeext D's oe AD oD\n\nCamScanner",
+                            "procuring_agency": null,
+                            "procurement_method": null,
+                            "procurement_title": null,
+                            "tender_inquiry_no": null,
+                            "ppra_ref_no": null,
+                            "bid_closing": null,
+                            "bid_opening": null,
+                            "bids_received": null,
+                            "evaluation_criteria": null,
+                            "financial_bid_opening": null,
+                            "bid_evaluations": [],
+                            "lowest_evaluated_bidder": null,
+                            "additional_information": null
+                        }
+                    }
+                ]
+            }
+        },
+        "ocr_data": {},
+        "detail_url": "http://www.kppra.gov.pk/kppra/processtender_documents.php?tender_id=32815",
+        "pdf_url": "http://www.kppra.gov.pk/kppra/staff/force_download.php?file=dept/upload/1784535295lgrddkohat.pdf",
+        "pdf_path": null
+    },
+    {
+        "evaluation_id": "punjab_7834533dcafcd9a7",
+        "scraped_data": {
+            "source": "Punjab PPRA",
+            "tender_no": "",
+            "evaluation_date": "22 Sep 2026",
+            "detail_page_data": {
+                "department": "Quaid-e-Azam Solar Power Private Limited",
+                "procurement_name": "Hiring of External Audit Firm 2026-2027",
+                "publish_date": "22 Sep 2026",
+                "close_date": "02 Oct 2026",
+                "awarded_firm": "Lot#1: Crowe Hussain Ch.& Co."
+            }
+        },
+        "ocr_data": {
+            "raw_text": "QUAID-E-AZAM SOLAR POWER (PVT) LIMITED\nBID EVALUATION SCORING FOR EXTERNAL AUDITOR\nFinancial Bids opened on September 21st 2026\n\nFirm Name Technical || Technical Score || Financial Bid || Financial Score || Total Score _| Rankin;\n70% of Technical 30% of Financial\nBDO 78 54.60 1,479,188 26.81 2nd\n85 59.50 [1,322,000 30.00 Ist\nT=0.70; F=0.30\nNote:\n\nPrices are inclusive of Tax and out of pocket, performa was provided in RFQs for Financial Proposal, it is totally upto the\n\nbidders to charge out of pocket expense or not. The Company has considered the final amount quoted in Financial Proposal.\n\nProcurement Deputy Manager Finance Chief Internal Auditor\n\npny [eurequy joryD aoueury roSeu quawamsorg WW\n\nnv ot\n7 .\n‘ “uaye} J2Y50d Jo no pur xv} sayes Jo aarsnjoxe doug\n\n10}0N\n0¢0=4 0L:0=L\n0s'68 [Looe 09\n91095 [PIO ll Ix ISL\n00°0€ 000°%e'T [ 000'ce'r\n(§g) e100g JerueuTy (any) e581 ISOMOT l (@) org pesodorg\n\nYO uTessny] MOD\n\nYOLIGAV TVNUALXA WOI ONNIODS NOLLVN IVA Id TWIONVNIT\nCGALINTT (LAd) WAMOd UV1OS WVZV-A-dIVNO\n\nJoypny Jeurayuy JaryD aoueury raseueyy Aindaq\n\na\n\nquawiamoo1g WV\n\n“way: od’ Jo no pur xv} says Jo aatsnpxe ao1Ig\n:3]0N\nO€ 0=d 0Z'0=L\nrts 1897 ss\n31095 [OL I ISed l ISsL\n1897 [ 000°¢ze'L l S8L'6ZF'L\n(jg) e109 JeIoueUry | (wry) a211g jsamoT | (q) 201g pasodory\nwryerqy Odd\n\nYOLIGAV TWNUALXA WOI ONIVODS NOLLVNIVAA Id TWIONVNIL\nCGALINTT (LAd) YAMOd UV1OS WVZV-A-dIVNO",
+            "procuring_agency": null,
+            "procurement_method": null,
+            "procurement_title": null,
+            "tender_inquiry_no": null,
+            "ppra_ref_no": null,
+            "bid_closing": null,
+            "bid_opening": null,
+            "bids_received": null,
+            "evaluation_criteria": null,
+            "financial_bid_opening": null,
+            "bid_evaluations": [],
+            "lowest_evaluated_bidder": null,
+            "additional_information": null
+        },
+        "detail_url": null,
+        "pdf_url": "https://eproc.punjab.gov.pk/EvaluationReport/50485054/4857/2209202609462887488242.pdf",
+        "pdf_path": "Hiring of External Audit Firm 2026-2027/2209202609462887488242.pdf"
+    },
+    {
+        "evaluation_id": "punjab_b1d28306de468725",
+        "scraped_data": {
+            "source": "Punjab PPRA",
+            "tender_no": "",
+            "evaluation_date": "07 Dec 2020",
+            "detail_page_data": {
+                "department": "Primary , Secondary Healthcare Department",
+                "procurement_name": "Procurement of Cellular/Data Services, Internet Bandwidth Services and GSM/Sim Tracking Services etc. Bio-Medical Equipment Resource Center (BERC) P&SHD",
+                "publish_date": "07 Dec 2020",
+                "close_date": "16 Dec 2020",
+                "awarded_firm": "Lot#1: Lot-1 M/s Pakistan Telecom Mobile Limited (Ufone),Lot -2M/S Web Concepts, Lot-3 M/S Web Concepts"
+            }
+        },
+        "ocr_data": {
+            "raw_text": "Primary & Secondary\nHealthcare Department\n\nROCUREMENT OF CELLULAR/DATA SERVICES,\nINTERNET BANDWIDTH SERVICES AND GSM/SIM\nTRACKING SERVICES ETC. BIO-MEDICAL\nEQUIPMENT RESOURCE CENTER (BERC)\n\nBID REFERENCE NO. PSHD/PMU/TCO III 4-123/2020\n\nEVALUATION REPORT\n\nPart-I\nKNOCK\n\nBID EVALUATION SHEET\n\nLOT No. 1\n\nProcurement of Cellular Services\n\nDOWN CRITERIA-(COMMERCIAL EVALUATION,\n\n(All evaluation parameters defined below are mandato:\n\nfor compliance)\n\nM/s Pakistan Mobile M/s Pakistan\nP Communication Telecom Mobile M/s CMPak\nSr. No, Evaluation parameters ro aa\nLimited Limited Zong\n(Jazz) (Ufone)\n1__|Complete LOT with Undertaking to the effect Yes\n\nAffidavit from Bidder for non-blacklisting and\n\nYes Yes\n2. Jany litigation with any private or public Yes Yes Yes\ndepartment Institution\n3 _ |Has Bussiness Experience of at least three (03) Yes Yes Yes\nyears\nProvides bank statements / financial\n4 |Statesments depicting sound financial strength Yes Yes Yes\n(minimum Rs. Five million annual sales\nturnover ina last year]\n5 |Bid Validity Yes Yes Yes\n6 |Delivery Period Yes Yes Yes\nREMARKS: Eligible Eligible Eligible\nParti\nKNOCK DOWN CRITERIA-VENDOR EVALUATION)\n\n(All evaluation parameters defined below are mandatory for compliance)\n\nM/s Pakistan Mobile M/s Pakistan\nP Communication Telecom Mobile M/s CMPak\nSr. No, Evaluation parameters ro aa\nLimited Limited Zong\n(Jazz) (Ufone)\n(Certificate of Company / Firm Registration /\n1 |incorporation under the laws of Pakistan Yes Yes Yes\n2 |Minimum Three Years experience of Managing Yes Yes Yes\nServices\nPurchase Orders/ Work Order of similar\nnature projects of last three years (minimum 5\n3 |projects of having worth at least 0.5 million Yes Yes Yes\nleach\n4 |Valid Income Tax Registration Yes Yes Yes\nValid General Sales Tax Registration / Punjab\n5 _ |sales Tax Registration (Status= Active with Yes Yes Yes\n6 |Required Licenses Yes Yes Yes\nREMARKS: Eligible Eligible Eligible\n\nPart-II\nKNOCK DOWN CRITERIA-TOR/SPECIFICATIONS EVALUATION,\n\nYes Yes\n\nResponsive Responsive Responsive\n\nBID EVALUATION SHEET\n\nLOT No. 2\nProcurement of Internet Bandwidth Services\n\nPart-I\nKNOCK DOWN CRITERIA-(COMMERCIAL EVALUATION,\n\n(All evaluation parameters defined below are mandatory for compliance.\n\nEvaluation parameters M/s Web Concepts |M/s Nexlinx Networks\n\nComplete LOT with Undertaking to the effect that the Yes Yes\nAffidavit from Bidder for non-blacklisting and any\nlitigation with any private or public department Yes Yes\nInstitution\n\nYes Yes\n\nProvides bank statements / financial statesments\ndepicting sound financial strength (minimum Rs. Five Yes Yes\nmillion annual sales turnover ina last year)\n\n5 Bid Validity Yes Yes\n6 Delivery Period Yes Yes\nREMARKS: Eligible Eligible\nPart-I\n\nKNOCK DOWN CRITERIA-VENDOR EVALUATION)\n\n(All evaluation parameters defined below are mandatory for compliance.\n\nEvaluation parameters M/s Web Concepts |M/s Nexlinx Networks\n\nCertificate of Company / Firm Registration /\nIncorporation under the laws of Pakistan\n\nMinimum Three Years experience of Managing\nServices\n\nPurchase Orders/ Work Order of similar nature\nprojects of last three years (minimum 5 projects of\nhaving worth at least 0.5 million each)\n\nValid Income Tax Registration\n\n\\Valid General Sales Tax Registration / Punjab Sales\n‘Tax Registration (Status= Active with PBR/PRA)\n\n6 Required Liceses Yes Yes\nREMARKS: Eligible Eligible\n\nYes Yes\n\nPart-I\nKNOCK DOWN CRITERIA-TOR/SPECIFICATIONS EVALUATION)\n\n(All evaluation parameters defined below are mandatory for compliance,\n\nAs per requirement, 10-Mbps or higher (Unlimited),\nCIR Internet Bandwidth on Optical Fiber or wireless Yes Yes\nwith minimum 02 static IPs.\n\nThe firm will be responsible for the laying,\ninstallation and terminating of the cables, wireless\nequipment, tower and allied equipment necessary for Yes Yes\neffective commissioning of the link for internet\nbandwidth.\n\nThe firm will be responsible for the failover\nconfiguration to transfer internet traffic to the 1st\nbackup link Backup link in case of any issue in the\nprimary link. In case of failure of all links the firm\nwill be responsible to make the link operational\nwithin 1 hour.\n\nAll the equipment for the dedicated (CIR) circuit\ninstalled at both the ends, will be the property of the\nfirm and the firm will be responsible for its repair\nand maintenance at its own cost.\n\nCompatibility with existing MIS setup and network. In\nthis regard, the configuration, installation and\nequipment will be the responsibility of service\nprovider.\n\nDomain level load balancing and auto failover will be\nprovided by the service provider.\n\nThe firm will be responsible for the 99.5% uptime of\nthe internet services.\n\nThe firm will be responsible for the technical support\non the basis of 24x7x365.\n\nThe firm will be responsible to whitelisting/ Opening\nof the ports from PTA for Audio/Video conferencing\nservices. In this regard necessary required Yes Yes\ninformation/documents would be provided by the\nP&SHD.\n\nIP Address Pool (08 WAN IPs) or more. Yes Yes\n\nProvisioning of NMS (MRTG etc.) centralized and each\nsite.\n\nFirm will provide required licenses (PTA) along with\nits technical proposal, failure will lead to rejection of Yes Yes\nbid.\n\nIn case of problem/fault the complaint will be made\ntelephonically by the Customer. The Firm will be\nresponsible to attend the complaint call and resolve\nthe issue within 1 hour.\n\nThe agreement will initially remain in force for a\nperiod of 01 (One) year, however the same may be\nextended, subject to such modifications/alterations,\nrevision of charges as the parties may agree.\n\nREMARKS: Responsive Responsive\n\nPart-I\n|KNOCK DOWN CRITERIA-(COMMERCIAL EVALUATION)\n\nAll evaluation parameters defined below are mandatory for compliance]\n\nComplete LOT with Undertakingtotheeffectthat_[ Yes [| Ves | Yes\n\n[Affidavit from Bidder for non-blacklisting and any\nlitigation with any private or public department\n\nInstitution\n\nHas Bussiness Experience of at least three (03)\n\nProvides bank statements / financial statesments\ndepicting sound financial strength (minimum Rs.\nFive million annual sales turnover ina last year)\n\nBid Validity\n\nYes No Yes\nYes Yes Yes\n\nEligible Not-Eligible Eligible\n\nREMARKS:\n\nPart-I\nKNOCK DOWN CRITERIA-VENDOR EVALUATION)\n\nCertificate of Company / Firm Registration /\nIncorporation under the laws of Pakistan\n\nMinimum Three Years experience of Managing Yes . Yes\nServices\n\nPurchase Orders/ Work Order of similar nature\nprojects of last three years (minimum 5 projects of\nhaving worth at least 0.5 million each)\n\nvalid General Sales Tax Registration / Punjab Sales\nTax Registration (Status= Active with PBR/PRA)\n\nRequired Liceses\n\nYes - Yes\nYes - Yes\n\nPart-II\n\nKNOCK DOWN CRITERIA-TOR/SPECIFICATIONS EVALUATION:\n‘All evaluation parameters defined below are mandatory for compliance)\n\n[As per requirement, 10-Mbps or higher\n(Unlimited), CIR Internet Bandwidth on Optical\nFiber or wireless with minimum 02 static IPs.\n\nThe firm will be responsible for the laying,\ninstallation and terminating of the cables, wireless\nequipment, tower and allied equipment necessary\nfor effective commissioning of the link for internet\nbandwidth.\n\nThe firm will be responsible for the failover\nconfiguration to transfer internet traffic to the 1st\nbackup link Backup link in case of any issue in the\nprimary link. In case of failure of all links the firm\nwill be responsible to make the link operational\nwithin 1 hour.\n\nAll the equipment for the dedicated (CIR) circuit\ninstalled at both the ends, will be the property of\nthe firm and the firm will be responsible for its\nrepair and maintenance at its own cost.\n\nequipment will be the responsibility of service\nprovider.\n\nDomain level load balancing and auto failover will\nIbe provided by the service provider.\n\nThe firm will be responsible for the 99.5% uptime\nof the internet services.\n\nThe firm will be responsible to whitelisting/\nOpening of the ports from PTA for Audio/Video\nconferencing services. In this regard necessary\nrequired information/documents would be\nprovided by the P&SHD.\n\n10\n\n11 [Provisioning of NMS (MRTG etc.) centralized and\n\neach\n\nThe firm will be responsible for the technical\nsupport on the basis of 24x7x365.\n\nFirm will provide required licenses (PTA) along\nwith its technical proposal, failure will lead to\nrejection of bid.\n\n12\n\nIn case of problem/fault the complaint will be\nmade telephonically by the Customer. The Firm will\nIbe responsible to attend the complaint call and\nresolve the issue within 1 hour.\n\n13\n\nYes - Yes\nYes - Yes\n\nThe agreement will ini\nperiod of 01 (One) year, however the same may be\nextended, subject to such\n\nly remain in force for a\n\n14\nmodifications /alterations, revision of charges as\nthe parties may agree.\n\nREMARKS:\n\nResponsive Not-Responsive Responsive\n\nNO FIRM PARTICIPATED IN THIS\nLOT\n\nFinancial Bids Comparison Sheet\n\nBid Ref: PSHD/PMU/TCO III 4-123/2020\nName of the +\nProj Procurement of Cellular Services (LOT-1)\n‘roject:\nM/s CMPak M/s Pakistan Mobile M/s Pakistan Telecom Mobile\nSR# PARTICULARS on Communication Limited Limited\n8 (Jazz) (Ufone)\nPer Unit Line fotine wey) Per Unit Line Rent fotine wey) Per Unit Line | Total Line Rent/\n., | Rent/Rate per Ps / Rate per month Ps Rent/Rate per | Total Rate per\nQuantity . monthly ‘ monthly : .\nPlan-A month (Including . (Including all . month (Including monthly (Including|\ni} (Including all (Including all\nall Taxes) Taxes) Taxes) Taxes) all Taxes) all Taxes)\na) ny a (ry\n(el) (el)\n1 Total Free Min 1500\n2 Free Min (On Net) 1000\n3 Free Min (Off Net) 500\n32 1,045 33,440 1,694 54,208 990 31,680\n\n4 Free SMS 5000\n5 Free Data 10GB\n6 Free Group Call Min 500\n\nGST/PsT| Inclusive Inclusive Inclusive\n\nTotal Cost\n33,440 54,208\n(PKR) “ [aes\n\nNote:\n\nPrices are inclusive of all direct and indirect taxes.\n\nLowest Evaluated\n\nFinancial Bids Comparison Sheet\n\nBid Ref: PSHD/PMU/TCO III 4-123/2020\n\nName of the\n\nProj Procurement of Internet Bandwidth Services (Lot-2)\nject:\n\npe [ = - = -\n\nGST/PST| Inclusive | matusive |\n\nLowest Evaluated\n\nNote: Prices are inclusive of all direct and indirect taxes.\n\nFinancial Bids Comparison Sheet\n\nBid Ref: PSHD/PMU/TCO III 4-123/2020\n\nName of the\n\nProj Procurement of Internet Bandwidth Services (Lot-3)\nject:\n\npe [ = - = -\n\nGST/PST| Inclusive | matusive |\n\nLowest Evaluated\n\nNote: Prices are inclusive of all direct and indirect taxes.\n\nFinancial Bids Comparison Sheet\n\nBid Ref: PSHD/PMU/TCO III 4-123/2020\n\nName of the\n\nProject: Procurement of Tracking Services (Lot-4)\n\nNO FIRM PARTICIPATED IN THIS LOT.",
+            "procuring_agency": null,
+            "procurement_method": null,
+            "procurement_title": null,
+            "tender_inquiry_no": null,
+            "ppra_ref_no": null,
+            "bid_closing": null,
+            "bid_opening": null,
+            "bids_received": null,
+            "evaluation_criteria": null,
+            "financial_bid_opening": null,
+            "bid_evaluations": [],
+            "lowest_evaluated_bidder": null,
+            "additional_information": null
+        },
+        "detail_url": null,
+        "pdf_url": "https://eproc.punjab.gov.pk/EvaluationReport/50485048/4950/0712202001092701716686.pdf",
+        "pdf_path": "Procurement of Cellular/Data Services, Internet Bandwidth Services and GSM/Sim Tracking Services etc. Bio-Medical Equipment Resource Center (BERC) P&SHD/0712202001092701716686.pdf"
+    },
+    {
+        "evaluation_id": "punjab_60661b7bd82d2184",
+        "scraped_data": {
+            "source": "Punjab PPRA",
+            "tender_no": "",
+            "evaluation_date": "30 Jan 2026",
+            "detail_page_data": {
+                "department": "Information and Culture Department, Lahore",
+                "procurement_name": "Tender of Strationery items, Computer Stationery items, Printing items",
+                "publish_date": "30 Jan 2026",
+                "close_date": "09 Feb 2026",
+                "awarded_firm": "Lot#1: list attached & Lot#2: list attached & Lot#3: list attached"
+            }
+        },
+        "ocr_data": {
+            "raw_text": "SOE8A (INF)7-2/2025(S.K)\nGOVERNMENT OF THE PUNJAB\nINFORMATION & CULTURE DEPARTMENT\n\nEVALUATION REPORT\n\nxy———ee\n\nStationary, Computer Stationary and Printing, for the Financial Year 2025-26\n\n+\nSr. Date of Advertisement Opening & Details/No. of Name of the qualified bidder Seniority\n| available ‘ No. of\nno] Avaible | sieametiastrom | tnd Giesing | bidder participated and disqualification fessonet. according to\n: prequalited bidder |“ | render in bidding Qualified | Disqualified evaluation\n7. MS, Shakeel |\nEnterprises, Lhr. 4.M/S, 1. MIS,\n2. MIS, GSA Fahad Shakeel\nEner Pubishing | EMterPPS®5: | Oye to not fufling | pap WS,\napie’ House, 5 the mandatory |Fanad Publishing\n3. MIS, Shalimar tere, 12 MIS,GSA | PS sing documents |House. Lahore.\nStationers, shore. Enterprises sremant< rents | (1% Lowest)\n1 | 35,10,000 31.12.2025 5-Nos. | 19.01.2026 | Lahore. 2. M/S, Lahore. (Eten Jer Notice\n4, MIS, Fahad Max 3. MS, Serial. #10) 2.W/S, Max\nPublishing House, ieternatonls Shalimar #10) Intemational,\n5 hao Ma ‘ ore Stationers, Lahore\nsaris (2\"¢ Lowest)\nInternational, Lahore. é J\nLahore.\nie —L _t\n\nk\n\n/\n\nSECTION OFFICER (GENERAL)\nInformation & Culture Department\n\nCamScanner",
+            "procuring_agency": null,
+            "procurement_method": null,
+            "procurement_title": null,
+            "tender_inquiry_no": null,
+            "ppra_ref_no": null,
+            "bid_closing": null,
+            "bid_opening": null,
+            "bids_received": null,
+            "evaluation_criteria": null,
+            "financial_bid_opening": null,
+            "bid_evaluations": [],
+            "lowest_evaluated_bidder": null,
+            "additional_information": null
+        },
+        "detail_url": null,
+        "pdf_url": "https://eproc.punjab.gov.pk/EvaluationReport/50485054/4849/3001202604013986545130.pdf",
+        "pdf_path": "Tender of Strationery items, Computer Stationery items, Printing items/3001202604013986545130.pdf"
+    },
+    {
+        "evaluation_id": "punjab_6fe4d67ac59e6361",
+        "scraped_data": {
+            "source": "Punjab PPRA",
+            "tender_no": "",
+            "evaluation_date": "05 Sep 2024",
+            "detail_page_data": {
+                "department": "S & GAD, Comptroller Banquet Hall, Lahore",
+                "procurement_name": "FRAMEWORK CONTRACT FOR PURCHASE OF COMPUTER STATIONERY ITEMS",
+                "publish_date": "05 Sep 2024",
+                "close_date": "14 Sep 2024",
+                "awarded_firm": "Lot#1: Al Siddique Enterprises"
+            }
+        },
+        "ocr_data": {
+            "raw_text": "Subject: -\n\nFRAMEWORK CONTRACT PROCEEDING\n\nFRAMEWORK CONTRACT FOR PURCHASE OF COMPUTER STATIONERY\n\nITEMS IN THE OFFICE OF BANQUET HALL, S&GAD 90-SQA LAHORE.\n\nFRAMEWORK CONTRACT ADVERTISEMENT\n\nWith the approval of Competent Authority an advertisement of framework\ncontract for purchase of computer stationery items was placed on the websites of PPRA\nand Epads. Last date for submission of the framework contract forms was 15.08.2024\n(Advertisement at Annex-A).\n\n2. PURCHASE COMMITTEE ;\n\nMembers of the Procuring and Evaluation Committee comprising the\nfollowing:\n\n1. Chief Comptroller, Banquet Hall, S&GAD, 90-SQA Chairman\n\n2. Comptroller, Banquet Hall, S&GAD, 90-SQA Member\n\n3. Section Officer (W-I), S&GAD Member\n\n4. Section Officer (W-II), S&GAD Member\n\n5. Deputy Protocol Officer, Banquet Hall, S&GAD, 90-SQA Member\n\nAll members of Purchase Committee were present in the Committee Room\n3. PARTICIPATION OF THE COMPANIES\n\nFollowing firm participated in bidding: -\n\n1. M/s Al Siddique Enterprises\n4. TECHNICAL BID\n\nOn 15.08.2024 at 11:30 a.m. the technical bid of bidding firm was online\nopened on Epads by the convener in his office chamber. Only single bidder participated\nin the framework contract and the said firm was technically qualified with the 98 number\npassing marks.\n\n5. TECHNICAL STATEMENT\nSr. Name of Item Total | M/s Al Siddique\nNo Marks Enterprises\nobtain marks\n1__| Company Profile / Staff Detail 10 10\n2 | Affidavit on non-judicial stamp paper of worth Rs.100/- regarding non- 10 10\ninvolvement in any legal actions or dispute and firm is not black listed by\nany firm/company\n3_| Copy of NTN, GST, PRA Registration Certificate (4+4+2) 10 08\n4_| Copy of bid security 10 10\n5 | Copy of PO’s/WO’s/Contract showing 2 years of experience in the relevant 10 10\n\nfield (5+5)\n\n|_6 | Copy of valid CNIC 05 05\n7_| Active tax Payer status in FBR record 10 10\n8 | Bank Account Maintenance: Fresh Certificate issued by bank that the 10 10\naccount is being maintained since when and the title of account is what,\nlast 01 year bank account statement.\n9 _| Professional Tax Certificate (Current Year) 10 10\n10 | Name & Address of two shops/ vendors for each item 05 05\n11 | Last 01 Year Income Tax/ Sales Tax Returns 10 10\nTOTAL 100 98\nPASSING/ QUALIFYING MARKS 80\n6. FINANCIAL BIDS\nOn 26.08.2024 the financial bid of bidding firm was opened by the Committee in\nthe office chamber of Chief Comptroller, Banquet Hall, S&GAD, 90-SQA, Lahore. Only single\nVendor M/s Al Siddique Enterprises submit his quotation for Computer Stationery Items. The rates\nof said Firm is reasonable according to prevailing in open market.\n7. FINANCIAL COMPARATIVE STATEMENT\nThe financial statement of bid of the bidding firm / vendor Lot wise is as under:-\n[J OPEN MARKET RATES\n} | PROFIT OF VENDOR + | M/S AL SIDDIQUE\nS# | NAME OF ITEMS SPECIFICATION UNIT | QTY INCLUDING ALL ENTERPRISES.\nTAXES\n| RATE TOTAL RATE TOTAL\nFAX TAP ROLL (MMC__ | PANASONIC KX-\n1 | OR EQUIAVLENT) FASTE/A | No. | 24 | 1709.82] 41035.68 770 18480\n2 | TONER PHOTOCOPY | TOSHIBAESTUDIO | wo, | 3. | 862344 | 2587032 | 22200] 66600\nPRINTER TONER (MMC P\n3 | OR EQUIAVLENT) HP LASER JET 1200 no. | 6 | 7434 44604 3700 22200\n| PRINTER TONER (MMC | HP LASER JET PRO\n4 | OR EQUIAVLENT) Ma02N No. | 12 | 6690.6 80287.2 4144 49728\n5 | USB (64 GB) oN cgUIVALENT. no. | 6 | 2007.18} 1204308 | 2220 13320\n6 | USB (128 GB) SR EGUIVALENT no. | 6 | 356832] 2140992 | 2800 16800\n7 | UsB (256 GB) si UIVALENT. no. | 6 | 7434 44604 6800 40800\nPRINTER TONER (MMC\n8 | or EQUIAVLENT) HP LASER JET107W | NO. | 8 | 5947.2 4757.6 3700 29600\nPRINTER TONER (MMC | HP LASER JET PRO\n9 | OR EQUIAVLENT) Mose DW no. | 4 | 13381.2| 53524.8 5920 23680\nPRINTER TONER (MMC\n10 | oR EQUIAVLENT) HP LASER JET M 236 No. | 6 | 13361.2| 802872 | 3700 22200\nPRINTER TONER\n11 | COLOR (MMC OR HP LASER JET 150 NW | SET | 3 0 0 21460 64380\nEQUIAVLENT)\nPRINTER TONER (MMC | KYOCERA ECOSYS 40143. 2\n12 | oR EQUIAVLENT) 2135 DN No. | 6 | 6690.6 6 10090 120540\nPRINTER TONER (MMC . 53524.8 5200 41600\n13 | OR EQUIAVLENT) HP LASERJET P3005N | NOS. | 8 | 6690.6\n14 | PRINTER TONER (MMC | LEXMARK PRINTER E- | yo 15611.4| 124891.2 | 3000 24000\nOR EQUIAVLENT) 321\n15 | PHOTOCOPIER TONER | KEYOCERA MITA 3530 | NOS. 11151 89208 3000 24000\nTOTAL 991,844 577,928\n\n|\n\nFrom the financial statement, it appears that the rates offered iLot # 01 by M/s Al\nSiddique Enterprises is reasonable according to prevailing in open market.\n\nAs the result the final rates of all above mentioned items are submitted for\ninformation and necessary action please.\n\nPURCHASE / WORK ORDER\n\nChief Comptroller, Banquet Hal\nAuthority to accord approval / sanction of fi\nStationery Items for official use in this office.\n\nGAD 90-SQA, Lahore is the Competent\n‘act for purchase of Computer\n\nGAD,90-S'\n\nSection Officer (W-I)\nGovernment of the Punjab\nS&GAD\n\nDeputy’Protocol Officer\nBanquet Hall,\nS&GAD,90-SQA",
+            "procuring_agency": null,
+            "procurement_method": null,
+            "procurement_title": null,
+            "tender_inquiry_no": null,
+            "ppra_ref_no": null,
+            "bid_closing": null,
+            "bid_opening": null,
+            "bids_received": null,
+            "evaluation_criteria": null,
+            "financial_bid_opening": null,
+            "bid_evaluations": [],
+            "lowest_evaluated_bidder": null,
+            "additional_information": null
+        },
+        "detail_url": null,
+        "pdf_url": "https://eproc.punjab.gov.pk/EvaluationReport/50485052/4857/0509202401424536083644.pdf",
+        "pdf_path": "FRAMEWORK CONTRACT FOR PURCHASE OF COMPUTER STATIONERY ITEMS/0509202401424536083644.pdf"
+    },
+    {
+        "evaluation_id": "punjab_c0b72a8e52cb89f8",
+        "scraped_data": {
+            "source": "Punjab PPRA",
+            "tender_no": "",
+            "evaluation_date": "22 Nov 2023",
+            "detail_page_data": {
+                "department": "S & GAD, Comptroller Banquet Hall, Lahore",
+                "procurement_name": "FRAMEWORK CONTRACT FOR PURCHASE OF COMPUTER STATIONERY ITEMS",
+                "publish_date": "22 Nov 2023",
+                "close_date": "01 Dec 2023",
+                "awarded_firm": "Lot#1: M/s National Trader"
+            }
+        },
+        "ocr_data": {
+            "raw_text": "FRAMEWORK CONTRACT PROCEEDINGS\n\nSubject:- | FRAMEWORK CONTRACT FOR SUPPLY _/ PURCHASE _OF\nCOMPUTER STATIONERY ITEMSIN THE OFFICE OF BANQUET\n\nHALL, S&GAD 90-SQA LAHORE.\n\n1. FRAMEWORK CONTRACT ADVERTISEMENT\n\nWith the approval of Chief Comptroller an advertisement of framework\ncontract for supply / purchase of Computer Statoinery Itemswere placed on the\nwebsite of PPRA. Last date for submission of the framework contract forms was\n30.10.2023(Advertisement at Annex-A).\n\n2. PURCHASE COMMITTEE\n\nMembers of the Procuring and Evaluation Committee comprising the\n\nfollowing:\n1. Chief Comptroller, Banquet Hall, S&GAD, 90-SQA Chairman\n2. Section Officer (W-I), S&GAD Member\n3. Representative ofWelfare-II, Section, Member\n4. Deputy Protocol Officer,Banquet Hall, S&GAD, 90-SQA Member\n5. Assistant Comptroller, Banquet Hall, S&GAD, 90-SQA, Member\n\nAll members of Purchase Committee were present in the Committee Room\n\n(attendance sheet at Annex-B)\n\n3. PARTICIPATION OF THE COMPANIES\nFollowing firms participated in bidding: -\n\n1. M/s Moon Traders\n2. M/s National Traders\n\n4. TECHNICAL AND FINANCIAL BIDS\n\nOn 30.10.2023 at 12:30 p.m. the technical bids of bidding firms were\nopened by the Committee in the office chamber of Chief Comptroller, Banquet Hall,\nS&GAD in presence of the representatives of the bidding firms(attendance sheet at\nAnnex-C). Abovesaid bidding firms were technically qualified.\n\n5. TECHNICAL COMPARATIVE STATEMENT\nSr. Name of Item M/s Moon M/s National\nNo Traders Traders\n1 | Affidavit on non-judicial stamp paper of worth Rs.100/- Attached Attached\nregarding non-involvement in any legal actions or\ndispute and firm is not black listed by\nany firm/company _ _\n2__| Copy of PRA Registration Certificate Attached Attached\n3__| Copy of Income Tax Registration Certificate Attached Attached\n| 4 | Copy of Bid Security _ Attached Attached\n5 | Copy of PO’s/WO’s/Contract showing 2 years of Attached Attached\nexperience in the relevant field\n6 | Copy of valid CNIC Attached Attached\n7_| Active tax payer status in FBR record Attached Attached\n8 | Bank Account Maintenance: Fresh Certificate issued by Attached Attached\nbank that the account is being maintained since when\nand the title of account is what, last 01 year bank\naccount statement.\n9 | Bid document purchased from Comptroller Office with Attached Attached\neach page signed and stamped\n10 | Original purchase receipt of bid document Attached Attached\n11 _| Professional Tax Certificate Attached Attached\n12_| Company Profile Attached Attached\n6. FINANCIAL COMPARATIVE STATEMENT\n\nThe comparative statement of financial bid of the bidding firms\n\n/vendorsLot wise is as under: -\n\nLot #01\nM/s Moon M/s National\nTraders Traders\nsr. | NAME OF\nNo. ITEM BRAND NAME | UNIT | QTY | RATE | rotat | RATE | torat\ncost | PER | cost\nUNIT UNIT\nPANASONIC KX-\n1, | FAXTAPROLL | easzE/a No. | 18 | 5620 | 101160 | 3890 oe\nTONER TOSHIBA E\n2. |pHotocopy |stupio4sisa | No. | 04 | 73500 | 294000 | 69700 | 278800\nPRINTER | 1900 (MMC OR »s\n3. No. | 03 | 650 $50\nTONER EQUIVALENT) 8500 | 19500 | 7850\n4, No. | 03 1020\nTONER EQUIVALENT) 9800 | 29400 | 10340\nPRINTER men ur 58720\n5. | TONER No. 08 7\nEQUIVALENT) 0 8700 | 69600 | 7340\nKINGSTON OR\nUSB (64\n6. (64GB) | eQuivaLenT No. | 06° | 2800 | 16800 | 2890 17340\nKINGSTON OR B\nUSB (128 GB:\n7. (128 GB) | eouIvaLeNT No. | 06 | 5260 | 31560 | 4860 29160\n562,020 508,610 |\n\nToth ene\n\nZ\n\n7\n\nFrom the financial comparative statement, it appears that the rates\noffered in Lot # 01 by M/s National Traders is lowest than the M/s MoonTraders.\n\nAs the result the final rates of all above mentioned items are submitted\n\nfor information and necessary action please.\n\n7. PURCHASE / WORK ORDER\n\nChief Comptroller, Banquet Hall, S&GAD 90-SQA, Lahore is the\nor Supply / purchase of Computer\n\nCompetent Authority to accord approval / s\n\nStationery Itemsfor official use in this office.\n\nBanquet Hal,\nS&GAD,90-SQA\n\nwi Officer (W-I)\n\nGovernment of the Punjab\nS&GAD\n\nt\n7%\nAssistant Comptroller\n\nBanquet Hall,\nS&GAD, 90-SQA\n\nLl. ative or\n\nSection Welfare-II\nS&GAD\n\n(lh<.\n\nDeputy Protocol Officer\nBanquet Hall,\nS&GAD, 90-SQA",
+            "procuring_agency": null,
+            "procurement_method": null,
+            "procurement_title": null,
+            "tender_inquiry_no": null,
+            "ppra_ref_no": null,
+            "bid_closing": null,
+            "bid_opening": null,
+            "bids_received": null,
+            "evaluation_criteria": null,
+            "financial_bid_opening": null,
+            "bid_evaluations": [],
+            "lowest_evaluated_bidder": null,
+            "additional_information": null
+        },
+        "detail_url": null,
+        "pdf_url": "https://eproc.punjab.gov.pk/EvaluationReport/50485051/4949/2211202301390187118280.pdf",
+        "pdf_path": "FRAMEWORK CONTRACT FOR PURCHASE OF COMPUTER STATIONERY ITEMS/2211202301390187118280.pdf"
+    },
+    {
+        "evaluation_id": "punjab_5ad926c3374bd69d",
+        "scraped_data": {
+            "source": "Punjab PPRA",
+            "tender_no": "",
+            "evaluation_date": "16 Dec 2025",
+            "detail_page_data": {
+                "department": "Punjab Safe City Authority",
+                "procurement_name": "PROCUREMENT OF BULK SMS SERVICES FOR PSCA",
+                "publish_date": "16 Dec 2025",
+                "close_date": "25 Dec 2025",
+                "awarded_firm": "Lot#1: M/s CMPAK (ZONG)"
+            }
+        },
+        "ocr_data": {
+            "raw_text": "FINAL EVALUATION REPORT\n\nName of the Procuring Agency: Punjab Safe Cities Authority Lahore\n\nMethod of Procurement: Single Stage Two Envelope\n\nPROCUREMENT OF BULK SMS SERVICES FOR PSCA\nOctober 14, 2025\n\nOctober 29, 2025 at 1200 HRS\n\nResponsive Bid, as per T&C.\n\nTitle of procurement:\n\nPublication Date of Tender:\nDate & Time of Bid Opening:\n\nBid Evaluation Criteria:\n\nBidder’s\nName\n\nM/s SMART\n\nCOMPARE (Pvt.) Ltd. LVI ET (MEY)\n\nM/s CMPAK (ZONG) M/s PTML (UFONE)\n\nTechnical Evaluation\n\nBidder\n\nBidder\n\nBidder\n\nRemarks Technically Qualified Technically Qualified Technically Qualified Technically Qualified\nFinancial\nEvaluation PKR 37,356,000/- PKR 44,167,200/- PKR 33,125,400/- 37,065,600/-\n\n3rd Lowest Evaluated 4th Lowest Evaluated 1st Lowest Evaluated 2d Lowest Evaluated\nRemarks\n\nBidder",
+            "procuring_agency": null,
+            "procurement_method": "Single Stage Two Envelope",
+            "procurement_title": "Publication Date of Tender:",
+            "tender_inquiry_no": null,
+            "ppra_ref_no": null,
+            "bid_closing": null,
+            "bid_opening": "Bid Evaluation Criteria:",
+            "bids_received": null,
+            "evaluation_criteria": null,
+            "financial_bid_opening": null,
+            "bid_evaluations": [],
+            "lowest_evaluated_bidder": null,
+            "additional_information": null
+        },
+        "detail_url": null,
+        "pdf_url": "https://eproc.punjab.gov.pk/EvaluationReport/50485053/4950/1612202510274472542017.pdf",
+        "pdf_path": "PROCUREMENT OF BULK SMS SERVICES FOR PSCA/1612202510274472542017.pdf"
+    }
+]

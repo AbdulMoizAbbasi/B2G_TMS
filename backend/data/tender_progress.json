@@ -1,0 +1,22 @@
+{
+  "federal_ppra_e32b7def523eb343": {
+    "participating": true,
+    "stage": "Bid Submitted",
+    "result": "Result Not Announced"
+  },
+  "balochistan_ppra_TSE-2627091192623": {
+    "participating": true,
+    "stage": "Result Announced",
+    "result": "Lost"
+  },
+  "federal_ppra_c72f2aa9d585a38d": {
+    "participating": true,
+    "stage": "Result Announced",
+    "result": "Lost"
+  },
+  "punjab_ppra_95b955c7e05bc7e0": {
+    "participating": true,
+    "stage": "Bid Submitted",
+    "result": "Win"
+  }
+}
