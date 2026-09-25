@@ -1,31 +1,46 @@
-import json
-from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
+
+from sqlalchemy.orm import Session
+
+import jwt
+
+from database.connection import SessionLocal
+from database.models.user import User
+from database.models.coordinator import Coordinator
+from database.models.tender_source import TenderSource
+from database.models.tender_relevance import TenderRelevance
+from database.models.tender import Tender
+from database.models.tender_field_override import TenderFieldOverride
+
+from datetime import datetime, timezone
+from decimal import Decimal
+
+from fastapi import BackgroundTasks
 from tender_scraper.orchestrator_tenderfetch import main as run_tender_scraper
-from typing import Literal
-from project_updates.project_service import (
-    get_all_projects,
-    get_project_by_id,
+
+from auth import (
+    verify_password,
+    create_access_token,
+    decode_access_token,
 )
 
-from project_updates.project_news import (
-    get_news_for_project,
-    refresh_project_news,
+
+app = FastAPI(
+    title="JazzWorld B2G Tender Portal"
 )
 
-from evaluation_scraper.storage import (
-    load_evaluation_reports,
-    get_evaluation,
-)
 
-from evaluation_scraper.orchestrator_evaluationfetch import (
-    process_all_relevant_tenders,
-)
+def get_db():
+    db = SessionLocal()
 
-app = FastAPI(title="JazzWorld B2G Tender Portal")
+    try:
+        yield db
+    finally:
+        db.close()
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,636 +50,409 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+security = HTTPBearer()
 
-DATA_DIR = Path(__file__).resolve().parent / "data"
-TENDERS_FILE = DATA_DIR / "relevant_tenders.json"
 
-class ParticipationRequest(BaseModel):
-    participating: bool
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    token = credentials.credentials
 
-class ProgressRequest(BaseModel):
-    stage: Literal[
-        "Participation",
-        "Bid Preparation",
-        "Bid Submitted"
-    ]
-class ResultRequest(BaseModel):
-    result: Literal[
-        "Win",
-        "Lost",
-        "Result Not Announced"
-    ]
+    try:
+        payload = decode_access_token(token)
 
-def load_tenders():
-    with open(TENDERS_FILE, "r", encoding="utf-8") as file:
-        return json.load(file)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=401,
+            detail="Token has expired",
+        )
+
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token",
+        )
+
+    user_id = payload.get("sub")
+
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token payload",
+        )
+
+    user = (
+        db.query(User)
+        .filter(User.id == int(user_id))
+        .first()
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="User not found",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="User account is inactive",
+        )
+
+    return user
+
+def require_admin(
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role.name != "ADMIN":
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access required",
+        )
+
+    return current_user
+
+
+def require_coordinator(
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role.name != "COORDINATOR":
+        raise HTTPException(
+            status_code=403,
+            detail="Coordinator access required",
+        )
+
+    return current_user
+
+
+def require_viewer(
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role.name != "VIEWER":
+        raise HTTPException(
+            status_code=403,
+            detail="Viewer access required",
+        )
+
+    return current_user
+
+
+def get_coordinator_region(
+    current_user: User = Depends(require_coordinator),
+    db: Session = Depends(get_db),
+):
+    coordinator = (
+        db.query(Coordinator)
+        .filter(Coordinator.user_id == current_user.id)
+        .first()
+    )
+
+    if coordinator is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Coordinator region is not configured",
+        )
+
+    return coordinator.region_id
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class TenderUpdateRequest(BaseModel):
+    web_tender_no: str | None = None
+    tender_reference_no: str | None = None
+    tender_name: str | None = None
+    city: str | None = None
+    authority: str | None = None
+    organization: str | None = None
+    estimated_value: Decimal | None = None
+    advertised_date: datetime | None = None
+    closed_date: datetime | None = None
+
+
+@app.post("/api/auth/login")
+def login(
+    request: LoginRequest,
+    db: Session = Depends(get_db),
+):
+    user = (
+        db.query(User)
+        .filter(User.username == request.username)
+        .first()
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="User account is inactive",
+        )
+
+    if not verify_password(
+        request.password,
+        user.password_hash,
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password",
+        )
+
+    token = create_access_token(
+        user_id=user.id,
+        username=user.username,
+        role=user.role.name,
+    )
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "name": user.name,
+            "role": user.role.name,
+        },
+    }
+
+
+@app.get("/api/auth/me")
+def get_me(
+    current_user: User = Depends(get_current_user),
+):
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "name": current_user.name,
+        "email": current_user.email,
+        "role": current_user.role.name,
+        "is_active": current_user.is_active,
+    }
 
 
 @app.get("/")
 def root():
-    return {"message": "JazzWorld B2G Tender Portal API is running"}
+    return {
+        "message": "JazzWorld B2G Tender Portal API is running"
+    }
 
 
 @app.get("/api/tenders")
-def get_tenders():
-    return load_tenders()
+def get_tenders(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    query = (
+        db.query(Tender)
+        .join(
+            TenderSource,
+            Tender.source_id == TenderSource.id,
+        )
+        .join(
+            TenderRelevance,
+            TenderRelevance.tender_jazzid == Tender.jazzid,
+        )
+        .outerjoin(
+            TenderFieldOverride,
+            TenderFieldOverride.tender_jazzid == Tender.jazzid,
+        )
+    )
 
+    if current_user.role.name == "COORDINATOR":
+        coordinator = (
+            db.query(Coordinator)
+            .filter(Coordinator.user_id == current_user.id)
+            .first()
+        )
 
-@app.get("/api/tenders/{tender_id}")
-def get_tender(tender_id: str):
-    tenders = load_tenders()
+        if coordinator is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Coordinator region is not configured",
+            )
+
+        query = query.filter(
+            TenderSource.region_id == coordinator.region_id,
+            TenderRelevance.keyword_score > 0,
+        )
+
+    tenders = query.order_by(Tender.jazzid.desc()).all()
+
+    result = []
 
     for tender in tenders:
-        if tender.get("id") == tender_id:
-            return tender
-
-    raise HTTPException(
-        status_code=404,
-        detail="Tender not found"
-    )
-
-PROGRESS_FILE = DATA_DIR / "tender_progress.json"
-
-
-def load_progress():
-    with open(PROGRESS_FILE, "r", encoding="utf-8") as file:
-        return json.load(file)
-
-
-def save_progress(progress):
-    with open(PROGRESS_FILE, "w", encoding="utf-8") as file:
-        json.dump(progress, file, indent=2)
-
-
-
-@app.get("/api/tenders/{tender_id}/progress")
-def get_tender_progress(tender_id: str):
-    tenders = load_tenders()
-
-    tender = next(
-        (
-            tender
-            for tender in tenders
-            if tender.get("id") == tender_id
-            or tender.get("web_tender_no") == tender_id
-        ),
-        None
-    )
-
-    if tender is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Tender not found"
-        )
-
-    progress = load_progress()
-
-    return progress.get(
-        tender["id"],
-        {
-            "participating": False,
-            "stage": None,
-            "result": None
-        }
-    )
-
-
-@app.post("/api/scraper/tenders/run")
-def run_tenders_scraper():
-    results = run_tender_scraper()
-
-    return {
-        "status": "completed",
-        "results": results
-    }
-
-
-@app.patch("/api/tenders/{tender_id}/participation")
-def update_participation(
-    tender_id: str,
-    request: ParticipationRequest
-):
-    tenders = load_tenders()
-
-    tender = next(
-        (
-            tender
-            for tender in tenders
-            if tender.get("id") == tender_id
-            or tender.get("web_tender_no") == tender_id
-        ),
-        None
-    )
-
-    if tender is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Tender not found"
-        )
-
-    progress = load_progress()
-
-    existing = progress.get(tender["id"], {})
-
-    existing["participating"] = request.participating
-
-    if request.participating:
-        if existing.get("stage") is None:
-            existing["stage"] = "Participation"
-    else:
-        existing["stage"] = None
-        existing["result"] = None
-
-    progress[tender["id"]] = existing
-
-    save_progress(progress)
-
-    return {
-        "tender_id": tender["id"],
-        "participating": existing["participating"],
-        "stage": existing.get("stage"),
-        "result": existing.get("result")
-    }
-
-
-@app.patch("/api/tenders/{tender_id}/progress")
-def update_tender_progress(
-    tender_id: str,
-    request: ProgressRequest
-):
-    tenders = load_tenders()
-
-    tender = next(
-        (
-            tender
-            for tender in tenders
-            if tender.get("id") == tender_id
-            or tender.get("web_tender_no") == tender_id
-        ),
-        None
-    )
-
-    if tender is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Tender not found"
-        )
-
-    progress = load_progress()
-
-    tender_key = tender["id"]
-
-    existing = progress.get(
-        tender_key,
-        {
-            "participating": False,
-            "stage": None,
-            "result": None
-        }
-    )
-
-    if not existing.get("participating"):
-        raise HTTPException(
-            status_code=400,
-            detail="Tender is not marked as participating"
-        )
-
-    existing["stage"] = request.stage
-
-    progress[tender_key] = existing
-
-    save_progress(progress)
-
-    return {
-        "tender_id": tender_key,
-        "participating": existing["participating"],
-        "stage": existing["stage"],
-        "result": existing.get("result")
-    }
-
-
-@app.patch("/api/tenders/{tender_id}/result")
-def update_tender_result(
-    tender_id: str,
-    request: ResultRequest
-):
-    tenders = load_tenders()
-
-    tender = next(
-        (
-            tender
-            for tender in tenders
-            if tender.get("id") == tender_id
-            or tender.get("web_tender_no") == tender_id
-        ),
-        None
-    )
-
-    if tender is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Tender not found"
-        )
-
-    progress = load_progress()
-
-    tender_key = tender["id"]
-
-    existing = progress.get(
-        tender_key,
-        {
-            "participating": False,
-            "stage": None,
-            "result": None
-        }
-    )
-
-    if not existing.get("participating"):
-        raise HTTPException(
-            status_code=400,
-            detail="Tender is not marked as participating"
-        )
-
-    existing["result"] = request.result
-
-    if request.result == "Result Not Announced":
-        existing["stage"] = "Bid Submitted"
-    else:
-        existing["stage"] = "Result Announced"
-
-    progress[tender_key] = existing
-
-    save_progress(progress)
-
-    return {
-        "tender_id": tender_key,
-        "participating": existing["participating"],
-        "stage": existing["stage"],
-        "result": existing["result"]
-    }
-
-@app.delete("/api/tenders/{tender_id}")
-def delete_tender(tender_id: str):
-    tenders = load_tenders()
-
-    tender = next(
-        (
-            tender
-            for tender in tenders
-            if tender.get("id") == tender_id
-            or tender.get("web_tender_no") == tender_id
-        ),
-        None
-    )
-
-    if tender is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Tender not found"
-        )
-
-    tender_key = tender["id"]
-
-    # Remove tender from master tender data
-    updated_tenders = [
-        item
-        for item in tenders
-        if item.get("id") != tender_key
-    ]
-
-    with open(TENDERS_FILE, "w", encoding="utf-8") as file:
-        json.dump(updated_tenders, file, indent=2)
-
-    # Remove associated progress data
-    progress = load_progress()
-
-    if tender_key in progress:
-        del progress[tender_key]
-        save_progress(progress)
-
-    return {
-        "status": "deleted",
-        "tender_id": tender_key,
-        "web_tender_no": tender.get("web_tender_no")
-    }
-
-
-# ============================================================
-# PROJECT UPDATES APIs
-# ============================================================
-
-@app.get("/api/projects")
-def get_projects():
-    try:
-        return get_all_projects()
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
-
-
-@app.get("/api/projects/{project_id}")
-def get_project(project_id: str):
-    try:
-        project = get_project_by_id(project_id)
-
-        if project is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Project not found"
-            )
-
-        project["news"] = get_news_for_project(
-            project_id
-        )
-
-        return project
-
-    except HTTPException:
-        raise
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
-
-
-@app.post("/api/projects/{project_id}/news/refresh")
-def refresh_project_news_api(project_id: str):
-    try:
-        project = get_project_by_id(project_id)
-
-        if project is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Project not found"
-            )
-
-        project_name = project.get(
-            "Project / Scheme Name"
-        )
-
-        if not project_name:
-            raise HTTPException(
-                status_code=400,
-                detail="Project name not found"
-            )
-
-        result = refresh_project_news(
-            project_id=project_id,
-            project_name=project_name
-        )
-
-        return result
-
-    except HTTPException:
-        raise
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
-    
-    
-
-@app.get("/api/evaluations")
-def get_evaluations():
-    try:
-        evaluations = load_evaluation_reports()
-
-        relevant_tenders_file = (
-            Path(__file__).resolve().parent
-            / "data"
-            / "relevant_tenders.json"
-        )
-
-        tender_lookup = {}
-
-        if relevant_tenders_file.exists():
-            with open(
-                relevant_tenders_file,
-                "r",
-                encoding="utf-8"
-            ) as f:
-                relevant_tenders = json.load(f)
-
-            for tender in relevant_tenders:
-                tender_no = (
-                    tender.get("web_tender_no")
-                    or tender.get("TSENumber")
-                    or tender.get("tender_number")
-                )
-
-                if tender_no:
-                    tender_lookup[tender_no] = tender
-
-        enriched_evaluations = []
-
-        for evaluation in evaluations:
-            evaluation_copy = dict(evaluation)
-
-            scraped_data = evaluation.get(
-                "scraped_data",
-                {}
-            )
-
-            tender_no = scraped_data.get(
-                "tender_no"
-            )
-
-            tender_data = tender_lookup.get(
-                tender_no
-            )
-
-            evaluation_copy["tender_data"] = (
-                tender_data
-                if tender_data
-                else None
-            )
-
-            enriched_evaluations.append(
-                evaluation_copy
-            )
-
-        return {
-            "value": enriched_evaluations,
-            "Count": len(enriched_evaluations)
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
-
-@app.get("/api/evaluations/{tender_no}")
-def get_evaluation_by_tender(tender_no: str):
-    try:
-        evaluations = load_evaluation_reports()
-
-        # Find all evaluation reports belonging
-        # to this tender.
-        tender_evaluations = []
-
-        for evaluation in evaluations:
-            scraped_data = (
-                evaluation.get("scraped_data", {})
-            )
-
-            evaluation_tender_no = (
-                scraped_data.get("tender_no")
-            )
-
-            if evaluation_tender_no == tender_no:
-                tender_evaluations.append(
-                    evaluation
-                )
-
-        if not tender_evaluations:
-            raise HTTPException(
-                status_code=404,
-                detail="No evaluation reports found for this tender"
-            )
-
-        # --------------------------------------------------
-        # Find original tender from relevant_tenders.json
-        # --------------------------------------------------
-
-        relevant_tenders_file = (
-            Path(__file__).resolve().parent
-            / "data"
-            / "relevant_tenders.json"
-        )
-
-        with open(
-            relevant_tenders_file,
-            "r",
-            encoding="utf-8"
-        ) as f:
-            relevant_tenders = json.load(f)
-
-        # Handle both possible JSON structures
-        if isinstance(
-            relevant_tenders,
-            dict
-        ):
-            if isinstance(
-                relevant_tenders.get("value"),
-                list
-            ):
-                relevant_tenders = (
-                    relevant_tenders["value"]
-                )
-            else:
-                relevant_tenders = list(
-                    relevant_tenders.values()
-                )
-
-        tender_data = None
-
-        for tender in relevant_tenders:
-            candidate_no = (
-                tender.get("web_tender_no")
-                or tender.get("TSENumber")
-                or tender.get("tender_number")
-            )
-
-            if candidate_no == tender_no:
-                tender_data = tender
-                break
-
-        # --------------------------------------------------
-        # Return tender + ALL evaluation reports
-        # --------------------------------------------------
-
-        return {
-            "tender_no": tender_no,
-            "tender_data": tender_data,
-            "evaluations": tender_evaluations,
-            "evaluation_count": len(
-                tender_evaluations
+        override = tender.field_override
+
+        result.append({
+            "jazzid": tender.jazzid,
+            "source_id": tender.source_id,
+            "source": tender.source.name,
+            "region": tender.source.region.name,
+
+            "web_tender_no": (
+                override.web_tender_no
+                if override and override.web_tender_no is not None
+                else tender.web_tender_no
             ),
-        }
 
-    except HTTPException:
-        raise
+            "tender_reference_no": (
+                override.tender_reference_no
+                if override and override.tender_reference_no is not None
+                else tender.tender_reference_no
+            ),
 
-    except Exception as e:
+            "tender_name": (
+                override.tender_name
+                if override and override.tender_name is not None
+                else tender.tender_name
+            ),
+
+            "city": (
+                override.city
+                if override and override.city is not None
+                else tender.city
+            ),
+
+            "authority": (
+                override.authority
+                if override and override.authority is not None
+                else tender.authority
+            ),
+
+            "organization": (
+                override.organization
+                if override and override.organization is not None
+                else tender.organization
+            ),
+
+            "estimated_value": (
+                float(override.estimated_value)
+                if override and override.estimated_value is not None
+                else (
+                    float(tender.estimated_value)
+                    if tender.estimated_value is not None
+                    else None
+                )
+            ),
+
+            "advertised_date": (
+                override.advertised_date
+                if override and override.advertised_date is not None
+                else tender.advertised_date
+            ),
+
+            "closed_date": (
+                override.closed_date
+                if override and override.closed_date is not None
+                else tender.closed_date
+            ),
+
+            "source_detail_url": tender.source_detail_url,
+            "primary_document_url": tender.primary_document_url,
+
+            "keywords_matched": tender.relevance.matched_keywords,
+            "relevance_score": float(tender.relevance.keyword_score),
+            "matched_capabilities": tender.relevance.matched_capabilities,
+        })
+
+    return result
+
+
+@app.put("/api/tenders/{jazzid}")
+def update_tender(
+    jazzid: int,
+    request: TenderUpdateRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    tender = (
+        db.query(Tender)
+        .filter(Tender.jazzid == jazzid)
+        .first()
+    )
+
+    if tender is None:
         raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
-@app.get("/api/evaluations/{evaluation_id}/pdf")
-def get_evaluation_pdf(evaluation_id: str):
-    try:
-        evaluation = get_evaluation(
-            evaluation_id
+            status_code=404,
+            detail="Tender not found",
         )
 
-        if evaluation is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Evaluation not found"
-            )
+    override = (
+        db.query(TenderFieldOverride)
+        .filter(TenderFieldOverride.tender_jazzid == jazzid)
+        .first()
+    )
 
-        pdf_path = evaluation.get(
-            "pdf_path"
+    if override is None:
+        override = TenderFieldOverride(
+            tender_jazzid=jazzid,
         )
+        db.add(override)
 
-        if not pdf_path:
-            raise HTTPException(
-                status_code=404,
-                detail="PDF not available for this evaluation"
-            )
+    update_data = request.model_dump(exclude_unset=True)
 
-        pdf_file = (
-            Path(__file__).resolve().parent
-            / "data"
-            / "evaluation_pdfs"
-            / pdf_path
-        )
+    for field, value in update_data.items():
+        setattr(override, field, value)
 
-        if not pdf_file.exists():
-            raise HTTPException(
-                status_code=404,
-                detail="Evaluation PDF file not found"
-            )
+    override.overridden_by = current_user.id
+    override.overridden_at = datetime.now(timezone.utc)
 
-        return FileResponse(
-            path=str(pdf_file),
-            media_type="application/pdf",
-            filename=pdf_file.name,
-            headers={
-                "Content-Disposition":
-                    "inline"
-            }
-        )
+    db.commit()
+    db.refresh(override)
 
-    except HTTPException:
-        raise
+    return {
+        "message": "Tender updated successfully",
+        "jazzid": jazzid,
+        "overridden_by": current_user.username,
+        "overridden_at": override.overridden_at,
+    }
 
-    except Exception as e:
+
+
+
+@app.delete("/api/tenders/{jazzid}")
+def delete_tender(
+    jazzid: int,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    tender = (
+        db.query(Tender)
+        .filter(Tender.jazzid == jazzid)
+        .first()
+    )
+
+    if tender is None:
         raise HTTPException(
-            status_code=500,
-            detail=str(e)
+            status_code=404,
+            detail="Tender not found",
         )
 
-@app.post("/api/evaluations/fetch")
-def fetch_evaluations():
-    try:
-        results = process_all_relevant_tenders()
+    db.delete(tender)
+    db.commit()
 
-        return {
-            "status": "completed",
-            "results": results,
-        }
+    return {
+        "message": "Tender deleted successfully",
+        "jazzid": jazzid,
+        "deleted_by": current_user.username,
+    }
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
+
+@app.post("/api/admin/run-scraper")
+def run_scraper_now(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_admin),
+):
+    background_tasks.add_task(run_tender_scraper)
+
+    return {
+        "message": "Tender scraper started",
+        "started_by": current_user.username,
+    }

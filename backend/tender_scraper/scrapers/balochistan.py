@@ -380,34 +380,22 @@ def scrape_balochistan_tenders(
 
 if __name__ == "__main__":
     result = scrape_balochistan_tenders(
-        date_from="2026-09-08T19:00:00.000Z",
-        date_to="2026-09-09T19:00:00.000Z",
-        use_checkpoint=True,
+        date_from="2026-09-22T00:00:00",
+        date_to="2026-09-24T23:59:59",
+        use_checkpoint=False,
     )
 
-    print()
-    print("=" * 60)
-    print("RESULT")
-    print("=" * 60)
+    print(f"\nTotal tenders: {len(result['tenders'])}")
 
-    print(
-        f"Returned tenders: "
-        f"{len(result['tenders'])}"
-    )
-
-    print(
-        f"Checkpoint: "
-        f"{result['checkpoint']}"
-    )
-
-    if result["tenders"]:
-        print()
-        print("First RAW API tender:")
-
+    for tender in result["tenders"]:
         print(
-            json.dumps(
-                result["tenders"][0],
-                indent=4,
-                ensure_ascii=False,
-            )
+            tender.get("TSENumber"),
+            "|",
+            tender.get("Id"),
+            "|",
+            tender.get("TenderName"),
+            "|",
+            tender.get("APP"),
+            "|",
+            tender.get("PType"),
         )

@@ -19,6 +19,25 @@ from tender_scraper.storage.checkpoint import (
     update_checkpoint,
 )
 
+from database.connection import SessionLocal
+
+from tender_scraper.storage.db_mapper import (
+    map_federal_tender,
+    map_punjab_tender,
+    map_kp_tender,
+    map_balochistan_tender,
+    map_sindh_tender,
+)
+
+from tender_scraper.storage.mysql_storage import (
+    persist_tender,
+)
+
+from tender_scraper.storage.document_downloader import (
+    download_document,
+    get_sindh_document_metadata,
+    download_sindh_document,
+)
 
 # ============================================================
 # CONFIGURATION
@@ -228,7 +247,7 @@ def process_federal():
         return {
             "success": True,
             "scraped": 0,
-            "kept": 0,
+            "Processed": 0,
             "checkpoint_updated": False,
         }
 
@@ -236,7 +255,7 @@ def process_federal():
     # 2. Relevance analysis
     # --------------------------------------------------------
 
-    relevant = []
+    processed_tenders = []
 
     for tender in tenders:
 
@@ -248,28 +267,15 @@ def process_federal():
             "relevance"
         ]
 
-        keyword_score = relevance.get(
-            "keyword_score",
-            0,
-        )
-
-        #
-        # Only tenders with at least one
-        # relevant keyword are kept.
-        #
-        if keyword_score <= 0:
-            continue
-
         normalized = normalize_tender(
             tender=tender,
             portal=FEDERAL_PORTAL,
             relevance=relevance,
         )
 
-        relevant.append(
+        processed_tenders.append(
             normalized
         )
-
     # --------------------------------------------------------
     # 3. Summary
     # --------------------------------------------------------
@@ -284,21 +290,82 @@ def process_federal():
     )
 
     print(
-        f"Kept:       {len(relevant)}"
-    )
-
-    print(
-        f"Discarded:  "
-        f"{len(tenders) - len(relevant)}"
+        f"Processed:       {len(processed_tenders)}"
     )
 
     # --------------------------------------------------------
     # 4. Persistent storage
     # --------------------------------------------------------
 
-    storage_result = upsert_relevant_tenders(
-        relevant
-    )
+    db = SessionLocal()
+
+    try:
+
+        stored_count = 0
+
+        for tender in processed_tenders:
+
+            mapped_tender = map_federal_tender(
+                tender=tender,
+                relevance_result={
+                    "relevance": tender.get(
+                        "relevance",
+                        {},
+                    )
+                },
+            )
+
+            # ----------------------------------------------------
+            # Download primary document
+            # ----------------------------------------------------
+
+            documents = mapped_tender.get(
+                "documents",
+                [],
+            )
+
+            for document in documents:
+
+                source_url = document.get(
+                    "source_url"
+                )
+
+                if not source_url:
+                    continue
+
+                download_result = download_document(
+                    source_url,
+                    source=FEDERAL_PORTAL,
+                    tender_key=tender.get(
+                        "web_tender_no"
+                    ) or tender.get(
+                        "id"
+                    ),
+                    document_name="tender_document.pdf",
+                )
+
+                document.update(
+                    download_result
+                )
+
+            # ----------------------------------------------------
+            # Persist tender + relevance + documents
+            # ----------------------------------------------------
+
+            persist_tender(
+                db,
+                mapped_tender=mapped_tender,
+                relevance=tender.get(
+                    "relevance",
+                    {},
+                ),
+            )
+
+            stored_count += 1
+
+    finally:
+
+        db.close()
 
     # --------------------------------------------------------
     # 5. Update checkpoint
@@ -322,7 +389,7 @@ def process_federal():
 
     print("=" * 70)
 
-    for tender in relevant[:10]:
+    for tender in processed_tenders[:10]:
 
         relevance = tender.get(
             "relevance",
@@ -384,8 +451,7 @@ def process_federal():
     return {
         "success": True,
         "scraped": len(tenders),
-        "kept": len(relevant),
-        "storage": storage_result,
+        "processed": len(processed_tenders),
         "checkpoint_updated": checkpoint_updated,
     }
 
@@ -441,7 +507,8 @@ def process_punjab():
         return {
             "success": True,
             "scraped": 0,
-            "kept": 0,
+            "processed": 0,
+            "stored": 0,
             "checkpoint_updated": False,
         }
 
@@ -449,7 +516,7 @@ def process_punjab():
     # 2. Relevance analysis
     # --------------------------------------------------------
 
-    relevant = []
+    processed_tenders = []
 
     for tender in tenders:
 
@@ -461,30 +528,31 @@ def process_punjab():
             "relevance"
         ]
 
-        keyword_score = relevance.get(
-            "keyword_score",
-            0,
-        )
-
-        #
-        # Score 0 = irrelevant.
-        #
-        if keyword_score <= 0:
-            continue
-
         normalized = normalize_tender(
             tender=tender,
             portal=PUNJAB_PORTAL,
             relevance=relevance,
         )
 
-        relevant.append(
+        processed_tenders.append(
             normalized
         )
 
     # --------------------------------------------------------
     # 3. Summary
     # --------------------------------------------------------
+
+    relevant_count = sum(
+        1
+        for tender in processed_tenders
+        if tender.get(
+            "relevance",
+            {},
+        ).get(
+            "keyword_score",
+            0,
+        ) > 0
+    )
 
     print()
     print("-" * 70)
@@ -496,21 +564,79 @@ def process_punjab():
     )
 
     print(
-        f"Kept:       {len(relevant)}"
+        f"Relevant:   {relevant_count}"
     )
 
     print(
-        f"Discarded:  "
-        f"{len(tenders) - len(relevant)}"
+        f"Irrelevant: "
+        f"{len(tenders) - relevant_count}"
     )
 
     # --------------------------------------------------------
-    # 4. Persistent storage
+    # 4. Persist ALL tenders to MySQL
     # --------------------------------------------------------
 
-    storage_result = upsert_relevant_tenders(
-        relevant
-    )
+    db = SessionLocal()
+
+    try:
+
+        stored_count = 0
+
+        for tender in processed_tenders:
+
+            mapped_tender = map_punjab_tender(
+                tender=tender,
+                relevance_result={
+                    "relevance": tender.get(
+                        "relevance",
+                        {},
+                    )
+                },
+            )
+
+            documents = mapped_tender.get(
+                "documents",
+                [],
+            )
+
+            for document in documents:
+
+                source_url = document.get(
+                    "source_url"
+                )
+
+                if not source_url:
+                    continue
+
+                download_result = (
+                    download_document(
+                        source_url,
+                        source=PUNJAB_PORTAL,
+                        tender_key=(tender.get("id")),
+                        document_name=(
+                            "bidding_document.pdf"
+                        ),
+                    )
+                )
+
+                document.update(
+                    download_result
+                )
+
+            persist_tender(
+                db,
+                mapped_tender=mapped_tender,
+                relevance=tender.get(
+                    "relevance",
+                    {},
+                ),
+            )
+
+            stored_count += 1
+
+    finally:
+
+        db.close()
 
     # --------------------------------------------------------
     # 5. Update checkpoint
@@ -524,17 +650,17 @@ def process_punjab():
     )
 
     # --------------------------------------------------------
-    # 6. Show relevant tenders
+    # 6. Show processed tenders
     # --------------------------------------------------------
 
     print()
     print(
-        "PUNJAB PPRA - TOP RELEVANT TENDERS"
+        "PUNJAB PPRA - FIRST PROCESSED TENDERS"
     )
 
     print("=" * 70)
 
-    for tender in relevant[:10]:
+    for tender in processed_tenders[:10]:
 
         relevance = tender.get(
             "relevance",
@@ -548,15 +674,6 @@ def process_punjab():
                 "id",
                 "N/A",
             )
-        )
-
-        print("Tender Number:")
-        print(
-            tender.get(
-                "tender_number",
-                "",
-            )
-            or "N/A"
         )
 
         print("Title:")
@@ -583,18 +700,10 @@ def process_punjab():
             )
         )
 
-        print("Matched Capabilities:")
-        print(
-            relevance.get(
-                "matched_capabilities",
-                [],
-            )
-        )
-
-        print("Tender Notice URL:")
+        print("Bidding Document URL:")
         print(
             tender.get(
-                "tender_notice_url",
+                "bidding_document_url",
                 "",
             )
             or "N/A"
@@ -605,8 +714,8 @@ def process_punjab():
     return {
         "success": True,
         "scraped": len(tenders),
-        "kept": len(relevant),
-        "storage": storage_result,
+        "processed": len(processed_tenders),
+        "stored": stored_count,
         "checkpoint_updated": checkpoint_updated,
     }
 
@@ -661,49 +770,145 @@ def process_balochistan():
         return {
             "success": True,
             "scraped": 0,
-            "kept": 0,
+            "processed": 0,
+            "relevant": 0,
             "checkpoint_updated": False,
         }
 
     # --------------------------------------------------------
-    # 2. Relevance analysis
+    # 2. Analyze + normalize + map + persist ALL tenders
     # --------------------------------------------------------
 
-    relevant = []
+    relevant_count = 0
+    processed_count = 0
 
-    for tender in tenders:
+    db = SessionLocal()
 
-        analysis = analyze_tender(
-            tender
-        )
+    try:
 
-        relevance = analysis[
-            "relevance"
-        ]
+        for index, tender in enumerate(
+            tenders,
+            start=1,
+        ):
 
-        keyword_score = relevance.get(
-            "keyword_score",
-            0,
-        )
+            print()
+            print(
+                f"[Balochistan PPRA] "
+                f"Processing {index}/{len(tenders)}"
+            )
 
-        #
-        # Score 0 = irrelevant.
-        #
-        if keyword_score <= 0:
-            continue
+            # ------------------------------------------------
+            # Relevance analysis
+            # ------------------------------------------------
 
-        normalized = normalize_tender(
-            tender=tender,
-            portal=BALOCHISTAN_PORTAL,
-            relevance=relevance,
-        )
+            analysis = analyze_tender(
+                tender
+            )
 
-        relevant.append(
-            normalized
-        )
+            relevance = analysis.get(
+                "relevance",
+                {},
+            )
+
+            keyword_score = relevance.get(
+                "keyword_score",
+                0,
+            )
+
+            if keyword_score > 0:
+                relevant_count += 1
+
+            # ------------------------------------------------
+            # Normalize
+            # ------------------------------------------------
+
+            normalized = normalize_tender(
+                tender=tender,
+                portal=BALOCHISTAN_PORTAL,
+                relevance=relevance,
+            )
+
+            # ------------------------------------------------
+            # Map to DB structure
+            # ------------------------------------------------
+
+            mapped_tender = map_balochistan_tender(
+                tender=normalized,
+                relevance_result=analysis,
+            )
+
+            # ------------------------------------------------
+            # Download primary document
+            # ------------------------------------------------
+
+            documents = mapped_tender.get(
+                "documents",
+                [],
+            )
+
+            for document in documents:
+
+                source_url = document.get(
+                    "source_url"
+                )
+
+                if not source_url:
+                    continue
+
+                tender_key = (
+                    tender.get("TSENumber")
+                    or str(tender.get("Id"))
+                )
+
+                download_result = download_document(
+                    source_url,
+                    source="Balochistan PPRA",
+                    tender_key=tender_key,
+                    document_name="Bidding Document",
+                )
+
+                document.update(
+                    download_result
+                )
+
+            # ------------------------------------------------
+            # Persist ALL tenders
+            # ------------------------------------------------
+
+            persist_tender(
+                db,
+                mapped_tender=mapped_tender,
+                relevance=relevance,
+            )
+
+            processed_count += 1
+
+            print(
+                f"[Balochistan PPRA] "
+                f"Stored jazzid for "
+                f"{tender.get('TSENumber', 'N/A')} "
+                f"| Score: {keyword_score}"
+            )
+
+        # ----------------------------------------------------
+        # 3. Commit all successful processing
+        # ----------------------------------------------------
+
+        # persist_tender() commits internally.
+        # Reaching this point means all processed records
+        # were successfully persisted.
+
+    except Exception:
+
+        db.rollback()
+        raise
+
+    finally:
+
+        db.close()
 
     # --------------------------------------------------------
-    # 3. Summary
+    # 4. Relevance summary
     # --------------------------------------------------------
 
     print()
@@ -716,24 +921,20 @@ def process_balochistan():
     )
 
     print(
-        f"Kept:       {len(relevant)}"
+        f"Processed:  {processed_count}"
     )
 
     print(
-        f"Discarded:  "
-        f"{len(tenders) - len(relevant)}"
+        f"Relevant:   {relevant_count}"
+    )
+
+    print(
+        f"Irrelevant: "
+        f"{len(tenders) - relevant_count}"
     )
 
     # --------------------------------------------------------
-    # 4. Persistent storage
-    # --------------------------------------------------------
-
-    storage_result = upsert_relevant_tenders(
-        relevant
-    )
-
-    # --------------------------------------------------------
-    # 5. Update checkpoint
+    # 5. Update checkpoint ONLY after DB persistence
     # --------------------------------------------------------
 
     checkpoint_updated = (
@@ -744,94 +945,16 @@ def process_balochistan():
     )
 
     # --------------------------------------------------------
-    # 6. Show relevant tenders
+    # 6. Return
     # --------------------------------------------------------
-
-    print()
-    print(
-        "BALOCHISTAN PPRA - TOP RELEVANT TENDERS"
-    )
-
-    print("=" * 70)
-
-    for tender in relevant[:10]:
-
-        relevance = tender.get(
-            "relevance",
-            {},
-        )
-
-        print()
-        print("Tender ID:")
-        print(
-            tender.get(
-                "id",
-                "N/A",
-            )
-        )
-
-        print("TSE Number:")
-        print(
-            tender.get(
-                "TSENumber",
-                "",
-            )
-            or "N/A"
-        )
-
-        print("Title:")
-        print(
-            tender.get(
-                "Name",
-                "",
-            )
-        )
-
-        print("Keyword Score:")
-        print(
-            relevance.get(
-                "keyword_score",
-                0,
-            )
-        )
-
-        print("Matched Keywords:")
-        print(
-            relevance.get(
-                "matched_keywords",
-                [],
-            )
-        )
-
-        print("Matched Capabilities:")
-        print(
-            relevance.get(
-                "matched_capabilities",
-                [],
-            )
-        )
-
-        print("Tender Notice:")
-        print(
-            tender.get(
-                "tenderNoticeDoc",
-                "",
-            )
-            or "N/A"
-        )
-
-        print("-" * 70)
 
     return {
         "success": True,
         "scraped": len(tenders),
-        "kept": len(relevant),
-        "storage": storage_result,
+        "processed": processed_count,
+        "relevant": relevant_count,
         "checkpoint_updated": checkpoint_updated,
     }
-
-
-
 # ============================================================
 # KP PPRA
 # ============================================================
@@ -883,15 +1006,16 @@ def process_kp():
         return {
             "success": True,
             "scraped": 0,
-            "kept": 0,
+            "processed": 0,
+            "relevant": 0,
             "checkpoint_updated": False,
         }
 
     # --------------------------------------------------------
-    # 2. Relevance analysis
+    # 2. Analyze + normalize ALL tenders
     # --------------------------------------------------------
 
-    relevant = []
+    analyzed_tenders = []
 
     for tender in tenders:
 
@@ -903,30 +1027,32 @@ def process_kp():
             "relevance"
         ]
 
-        keyword_score = relevance.get(
-            "keyword_score",
-            0,
-        )
-
-        #
-        # Score 0 = irrelevant.
-        #
-        if keyword_score <= 0:
-            continue
-
         normalized = normalize_tender(
             tender=tender,
             portal=KP_PORTAL,
             relevance=relevance,
         )
 
-        relevant.append(
-            normalized
+        analyzed_tenders.append(
+            {
+                "tender": tender,
+                "normalized": normalized,
+                "relevance": relevance,
+            }
         )
 
     # --------------------------------------------------------
     # 3. Summary
     # --------------------------------------------------------
+
+    relevant_count = sum(
+        1
+        for item in analyzed_tenders
+        if item["relevance"].get(
+            "keyword_score",
+            0,
+        ) > 0
+    )
 
     print()
     print("-" * 70)
@@ -938,24 +1064,98 @@ def process_kp():
     )
 
     print(
-        f"Kept:       {len(relevant)}"
+        f"Relevant:   {relevant_count}"
     )
 
     print(
-        f"Discarded:  "
-        f"{len(tenders) - len(relevant)}"
+        f"Irrelevant: "
+        f"{len(tenders) - relevant_count}"
     )
 
     # --------------------------------------------------------
-    # 4. Persistent storage
+    # 4. Persist ALL tenders
     # --------------------------------------------------------
 
-    storage_result = upsert_relevant_tenders(
-        relevant
-    )
+    db = SessionLocal()
+
+    processed = 0
+
+    try:
+
+        for item in analyzed_tenders:
+
+            tender = item["tender"]
+            normalized = item["normalized"]
+            relevance = item["relevance"]
+
+            # ------------------------------------------------
+            # Map normalized fields to DB structure
+            # ------------------------------------------------
+
+            mapped_tender = map_kp_tender(
+                tender=tender,
+                relevance_result={
+                    "relevance": relevance,
+                },
+            )
+
+            # ------------------------------------------------
+            # Download primary bidding document
+            # ------------------------------------------------
+
+            documents = mapped_tender.get(
+                "documents",
+                [],
+            )
+
+            for document in documents:
+
+                download_result = (
+                    download_document(
+                        url=document.get(
+                            "source_url"
+                        ),
+                        source=KP_PORTAL,
+                        tender_key=tender.get(
+                            "id"
+                        )
+                        or tender.get(
+                            "tender_number"
+                        ),
+                        document_name=document.get(
+                            "document_name"
+                        ),
+                    )
+                )
+
+                document.update(
+                    download_result
+                )
+
+            # ------------------------------------------------
+            # Persist tender + relevance + documents
+            # ------------------------------------------------
+
+            persist_tender(
+                db=db,
+                mapped_tender=mapped_tender,
+                relevance=relevance,
+            )
+
+            processed += 1
+
+            print(
+                f"[KP PPRA] Stored "
+                f"{processed}/{len(analyzed_tenders)}: "
+                f"{tender.get('tender_number', 'N/A')}"
+            )
+
+    finally:
+
+        db.close()
 
     # --------------------------------------------------------
-    # 5. Update checkpoint
+    # 5. Update checkpoint ONLY after persistence succeeds
     # --------------------------------------------------------
 
     checkpoint_updated = (
@@ -966,32 +1166,22 @@ def process_kp():
     )
 
     # --------------------------------------------------------
-    # 6. Show relevant tenders
+    # 6. Show processed tenders
     # --------------------------------------------------------
 
     print()
     print(
-        "KP PPRA - TOP RELEVANT TENDERS"
+        "KP PPRA - PROCESSED TENDERS"
     )
 
     print("=" * 70)
 
-    for tender in relevant[:10]:
+    for item in analyzed_tenders[:10]:
 
-        relevance = tender.get(
-            "relevance",
-            {},
-        )
+        tender = item["tender"]
+        relevance = item["relevance"]
 
         print()
-        print("Tender ID:")
-        print(
-            tender.get(
-                "id",
-                "N/A",
-            )
-        )
-
         print("Tender Number:")
         print(
             tender.get(
@@ -1033,10 +1223,10 @@ def process_kp():
             )
         )
 
-        print("Tender URL:")
+        print("Bidding Document:")
         print(
             tender.get(
-                "detail_url",
+                "bidding_document_url",
                 "",
             )
             or "N/A"
@@ -1047,11 +1237,10 @@ def process_kp():
     return {
         "success": True,
         "scraped": len(tenders),
-        "kept": len(relevant),
-        "storage": storage_result,
+        "processed": processed,
+        "relevant": relevant_count,
         "checkpoint_updated": checkpoint_updated,
     }
-
 
 # ============================================================
 # SINDH PPRA
@@ -1104,175 +1293,280 @@ def process_sindh():
         return {
             "success": True,
             "scraped": 0,
-            "kept": 0,
+            "processed": 0,
+            "relevant": 0,
             "checkpoint_updated": False,
         }
 
     # --------------------------------------------------------
-    # 2. Relevance analysis
+    # 2. Database session
     # --------------------------------------------------------
 
-    relevant = []
+    db = SessionLocal()
 
-    for tender in tenders:
+    processed = 0
+    relevant_count = 0
 
-        analysis = analyze_tender(
-            tender
-        )
+    try:
 
-        relevance = analysis[
-            "relevance"
-        ]
+        # ----------------------------------------------------
+        # 3. Process ALL tenders
+        # ----------------------------------------------------
 
-        keyword_score = relevance.get(
-            "keyword_score",
-            0,
-        )
+        for index, tender in enumerate(
+            tenders,
+            start=1,
+        ):
 
-        #
-        # Score 0 = irrelevant.
-        #
-        if keyword_score <= 0:
-            continue
-
-        normalized = normalize_tender(
-            tender=tender,
-            portal=SINDH_PORTAL,
-            relevance=relevance,
-        )
-
-        relevant.append(
-            normalized
-        )
-
-    # --------------------------------------------------------
-    # 3. Summary
-    # --------------------------------------------------------
-
-    print()
-    print("-" * 70)
-    print("SINDH RELEVANCE SUMMARY")
-    print("-" * 70)
-
-    print(
-        f"Total:      {len(tenders)}"
-    )
-
-    print(
-        f"Kept:       {len(relevant)}"
-    )
-
-    print(
-        f"Discarded:  "
-        f"{len(tenders) - len(relevant)}"
-    )
-
-    # --------------------------------------------------------
-    # 4. Persistent storage
-    # --------------------------------------------------------
-
-    storage_result = upsert_relevant_tenders(
-        relevant
-    )
-
-    # --------------------------------------------------------
-    # 5. Update checkpoint
-    # --------------------------------------------------------
-
-    checkpoint_updated = (
-        update_checkpoint_from_result(
-            portal=SINDH_PORTAL,
-            result=result,
-        )
-    )
-
-    # --------------------------------------------------------
-    # 6. Show relevant tenders
-    # --------------------------------------------------------
-
-    print()
-    print(
-        "SINDH PPRA - TOP RELEVANT TENDERS"
-    )
-
-    print("=" * 70)
-
-    for tender in relevant[:10]:
-
-        relevance = tender.get(
-            "relevance",
-            {},
-        )
-
-        print()
-        print("Tender ID:")
-        print(
-            tender.get(
-                "id",
-                "N/A",
+            print()
+            print(
+                f"[Sindh PPRA] Processing "
+                f"{index}/{len(tenders)}"
             )
-        )
 
-        print("Tender Number:")
-        print(
-            tender.get(
-                "tender_number",
-                "",
+            # -----------------------------------------------
+            # Relevance analysis
+            # -----------------------------------------------
+
+            analysis = analyze_tender(
+                tender
             )
-            or "N/A"
-        )
 
-        print("Title:")
-        print(
-            tender.get(
-                "tender_details",
-                "",
+            relevance = analysis.get(
+                "relevance",
+                {},
             )
-        )
 
-        print("Keyword Score:")
-        print(
-            relevance.get(
+            keyword_score = relevance.get(
                 "keyword_score",
                 0,
             )
-        )
 
-        print("Matched Keywords:")
-        print(
-            relevance.get(
-                "matched_keywords",
+            if keyword_score > 0:
+                relevant_count += 1
+
+            # -----------------------------------------------
+            # Normalize
+            # -----------------------------------------------
+
+            normalized = normalize_tender(
+                tender=tender,
+                portal=SINDH_PORTAL,
+                relevance=relevance,
+            )
+
+            # -----------------------------------------------
+            # Map to database structure
+            # -----------------------------------------------
+
+            mapped_tender = map_sindh_tender(
+                tender=normalized,
+                relevance_result=analysis,
+            )
+
+            # -----------------------------------------------
+            # Download primary document
+            # -----------------------------------------------
+
+            published_document_id = tender.get(
+                "publishedDocumentID"
+            )
+
+            documents = mapped_tender.get(
+                "documents",
                 [],
             )
-        )
 
-        print("Matched Capabilities:")
-        print(
-            relevance.get(
-                "matched_capabilities",
-                [],
+            if published_document_id:
+
+                print(
+                    "[Sindh PPRA] Fetching "
+                    "document metadata..."
+                )
+
+                try:
+
+                    document_metadata = (
+                        get_sindh_document_metadata(
+                            published_document_id
+                        )
+                    )
+
+                    if document_metadata:
+
+                        file_id = document_metadata.get(
+                            "file_id"
+                        )
+
+                        file_guid = document_metadata.get(
+                            "file_guid"
+                        )
+
+                        if file_id and file_guid:
+
+                            tender_key = (
+                                tender.get(
+                                    "tenderNumber"
+                                )
+                                or tender.get(
+                                    "publishedDocumentID"
+                                )
+                            )
+
+                            print(
+                                "[Sindh PPRA] "
+                                "Downloading bidding document..."
+                            )
+
+                            download_result = (
+                                download_sindh_document(
+                                    file_id=file_id,
+                                    file_guid=file_guid,
+                                    tender_key=tender_key,
+                                    document_name=(
+                                        "Bidding Document.pdf"
+                                    ),
+                                )
+                            )
+
+                            documents.append(
+                                {
+                                    "document_type": "PRIMARY",
+                                    "document_name": (
+                                        "Bidding Document.pdf"
+                                    ),
+                                    "source_url": None,
+                                    **download_result,
+                                }
+                            )
+
+                            # Store metadata-derived
+                            # information in the raw record.
+                            mapped_tender[
+                                "primary_document_url"
+                            ] = None
+
+                            print(
+                                "[Sindh PPRA] "
+                                "Document downloaded."
+                            )
+
+                        else:
+
+                            print(
+                                "[Sindh PPRA] "
+                                "Document metadata missing "
+                                "file ID/GUID."
+                            )
+
+                    else:
+
+                        print(
+                            "[Sindh PPRA] "
+                            "No document metadata found."
+                        )
+
+                except Exception as exc:
+
+                    print(
+                        "[Sindh PPRA] Document download "
+                        f"failed: {exc}"
+                    )
+
+            else:
+
+                print(
+                    "[Sindh PPRA] No "
+                    "publishedDocumentID."
+                )
+
+            # -----------------------------------------------
+            # Persist ALL tenders
+            # -----------------------------------------------
+
+            persist_tender(
+                db,
+                mapped_tender=mapped_tender,
+                relevance=relevance,
             )
-        )
 
-        print("Tender URL:")
-        print(
-            tender.get(
-                "detail_url",
-                "",
+            processed += 1
+
+            print(
+                f"[Sindh PPRA] Persisted tender "
+                f"{index}/{len(tenders)}"
             )
-            or "N/A"
-        )
 
+        # ----------------------------------------------------
+        # 4. Summary
+        # ----------------------------------------------------
+
+        print()
+        print("-" * 70)
+        print("SINDH PPRA SUMMARY")
         print("-" * 70)
 
-    return {
-        "success": True,
-        "scraped": len(tenders),
-        "kept": len(relevant),
-        "storage": storage_result,
-        "checkpoint_updated": checkpoint_updated,
-    }
+        print(
+            f"Total scraped:     {len(tenders)}"
+        )
 
+        print(
+            f"Processed/stored:  {processed}"
+        )
+
+        print(
+            f"Relevant:          {relevant_count}"
+        )
+
+        print(
+            f"Irrelevant:        "
+            f"{len(tenders) - relevant_count}"
+        )
+
+        # ----------------------------------------------------
+        # 5. Update checkpoint
+        # ----------------------------------------------------
+        #
+        # Only update after ALL tenders have been
+        # successfully persisted.
+        #
+
+        checkpoint_updated = (
+            update_checkpoint_from_result(
+                portal=SINDH_PORTAL,
+                result=result,
+            )
+        )
+
+        print()
+        print(
+            f"[Sindh PPRA] Checkpoint updated: "
+            f"{checkpoint_updated}"
+        )
+
+        return {
+            "success": True,
+            "scraped": len(tenders),
+            "processed": processed,
+            "relevant": relevant_count,
+            "checkpoint_updated": checkpoint_updated,
+        }
+
+    except Exception:
+
+        db.rollback()
+
+        print()
+        print(
+            "[Sindh PPRA] Processing failed. "
+            "Checkpoint was NOT updated."
+        )
+
+        raise
+
+    finally:
+
+        db.close()
 # ============================================================
 # MAIN
 # ============================================================

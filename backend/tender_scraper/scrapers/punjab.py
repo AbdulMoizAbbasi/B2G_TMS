@@ -1317,93 +1317,22 @@ if __name__ == "__main__":
 
     result = scrape_punjab_tenders(
         start_date="2026-09-01",
-        end_date="2026-09-09",
+        end_date="2026-09-24",
         use_checkpoint=True,
     )
 
-    tenders = result.get(
-        "tenders",
-        [],
-    )
+    tenders = result.get("tenders", [])
 
     print()
     print("=" * 70)
-    print("SCRAPING TEST COMPLETE")
+    print("PUNJAB SCRAPING TEST")
     print("=" * 70)
 
-    print(
-        f"Portal: {result['portal']}"
-    )
+    print(f"Success: {result['success']}")
+    print(f"Tenders returned: {len(tenders)}")
+    print(f"Checkpoint: {result['checkpoint']}")
 
-    print(
-        f"Success: {result['success']}"
-    )
-
-    print(
-        f"Tenders returned: "
-        f"{len(tenders)}"
-    )
-
-    print(
-        f"Checkpoint date: "
-        f"{result['checkpoint'].get('last_date')}"
-    )
-
-    print(
-        f"Checkpoint tender: "
-        f"{result['checkpoint'].get('last_tender_key')}"
-    )
-
-    for index, tender in enumerate(
-        tenders[:10],
-        start=1,
-    ):
-
+    if tenders:
         print()
-        print(
-            f"TENDER {index}"
-        )
-
-        print("-" * 70)
-
-        print(
-            "Title:",
-            tender.get(
-                "tender_details"
-            ),
-        )
-
-        print(
-            "Organization:",
-            tender.get(
-                "organization_details"
-            ),
-        )
-
-        print(
-            "Publish Date:",
-            tender.get(
-                "advertised_date"
-            ),
-        )
-
-        print(
-            "Close Date:",
-            tender.get(
-                "closing_date"
-            ),
-        )
-
-        print(
-            "Tender Notice:",
-            tender.get(
-                "tender_notice_url"
-            ),
-        )
-
-        print(
-            "Bidding Document:",
-            tender.get(
-                "bidding_document_url"
-            ),
-        )
+        print("FIRST RAW TENDER:")
+        print(tenders[0])

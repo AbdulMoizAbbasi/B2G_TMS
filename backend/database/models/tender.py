@@ -113,17 +113,25 @@ class Tender(Base):
         "TenderRelevance",
         back_populates="tender",
         uselist=False,
+        passive_deletes=True,
     )
 
     documents = relationship(
         "TenderDocument",
         back_populates="tender",
-        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     participation = relationship(
         "TenderParticipation",
         back_populates="tender",
         uselist=False,
-        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    field_override = relationship(
+        "TenderFieldOverride",
+        back_populates="tender",
+        uselist=False,
+        passive_deletes=True,
     )

@@ -9,3 +9,4 @@ from database.models.role import Role
 from database.models.user import User
 from database.models.employee import Employee
 from database.models.coordinator import Coordinator
+from database.models.tender_field_override import TenderFieldOverride

@@ -933,7 +933,7 @@ if __name__ == "__main__":
     result = scrape_sindh_tenders(
         start_date="2026-09-15",
         end_date="2026-09-15",
-        use_checkpoint=True,
+        use_checkpoint=False,
     )
 
     print()

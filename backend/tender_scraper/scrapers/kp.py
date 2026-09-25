@@ -1073,36 +1073,15 @@ def scrape_kp_tenders(
 if __name__ == "__main__":
 
     result = scrape_kp_tenders(
-        start_date="2026-09-1",
-        end_date="2026-09-18",
+        start_date="2026-09-24",
+        end_date="2026-09-24",
         use_checkpoint=False,
     )
 
     print()
     print("=" * 70)
-    print("KP MULTI-DATE TEST")
+    print("KP TENDER SAMPLE")
     print("=" * 70)
 
-    print(
-        f"Success: {result['success']}"
-    )
-
-    print(
-        f"Total tenders: "
-        f"{len(result['tenders'])}"
-    )
-
-    print(
-        f"Checkpoint candidate: "
-        f"{result['checkpoint']}"
-    )
-
-    print()
-
-    for tender in result["tenders"]:
-
-        print(
-            tender.get("tender_number"),
-            "|",
-            tender.get("advertised_date"),
-        )
+    if result["tenders"]:
+        print(result["tenders"][0])

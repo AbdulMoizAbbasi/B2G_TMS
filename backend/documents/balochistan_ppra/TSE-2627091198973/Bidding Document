@@ -1,0 +1,2740 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" href="../../Images/logo_small.png">
+    <script src="../../Scripts/ng-report-resources.js"></script>
+    <link href="../../Content/BiddingDocument.css" rel="stylesheet" />
+    <script>
+        function ctrl() {
+            app.controller('BiddingDocumentReport', function ($scope, $http, $filter) {
+
+
+                $scope.id = parseInt(getUrlParameter('id') || 0);
+                $scope.Document = {};
+                $scope.ScopeOfWork = "";
+                function DecodeHtml(html) {
+                    var parser = new DOMParser;
+                    var dom = parser.parseFromString(
+                        '<!doctype html><body>' + html,
+                        'text/html');
+                    return dom.body.textContent;
+                }
+                function DecodeinnerHtml(html) {
+                    var parser = new DOMParser;
+                    var dom = parser.parseFromString(
+                        '<!doctype html><body>' + html,
+                        'text/html');
+                    return dom.body.innerHTML;
+                }
+                function GetEvalCriteriaDynamic() {
+                    if ($scope.id == 0)
+                        return;
+                    return $http({
+                        //url: "/Mvc/Proc_EvalCriteria/GetEvalCriteria?id=0&BiddId=" + $scope.id,
+                        //url: "/api/BidEvaluation/GetEvalCriteria?id=0&BiddId=" + $scope.id,
+                        url: "/api/BidEvaluation/GetEvalCriteriaForBiddingDoc?id=0&BiddId=" + $scope.id,
+                        method: 'GET',
+                        //  async : false
+                    })
+                        .success(function (data, status, headers, config) {
+                            //$scope.EvalCriteriaDynamic = angular.fromJson(data.Data);
+                            $scope.EvalCriteriaDynamic = angular.fromJson(data);
+                            setTimeout(function () {
+                                //-// window.print();
+                                //PrintWithPage();
+                            }, 5000);
+                        }).error(function (data, status, headers, config) {
+                            console.log('Error');
+                        });
+
+                }
+                function InstrToBidders(InstructionsToPrepareBD) {
+                    $scope.InstructionsToPrepareBDTechnical = $filter('filter')(InstructionsToPrepareBD, { InstructionTypeID: "Technical", ProcurementMethodID: $scope.Document.ProposedMethodID, ProcurementCategory: "Goods" }, true);
+                    $scope.InstructionsToPrepareBDFinancial = $filter('filter')(InstructionsToPrepareBD, { InstructionTypeID: "Financial", ProcurementMethodID: $scope.Document.ProposedMethodID, ProcurementCategory: "Goods" }, true);
+
+                    if ($scope.InstructionsToPrepareBDTechnical.length > 0) {
+                        $scope.InstToPrepBDpreContentTech = DecodeHtml($scope.InstructionsToPrepareBDTechnical[0].PreTextContent);
+
+                        $scope.InstToPrepBDpostContentTech = DecodeHtml($scope.InstructionsToPrepareBDTechnical[0].PostTextContent);
+                    }
+
+                    if ($scope.InstructionsToPrepareBDFinancial.length > 0) {
+                        $scope.InstToPrepBDpreContentFin = DecodeHtml($scope.InstructionsToPrepareBDFinancial[0].PreTextContent);
+                        $scope.InstToPrepBDpostContentFin = DecodeHtml($scope.InstructionsToPrepareBDFinancial[0].PostTextContent);
+                    }
+
+                }
+                function ManageEligibilityCriteria(CriteriaList) {
+                    CriteriaList.forEach(function (i) {
+                        if (i.IsSelectedCriteria) {
+                            var id = $scope.EligibilityFactorsDyn.length;
+
+                            var temp = [{ control: 'label', value: i.FactorDescription, assignTo: id }]
+
+                            $scope.EligibilityFactorsDyn.push({ id: id, factor: i.EligibilityFactor, document: i.RequiredDocument, group: $scope.Document.EligibilityGroup, DescriptionTemplate: temp, IsSelectedCriteria: true });
+                        } else {
+                            var tempFac = $filter('filter')($scope.EligibilityFactorsDyn, { id: i.TurnOver }, true);
+                            if (tempFac.length > 0) {
+                                tempFac[0].DescriptionTemplate = i.OtherInfo;
+                            }
+                        }
+                    });
+                }
+                function GetBiddigDocument() {
+                    parent.postMessage("http", window.location.origin);
+                    if ($scope.id == 0)
+                        return;
+
+                    //$http.post('/api/efiling/Initiate/' + $scope.WorkflowId + '?Comments=from generate letter', formData, {
+                    //$http.get('/api/BiddingDocument/GetBiddingReport3/' + $scope.id ).success(function (data, status, headers, config) {
+
+                    // $http.get('/mvc/Proc_BiddingDocument/GetBiddingReport/' + $scope.id ).success(function (data, status, headers, config) {
+
+                    //return $http({
+                    //    url: "/api/Efiling/GetBiddingReport1/" + $scope.id,
+                    //    //url: "/mvc/Proc_BiddingDocument/GetBiddingReport?id=" + $scope.BiddingDocumentId,
+                    //    method: 'GET',
+                    //}).success(function (data, status, headers, config) {
+
+                    //$http.get('/api/BiddingDocument/GetBiddingReport/' + $scope.id).success(function (data, status, headers, config) {
+                    $http.get('/api/BiddingDocument/GetBiddingReportsabseLatest/' + $scope.id).success(function (data, status, headers, config) {
+                        $scope.TSP = false;
+                        if (angular.isDefined(data)) {
+                            //if (angular.isDefined(data.Document)) {
+                            //    $scope.Document = angular.fromJson(data.Document);
+                            //}
+                            //else if (angular.isDefined(data.M_Data)){
+                            //    $scope.Document1 = angular.fromJson(data.M_Data);
+                            //    $scope.Document2 = angular.fromJson($scope.Document1[0]);
+                            //    $scope.Document = $scope.Document2[0];
+                            //}
+                            //setTimeout(function () {
+                            //    //window.print();
+                            //    PrintWithPage();
+                            //}, 500);
+                            //return;
+
+
+                            $scope.Document1 = angular.fromJson(data.Document);
+
+                            if ($scope.Document1.length > 0) {
+                                $scope.Document = $scope.Document1[0];
+                                $scope.ScopeOfWork = DecodeinnerHtml($scope.Document.ScopeOfWork);
+								setTimeout(function(){
+								$.each($("#dateScopeOfWork").find("img"), function (obj) {
+                                    $($("#dateScopeOfWork").find("img")[obj]).css("max-width", "100%");
+                                });
+								},3000);
+								//setTimeout(function(){
+								//if($scope.id == 18993){
+								//$(".ql-indent-2")[$(".ql-indent-2").length -2].remove();
+								//$(".ql-indent-2")[$(".ql-indent-2").length -2].remove();
+								//}
+								//},2000);
+                            }
+
+                            $scope.Document.InvitationLetter = DecodeHtml($scope.Document.InvitationLetter);
+                                //< !--$scope.Document.InvitationLetter = DecodeHtml($scope.Document.InvitationLetter); -->
+                                if ($scope.Document.ProposedMethodID == 3) {
+                                $scope.TSP = true;
+                                if ($scope.Document.IsRevised != false) {
+                                    $scope.TSP1 = true;
+                                }
+                                else {
+                                    $scope.TSP1 = false;
+                                }
+
+                            }
+                            $scope.AgencyUser = angular.fromJson(data.AgencyUser);
+                            // $scope.EligibilityCriteriaForBidders = angular.fromJson(data.EligibilityCriteriaForBidders);
+                            $scope.PaymentMethods = angular.fromJson(data.PayInfo);
+                            $scope.ConfigValues = angular.fromJson(data.ConfigValues);
+                            $scope.BidderInfo = angular.fromJson(data.bidderInfo);
+                            var DataSheet1 = angular.fromJson(data.DataSheet);
+                            $scope.datasheet(DataSheet1);
+                            var InstructionsList = angular.fromJson(data.InstructionsList);
+                            var InstructionsToPrepareBD = angular.fromJson(data.InstructionsToPrepareBD);
+                            $scope.InstrList(InstructionsList);
+
+                            $scope.EvaluationType();
+                            $scope.GeneralConditions = {};
+                            $scope.GeneralConditions = data.GeneralConditions;// angular.fromJson(data.GeneralConditions);
+                            if ($scope.GeneralConditions.length > 0) {
+                                $scope.GeneralConditions = $scope.GeneralConditions[0].GeneralConditions;
+
+                            }
+
+                            $scope.Declaration = angular.fromJson(data.Declaration);
+                            $scope.Declaration = DecodeHtml($scope.Declaration.DeclarationByBidderContent);
+							
+
+                                //$scope.Document.ContractAgreement = decodeURIComponent($scope.Document.ContractAgreement);
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll("&amp;amp;amp;lt;", "<");
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll("&amp;amp;amp;gt;", ">");
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('&amp;amp;amp;amp;nbsp;', ' ');
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('mp;amp;amp;nbsp;', ' ');
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('bsp;', ' ');
+								$scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('&n', ' ');
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('&amp;amp;gt;', ' ');
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('&amp;amp;amp;lss', ' ');
+								
+								
+								
+							    $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll("&amp;lt;", "<");
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll("&amp;gt;", ">");
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('&amp;amp;nbsp;', ' ');
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('&amp;quot;', '"');
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('&nbsp;', ' ');
+								
+								$scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll("&lt;", "<");
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll("&gt;", ">");
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('&quot;', '"');
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('&amp;nbsp;', ' ');
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('&amp;n', ' ');
+                                $scope.Document.ContractAgreement = $scope.Document.ContractAgreement.replaceAll('&amp;amp;n', ' ');
+								
+								
+								
+                            $scope.ContractAgreement = DecodeinnerHtml($scope.Document.ContractAgreement);
+							
+							
+                                //< !--$scope.ContractAgreement = DecodeHtml($scope.ContractAgreement1); -->
+								
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll("&amp;amp;amp;lt;", "<");
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll("&amp;amp;amp;gt;", ">");
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('&amp;amp;amp;amp;nbsp;', ' ');
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('mp;amp;amp;nbsp;', ' ');
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('bsp;', ' ');
+								$scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('&n', ' ');
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('&amp;amp;gt;', ' ');
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('&amp;amp;amp;lss', ' ');
+								
+								$scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll("&amp;lt;", "<");
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll("&amp;gt;", ">");
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('&amp;amp;nbsp;', ' ');
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('&amp;quot;', '"');
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('&nbsp;', ' ');
+								
+								$scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll("&lt;", "<");
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll("&gt;", ">");
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('&quot;', '"');
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('&amp;nbsp;', ' ');
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('&amp;n', ' ');
+                                $scope.Document.IntegrityImpactCLOB = $scope.Document.IntegrityImpactCLOB.replaceAll('&amp;amp;n', ' ');
+								
+                                $scope.IntegrityImpact = DecodeinnerHtml($scope.Document.IntegrityImpactCLOB);
+                                //< !--$scope.IntegrityImpact = DecodeHtml($scope.IntegrityImpact); -->
+
+                                //$scope.ConditionList1 = angular.fromJson(data.SpecialConditionsList);
+                                $scope.ConditionList = angular.fromJson(data.specialLInfo);
+
+                            $scope.PerformanceGurantee = angular.fromJson(data.PerformanceGurantee);
+                            if ($scope.PerformanceGurantee.length > 0) {
+                                $scope.PerformanceGurantee = DecodeHtml($scope.PerformanceGurantee[0].PerformanceGuranteeContent);
+                            }
+
+
+                            $scope.ManufacturerAuth = angular.fromJson(data.ManufacturerAuth);
+                            if ($scope.ManufacturerAuth.length > 0) {
+                                $scope.ManufacturerAuth = DecodeHtml($scope.ManufacturerAuth[0].ManufacturerAuthorizationContent);
+                            }
+
+
+                            $scope.EligibilityCriteria = angular.fromJson(data.EligibilityCriteria);
+                            if ($scope.EligibilityCriteria.length > 0) {
+                                $scope.EligibilityCriteria.forEach(function (x) {
+									if (x.EligibilityFactor == "Experience") {
+                                        var datatxt = x.FactorDescription.split('in Previous')
+                                        if (datatxt.length > 1 && datatxt[1].indexOf('Years') < 0) {
+                                            x.FactorDescription = datatxt[0] + 'in Previous ' + datatxt[1] + ' Years'
+                                        }
+                                    }
+                                    x.OtherInfo = x.OtherInfo && x.OtherInfo.trim() !== ""? angular.fromJson(x.OtherInfo):{};
+                                })
+                            }
+                            FormOfBid();
+                            if ($scope.EligibilityCriteria.length > 0) {
+                                try {
+                                    $scope.EligibilityCriteria.forEach(function (i) {
+                                        if (i.IsSelectedCriteria) {
+                                            var id = $scope.EligibilityFactorsDyn.length;
+
+                                            var temp = [{ control: 'label', value: i.FactorDescription, assignTo: id }]
+
+                                            $scope.EligibilityFactorsDyn.push({ id: id, factor: i.EligibilityFactor, document: i.RequiredDocument, group: $scope.Document.EligibilityGroup, DescriptionTemplate: temp, IsSelectedCriteria: true });
+                                        } else {
+                                            var tempFac = $filter('filter')($scope.EligibilityFactorsDyn, { id: i.TurnOver }, true);
+                                            if (tempFac.length > 0) {
+                                                tempFac[0].DescriptionTemplate = i.OtherInfo;
+                                            }
+                                        }
+                                    });
+                                } catch (e) {
+                                    return;
+                                }
+
+                                if ($scope.Document.ProcurementCategoryID == 3) {
+                                    $scope.EligibilityCriteria = $.grep($scope.EligibilityCriteria, function (obj) {
+                                        return obj.EligibilityFactor !== 'Sales Tax' && obj.FactorDescription != "Sales Tax Certificate";
+                                    });
+                                }
+                            }
+                            //ManageEligibilityCriteria(angular.fromJson($scope.EligibilityCriteria));
+
+                            $scope.AajkiTareekh = new Date(Date.now()).toLocaleString();
+
+                            InstrToBidders(InstructionsToPrepareBD);
+
+                            if ($scope.Document.EvaluationCategory > 2) {
+                                GetEvalCriteriaDynamic();
+                            }
+                            else {
+                                setTimeout(function () {
+                                    //  window.print();
+                                    console.log($(".ng-scope").html());
+                                    //PrintWithPage();
+                                }, 500);
+                            }
+
+                        }
+                        else {
+                            printEnd();
+                        }
+
+                    })
+                        .error(function (data, status, header, config) {
+                            console.log('Error');
+                            printEnd();
+                        })
+                }
+
+                GetBiddigDocument();
+
+
+
+                $scope.GetPymentMethods = function (PaymentIds) {
+                    if (!angular.isDefined(PaymentIds)) return;
+                    var Methods = '';
+
+                    PaymentIds.forEach(function (i) {
+                        let temp = $filter('filter')($scope.PaymentMethods, { m_ID: parseInt(i) }, true);
+                        if (temp.length > 0) {
+                            Methods = Methods + ' ' + temp[0].m_PaymentMethod + ',';
+                        }
+                    });
+                    return Methods;
+                }
+                $scope.GetConfigurationValue = function (KeyCode) {
+                    if (!angular.isDefined($scope.ConfigValues))
+                        return
+                    var temp = ($filter('filter')($scope.ConfigValues, { KeyCode: KeyCode }, true));
+                    if (temp.length > 0) {
+                        return temp[0].Value
+                    } else {
+                        return null;
+                    }
+                }
+                $scope.formatDate = function (date) {
+                    if (!angular.isDefined(date) || date == null)
+                        return;
+                    var dateOut = new Date(date);
+                    return dateOut;
+                }
+
+                $scope.datasheet = function (DataSheet1) {
+                    if (!angular.isDefined(DataSheet1))
+                        return;
+                    if (angular.isDefined(DataSheet1.Data)) {
+                        DataSheet1 = angular.fromJson(DataSheet1.Data);
+                    }
+
+                    if (angular.isDefined(DataSheet1.Result)) {
+                        DataSheet1 = angular.fromJson(DataSheet1.Result);
+                    }
+
+                    $scope.DataSheet = angular.fromJson(DataSheet1);
+
+                }
+
+                $scope.InstrList = function (InstructionsList) {
+                    if (!angular.isDefined(InstructionsList))
+                        return;
+
+                    $scope.InstructionsList = angular.fromJson(InstructionsList);
+
+
+                    //$scope.InstructionsList = angular.fromJson(InstructionsList.Result);
+
+                    //if (!angular.isDefined($scope.InstructionsList.Data))
+                    //    return;
+                    //$scope.InstructionsList = angular.fromJson($scope.InstructionsList.Data);
+                    //$scope.InstructionsList = angular.fromJson($scope.InstructionsList);
+
+                }
+
+
+                $scope.EvaluationType = function () {
+
+                    if ($scope.Document.EvaluationTypeID == 1)
+                        $scope.EvalType = 'Item-wise';
+                    else if ($scope.Document.EvaluationTypeID == 2)
+                        $scope.EvalType = 'Package-wise';
+                }
+                function FormOfBid() {
+                    $scope.EligibilityFactorsDyn = [
+                        { id: 1, factor: 'Similar Assignment', document: 'Supply Orders', group: 1 },
+                        { id: 2, factor: 'Turn Over', document: 'Supporting Bank Certificate of Company’s Bank Account', group: 1 },
+                        { id: 3, factor: 'Status As Active Tax Payer', document: 'NTN Certificate (Verifiable as Active Tax Payer at FBR Web Portal) ', group: 1 },
+                        { id: 4, factor: (($scope.Document.ProcurementCategoryID !== 2) ? 'Sales Tax' : 'Tax Certificate'), document: (($scope.Document.ProcurementCategoryID !== 2) ? '	GST Registration Certificate' : 'BRA Certificate'), group: 1 },
+                        { id: 5, factor: 'Blacklisting', document: 'Declaration of non blacklisting on company letter head by the bidder', group: 1 },
+
+                        { id: 6, factor: 'Similar Assignment', document: 'No Documents Required', group: 2 },
+                        { id: 7, factor: 'Turn Over', document: 'No Documents Required', group: 2 },
+                        { id: 8, factor: 'Status As Active Tax Payer', document: 'NTN Certificate (Verifiable as Active Tax Payer at FBR Web Portal) ', group: 2 },
+                        { id: 9, factor: (($scope.Document.ProcurementCategoryID !== 2) ? 'Sales Tax' : 'Tax Certificate'), document: (($scope.Document.ProcurementCategoryID !== 2) ? '	GST Registration Certificate' : 'BRA Certificate'), group: 2 },
+                        { id: 10, factor: 'Blacklisting', document: 'Declaration of non blacklisting on company letter head by the bidder', group: 2 },
+
+                        { id: 11, factor: 'Similar Assignment', document: 'For self experienced firms : Copies of Supply Orders with relevant Completion Certificate OR Inspection Report For In experienced / JV : Signed and Stamped copy of original agreement duly signed by Notary Public', group: 3 },
+                        { id: 12, factor: 'Turn Over', document: 'Supporting Bank Certificate of Company’s Bank Account', group: 3 },
+                        { id: 13, factor: 'Active Tax Payer', document: 'NTN Certificate', group: 3 },
+                        { id: 14, factor: (($scope.Document.ProcurementCategoryID !== 2) ? 'Sales Tax' : 'Tax Certificate'), document: (($scope.Document.ProcurementCategoryID !== 2) ? '	GST Registration Certificate' : 'BRA Certificate'), group: 3 },
+                        { id: 15, factor: 'Blacklisting', document: 'Declaration of non blacklisting on company letter head by the bidder', group: 3 },
+
+                    ];
+                    $scope.FactorDescriptionTemplates = [
+						{ control: 'number', value: '', assignTo: 1, keyCode: 'RelevantExperience', placeholder: 'No #' },
+                        { control: 'label', value: ' Assignments of Similar Nature and Complexity Worth PKR.', assignTo: 1 },
+                        { control: 'number', value: '', assignTo: 1, dataType: 'amount', keyCode: 'RelevantExperienceAmount', placeholder: 'Amount' },
+                        { control: 'label', value: ' Million each in Previous ', assignTo: 1 },
+                        { control: 'number', value: '', assignTo: 1, keyCode: 'Years', placeholder: 'Years' },
+
+                        { control: 'label', value: ' Accumualted Turn over of at least PKR.', assignTo: 2 },
+                        { control: 'number', value: '', assignTo: 2, maxValue: $scope.Document.ApprovedBudget, dataType: 'amount', errorMessage: 'Turn over cannot greater than approved budget.', placeholder: 'Amount' },
+                        { control: 'label', value: ' Million in ', assignTo: 2 },
+                        { control: 'number', value: '', assignTo: 2, placeholder: 'Years' },
+                        { control: 'label', value: ' Subsequent Previous Years', assignTo: 2 },
+
+                        { control: 'label', value: 'Presence in Active Tax Payer List', assignTo: 3 },
+                        { control: 'label', value: (($scope.Document.ProcurementCategoryID !== 2) ? 'Sales Tax Certificate' : 'BRA Registration Certificate'), assignTo: 4 },
+                        { control: 'label', value: 'The bidding firm must not be blacklisted by any procuring agency of Pakistan', assignTo: 5 },
+
+                        { control: 'label', value: 'No Prior Experience is Required', assignTo: 6 },
+                        { control: 'label', value: 'There is No Requirement of Turn Over', assignTo: 7 },
+                        { control: 'label', value: 'Presence in Active Tax Payer List', assignTo: 8 },
+                        { control: 'label', value: (($scope.Document.ProcurementCategoryID !== 2) ? 'Sales Tax Certificate' : 'BRA Registration Certificate'), assignTo: 9 },
+                        { control: 'label', value: 'The bidding firm must not be blacklisted by any procuring agency of Pakistan', assignTo: 10 },
+
+                        { control: 'number', value: '', assignTo: 11, keyCode: 'RelevantExperience' },
+                        { control: 'label', value: ' Assignment of Similar Size and Complexity and for in -experienced / New Firm MoU/ JV or Agreement with a firm fulfilling the mentioned criteria.', assignTo: 11 },
+
+                        { control: 'label', value: 'Turn over of at least ', assignTo: 12 },
+                        { control: 'number', value: '', assignTo: 12 },
+                        { control: 'label', value: ' PKR Amount in', assignTo: 12 },
+                        { control: 'number', value: '', assignTo: 12 },
+                        { control: 'label', value: ' Subsiquent Previous Years and for in-experienced / New Firm MoU/JV or Agreement with a firm fulfilling the mentioned criteria. ', assignTo: 12 },
+
+                        { control: 'label', value: 'Presence in Active Tax Payer List', assignTo: 13 },
+                        { control: 'label', value: (($scope.Document.ProcurementCategoryID !== 2) ? 'Sales Tax Certificate' : 'BRA Registration Certificate'), assignTo: 14 },
+                        { control: 'label', value: 'The bidding firm must not be blacklisted by any procuring agency of Pakistan', assignTo: 15 },
+
+                    ];
+
+                    $scope.FactorParticulars = [
+                        { Particular: 'Assignment No.', FactorId: '1,6,11,' },
+                        { Particular: 'Amount', FactorId: '1,6,11,' },
+                        { Particular: 'Name of Purchaser', FactorId: '1,6,11,' },
+                        { Particular: 'Flag At', FactorId: '1,6,11,' },
+
+                        { Particular: 'Issuer Name', FactorId: '2,7,12,' },
+                        { Particular: 'Document Name', FactorId: '2,7,12,' },
+                        { Particular: 'Amount', FactorId: '2,7,12,' },
+                        { Particular: 'Flag At', FactorId: '2,7,12,' },
+
+                        { Particular: 'NTN Certificate', FactorId: '3,8,13,' },
+                        { Particular: 'Flag At', FactorId: '3,8,13,' },
+                        { Particular: '_____', FactorId: '3,8,13,' },
+
+                        { Particular: 'GST Registration Certificate', FactorId: '4,9,14,' },
+                        { Particular: 'Flag At', FactorId: '4,9,14,' },
+                        { Particular: '_____', FactorId: '4,9,14,' },
+
+                    ];
+                    $scope.EligibilityFactorsDyn.forEach(function (obj) {
+                        obj.DescriptionTemplate = [];
+                        obj.DescriptionTemplate = $filter("filter")($scope.FactorDescriptionTemplates, { assignTo: obj.id }, true);
+                        obj.FactorParticulars = [];
+                        obj.FactorParticulars = $filter("filter")($scope.FactorParticulars, { FactorId: obj.id + ',' });
+                    });
+                }
+
+
+                $scope.GetFactorDescriptionTemplatesValue = function (DescriptionTemplates, keyCode) {
+
+                    //DescriptionTemplates = angular.fromJson(DescriptionTemplates);
+
+                    if (angular.isDefined(DescriptionTemplates)) {
+                        var temp = DescriptionTemplates.find(i => i.keyCode === keyCode);
+                        if (temp != null) {
+                            return temp.value;
+                        }
+
+                    }
+                }
+
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            LoadRes("BiddingDocumentReport", ctrl)
+        });
+        function printEnd() {
+            //alert();
+            //parent.postMessage("printEnd", window.location.origin);
+        }
+    </script>
+    <title>Bidding Document Report</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm;
+        }
+        @media print {
+            /*html, body {
+                width: 210mm;
+                height: 297mm;
+            }*/
+            body {
+                margin: 0;
+            }
+			* {
+                font-family: Arial, Helvetica, sans-serif !important;
+            }
+
+            h2 {
+                font-size: 28pt !important;
+                color: #004226 !important;
+            }
+
+            h3 {
+                font-size: 22pt !important;
+                color: #000000 !important;
+            }
+
+            h4 {
+                font-size: 18pt !important;
+                color: #666666 !important;
+                margin-bottom: 10px !important;
+                text-align: center !important;
+                text-decoration: none;
+            }
+
+            h2, h3 {
+                margin-bottom: 0px !important;
+                text-align: center !important;
+                text-decoration: none;
+            }    
+            .alert-box {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .alert-info {
+                color: #0c5460;
+                background-color: #d1ecf1;
+                border-color: #bee5eb;
+            }
+
+            .alert {
+                position: relative;
+                padding: 0.75rem 1.25rem;
+                margin-bottom: 2rem;
+                border: 1px solid transparent;
+                border-radius: 0.25rem;
+                text-align: center;
+            }
+
+            .PrintBtn {
+                display: none !important;
+            }
+
+            .page-break {
+                margin-top: 30px;
+            }
+            .message-Cover {
+                position: absolute;
+                bottom: 100px;
+                right:50px;
+            }
+            .message-Cover1 {
+                position: absolute;
+                bottom: 200px;
+                right:50px;
+            }
+            .message-Cover2 {
+                position: absolute;
+                bottom: 300px;
+                right:50px;
+            }
+            table {
+                page-break-inside: auto !important;
+            }
+
+            tr {
+                page-break-inside: avoid !important;
+                page-break-after: auto !important;
+            }
+
+            thead {
+                display: table-header-group !important;
+            }
+
+            tfoot {
+                display: table-footer-group !important;
+            } 
+        }
+         /***/
+            #mainTAble {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+                #mainTAble,
+                #mainTAble > thead,
+                #mainTAble > tbody,
+                #mainTAble > tfoot,
+                #mainTAble > thead > tr,
+                #mainTAble > tbody > tr,
+                #mainTAble > tfoot > tr,
+                #mainTAble > thead > tr > th,
+                #mainTAble > tbody > tr > td,
+                #mainTAble > tfoot > tr > td {
+                    border: 1px solid #fff !important;
+                }
+            .page-footer,
+            .page-footer-space {
+                height: 60px;
+            }
+            .page-footer {
+                position: fixed;
+                bottom: -10px;
+                left: 0px;
+                width: 100%;
+                background:rgba(0,0,0,0);
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: start !important;
+                flex-direction: row !important;                
+            }
+            .page-footer div {
+                display: flex;
+                align-items: start;
+                justify-content: start;
+                width: 50%;
+            }
+            .page-footer div:last-child {
+                align-items: end !important;
+            }                
+
+        }
+        @media screen {
+            .page-footer {
+                display: none;
+            }
+            /*#mybiddingdoc {
+                width: 100%;
+                max-width: 850px;
+                height: fit-content;
+                margin: auto;
+            }*/
+        }
+        .PrintBtn {
+            position: fixed;
+            top: 120px;
+            right: 50px;
+            min-width: 36px;
+            height: 36px;
+            border-radius: 5px;
+            background: var(--green);
+            border: 0px;
+            box-shadow: 0 0 1px rgb(0 0 0 / 0%);
+            -webkit-transition-duration: 0.3s;
+            transition-duration: 0.3s;
+            -webkit-transition-property: transform;
+            transition-property: transform;
+            text-align: center;
+            padding: 0px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+            .PrintBtn svg {
+                width: 16px;
+                height: 16px;
+            }
+
+            .PrintBtn:hover, .PrintBtn:focus, .PrintBtn:active {
+                -webkit-transform: translateY(-5px);
+                transform: translateY(-5px);
+                background: #333;
+            }
+
+            .PrintBtn:before {
+                pointer-events: none;
+                position: absolute;
+                z-index: -1;
+                content: '';
+                top: 100%;
+                left: 5%;
+                height: 10px;
+                width: 90%;
+                opacity: 0;
+                background: -webkit-radial-gradient(center, ellipse, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 80%);
+                background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 80%);
+                -webkit-transition-duration: 0.3s;
+                transition-duration: 0.3s;
+                -webkit-transition-property: transform, opacity;
+                transition-property: transform, opacity;
+                z-index: 9999;
+                outline: 0;
+            }
+        button,
+        button:focus,
+        button:active {
+            outline: 0 !important;
+        }
+            .PrintBtn:hover:before, .PrintBtn:focus:before, .PrintBtn:active:before {
+                opacity: 1;
+                -webkit-transform: translateY(5px);
+                transform: translateY(5px);
+            }
+        .top-Align {
+            vertical-align: top !important;
+        }
+        div, h1, h2, h3, h4, p {
+            display: flex;
+            flex-direction: column;
+            flex-wrap: wrap;
+        }
+        .Center-Align {
+            text-align: center !important;
+            margin-bottom: 50px;
+            align-items: center;
+        }
+        h4.Right-Align {
+            flex-direction: row;
+            align-items: center;
+            justify-content: end;
+        }
+            h4.Right-Align label {
+                font-size: 18px !important;
+                margin: 0 10px;
+            }
+    </style>
+</head>
+<!--<body onafterprint="printEnd()">-->
+<body>
+    <!--<div class="header">this is header</div>-->
+    <div id="mybiddingdoc">
+        <center>
+            <table id="mainTAble">
+                <!--<thead>
+                <tr>
+                    <td>
+                        <div class="header-space">&nbsp;</div>
+                    </td>
+                </tr>
+            </thead-->
+                <tbody>
+                    <tr>
+                        <td>
+                            <div class="content">
+    <div class="page-break">
+        <button type="button" class="PrintBtn" onClick="window.print();" title="Print This Document">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                <path fill="#fff" d="M448 192H64C28.65 192 0 220.7 0 256v96c0 17.67 14.33 32 32 32h32v96c0 17.67 14.33 32 32 32h320c17.67 0 32-14.33 32-32v-96h32c17.67 0 32-14.33 32-32V256C512 220.7 483.3 192 448 192zM384 448H128v-96h256V448zM432 296c-13.25 0-24-10.75-24-24c0-13.27 10.75-24 24-24s24 10.73 24 24C456 285.3 445.3 296 432 296zM128 64h229.5L384 90.51V160h64V77.25c0-8.484-3.375-16.62-9.375-22.62l-45.25-45.25C387.4 3.375 379.2 0 370.8 0H96C78.34 0 64 14.33 64 32v128h64V64z" />
+            </svg>
+        </button>
+        <h4 class="Right-Align" ng-if="Document.IsPublished">Reference Number  {{Document.TSENumber}}</h4>
+        <h4 class="Right-Align" ng-if="!Document.IsPublished">Dated  <label>{{formatDate(AajkiTareekh) | date:'dd MMMM, yyyy'}}</label></h4>
+        <h4 class="Right-Align" ng-if="Document.IsPublished">Dated  <label>{{formatDate(Document.PublishedDate) |  date:'dd MMMM, yyyy'}}</label></h4>
+        <div class="Center-Align">
+            <img src="../../Images/logo-dark.svg" width="175" height="175">
+        </div>
+        <div ng-if="Document.IsESubmissionAllowed1" style="position: absolute;top: 150px;right: 100px;">
+            <img src="../../Images/stamp.svg" alt="stamp" width="120" />
+        </div>
+        <div>{{Report1}}</div>
+        <h2 class="Center-AlignUnderline" ng-if="(Document.ProposedMethodID==3  || Document.ProposedMethodID==4 )&& Document.IsRevised == false">Stage 1</h2>
+        <h2 class="Center-AlignUnderline" ng-if="(Document.ProposedMethodID==3  || Document.ProposedMethodID==4 )&& Document.IsRevised == true">Stage 2</h2>
+        <h2 class="Center-AlignUnderline">{{Document.Agency}}</h2>
+        <h2 class="Center-AlignUnderline">BIDDING DOCUMENT FOR </h2>
+        <h2 class="Center-AlignUnderline" style="text-transform: uppercase;">{{Document.ProcurementTitle}}</h2>
+        <h2 ng-if="Document.EvaluationCategory ==1  && (!Document.IsESubmissionAllowed1)" class="Center-AlignUnderline">(FINANCIAL PROPOSAL)</h2>
+        <h2 ng-if="Document.EvaluationCategory >1 && (!Document.IsESubmissionAllowed1)" class="Center-AlignUnderline">(TECHNICAL PROPOSAL)</h2>
+        <h2 class="Center-AlignUnderline" ng-if="Document.IsPublished">{{Document.TSENumber}}</h2>
+        <div class="alert-box" ng-if="Document.IsESubmissionAllowed1">
+            <span class="alert alert-info">Electronic bid will be submitted, No physical bids can be submitted.</span>
+        </div>
+        <div class="alert-box ng-scope message-Cover1" ng-if="Document.IsESubmissionAllowed1">
+            <span class="alert alert-info">In case any conditions / instructions in this bidding document are contradictory to electronic bid submission the same shall be superseaded by provisions under the electronic procurement mechnaism.</span>
+        </div>
+        <div class="alert-box ng-scope message-Cover2">
+            <span class="alert alert-info">Note: In All Procurements of GOB Whether Through Electronic or Manual Bid Submission, It is Mandatory For All Bidders to Get Registered At Electronic Public Procurement System of BPPRA GOB.</span>
+        </div>
+        <h2 class="Center-AlignUnderline" ng-if="!Document.IsESubmissionAllowed1">NAME OF BIDDER: ____________________________</h2>
+        <h2 class="Center-Align" ng-if="!Document.IsESubmissionAllowed1">(To be filled-in by the Bidder)</h2>
+    </div>
+    <div class="page-break">
+        <h4>Invitation Letter</h4>
+        <div ng-bind-html="Document.InvitationLetter"></div>
+        <br />
+        <div class="table-responsive">
+            <table class="table-bordered">
+                <tr>
+                    <th class="tdini">Headers</th>
+                    <th>Particulars</th>
+                </tr>
+                <tr>
+                    <td>Designation of Procurement Officer</td>
+                    <td>{{Document.Designation}}</td>
+                </tr>
+                <tr>
+                    <td>Postal Address of the Procuring Agency</td>
+                    <td>{{Document.Address}}</td>
+                </tr>
+                <tr>
+                    <td>Phone Number & Fax Number</td>
+                    <td>{{Document.Phone}}<span ng-if="Document.Fax !== undefined && Document.Fax!= null && Document.Fax != '' && Document.Fax != 0">,</span><span ng-if="Document.Fax !== undefined && Document.Fax!= null && Document.Fax != '' && Document.Fax != 0"> {{Document.Fax}}</span></td>
+                </tr>
+                <tr>
+                    <td>E-Mail Address & Website (If Available)	</td>
+                    <td>{{Document.Email}}</td>
+                </tr>
+                <tr>
+                    <td>Method of Procurement</td>
+                    <td>Open Competitive Bidding <span ng-if="Document.AnnualRateOfContracting">under the framework agreement + rate or without rate + for - Days</span></td>
+                </tr>
+                <tr>
+                    <td>Bidding Procedure</td>
+                    <td>{{Document.Method}}</td>
+                </tr>
+                <tr>
+                    <td>Evaluation Mechanism</td>
+                    <td ng-if="Document.EvaluationCategory==1">R1 - Eligibility check with Financial Evaluation.</td>
+                    <td ng-if="Document.EvaluationCategory==2">R2 - Eligibility check with responsiveness based on Yes/No Evaluation then Financial Evaluation.</td>
+                    <td ng-if="Document.EvaluationCategory==4">R3 - Eligibility check with responsiveness based on  qualifying a threshold of marking mechanism then Financial Evaluation.</td>
+                    <td ng-if="Document.EvaluationCategory==3">R4 - Eligibility check with responsiveness based on Yes/No Evaluation and qualifying a threshold marking mechanism then Financial Evaluation.</td>
+                    <td ng-if="Document.EvaluationCategory==5">R5 - Eligibility check with responsiveness based on highest ranking of marking mechanism then Financial Evaluation.</td>
+                    <td ng-if="Document.EvaluationCategory==6">R6 - Eligibility check with responsiveness based on  Marking Mechanism then Financial Evaluation based on aggregate of Quality & Cost Marks.</td>
+                </tr>
+                <tr>
+                    <td>Evaluation Type</td>
+                    <td ng-if="Document.EvaluationTypeID==1">Item Wise</td>
+                    <td ng-if="Document.EvaluationTypeID==2">Package Wise</td>
+                </tr>
+                <tr>
+                    <td>Issuance of Bidding Documents</td>
+                    <td ng-if="!Document.IsESubmissionAllowed1" ng-show="Document.IsPublished">
+                        From office of the Procurement officer during working hours up-to one working day prior to the opening of bids and from BPPRA Website www.bppra.gob.pk <strong>
+                            {{Document.TSENumber}}
+                            Note: Downloaded Bidding document DOES NOT REQUIRE signature and stamp of the procurement officer and can freely be downloaded and used from BPPRA Website
+                        </strong>
+                    </td>
+                    <td ng-if="Document.IsESubmissionAllowed1" ng-show="Document.IsPublished">
+                        <strong>
+                            {{Document.TSENumber}}
+                            Bidding Document is freely Acessible to all at bppra.gob.pk for electronic bid submission Bidder Shall be required to bid through the User id of EPPS of the Government of Balochistan.
+                        </strong>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Deadline for Submission of Bids </td>
+                    <td ng-if="!Document.IsESubmissionAllowed1 && Document.Stage != 2">Date {{formatDate(Document.SubmissionLastDate) |  date:'dd MMMM, yyyy'}} & Time {{Document.SubmissionLastTime_Updated}} through courier or may be dropped in the Tender Box at the office of the Procuring Agency</td>
+                    <td ng-if="Document.IsESubmissionAllowed1 && Document.Stage != 2">Bid Can Only be submitted electronically latest by {{formatDate(Document.SubmissionLastDate) |  date:'dd MMMM, yyyy'}} {{Document.SubmissionLastTime_Updated}} through E-Submission. </td>
+                    <td ng-if="!Document.IsESubmissionAllowed1 && Document.Stage == 2">Date {{formatDate(Document.RevisedSubmissionLastDate) |  date:'dd MMMM, yyyy'}} & Time {{Document.RevisedSubmissionLastTime_Updated}} through courier or may be dropped in the Tender Box at the office of the Procuring Agency</td>
+                    <td ng-if="Document.IsESubmissionAllowed1 && Document.Stage == 2">Bid Can Only be submitted electronically latest by {{formatDate(Document.RevisedSubmissionLastDate) |  date:'dd MMMM, yyyy'}} {{Document.RevisedSubmissionLastTime_Updated}} through E-Submission. </td>
+                </tr>
+                <tr ng-if="Document.EvaluationCategory >1">
+                    <td>Opening Date/Time of bids</td>
+                    <td ng-if="!Document.IsESubmissionAllowed1 && Document.Stage != 2"> {{formatDate(Document.BidsOpeningDate) |  date:'dd MMMM, yyyy'}} {{Document.BidsOpeningTime_Updated}} at the location  <b>{{Document.BidsOpeningPlace}}</b></td>
+                    <td ng-if="Document.IsESubmissionAllowed1 && Document.Stage != 2"> {{formatDate(Document.BidsOpeningDate) |  date:'dd MMMM, yyyy'}} {{Document.BidsOpeningTime_Updated}} Through  <b>EPPS.</b></td>
+                    <td ng-if="!Document.IsESubmissionAllowed1 && Document.Stage == 2"> {{formatDate(Document.RevisedBidsOpeningDate) |  date:'dd MMMM, yyyy'}} {{Document.RevisedBidsOpeningTime_Updated}} at the location  <b>{{Document.BidsOpeningPlace}}</b></td>
+                    <td ng-if="Document.IsESubmissionAllowed1 && Document.Stage == 2"> {{formatDate(Document.RevisedBidsOpeningDate) |  date:'dd MMMM, yyyy'}} {{Document.RevisedBidsOpeningTime_Updated}} Through  <b>EPPS.</b></td>
+                </tr>
+                <tr ng-if="Document.FinancialBidsOpeningDate">
+                    <td>Opening Date/Time of Financial bids	</td>
+                    <td>
+                        <b>Shall be communicated by the Procuring Agency on the completion of technical evaluation</b>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Bidding Document Fee</td>
+                    <td ng-if="Document.TenderDocFeeRequired">
+                        Amount:{{Document.TenderDocFee | number : fractionSize}} PKR.<br />
+                        Manner of Payment: {{GetPymentMethods(Document.PaymentMethod.split(','))}} <br />
+						<span ng-if="id==15730">Account Number : 0109000288644194</span><br ng-if="id==15730"/>
+                        Beneficiary: {{Document.Agency}} <br />
+                        <strong>Submission of Bidding Document fee is not a requirement for issuance of the Bidding Document. It will be checked during the eligibility assessment</strong>
+                        <table>
+                            <tr>
+                                <td class="no-border" ng-if="Document.TAccountHeadTender">Account Title:  {{Document.TAccountHeadTender}}</td>
+                            </tr>
+                            <tr>
+                                <td class="no-border" ng-if="Document.TAccountNumberTender">Account Number :  {{Document.TAccountNumberTender}}</td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td ng-if="!Document.TenderDocFeeRequired">
+                        Not Required.
+                    </td>
+                </tr>
+                <tr>
+                    <td>Bid Security</td>
+                    <td>
+                        <!-- (between {{GetConfigurationValue('MinBidSec%')}}% - {{GetConfigurationValue('MaxBidSec%')}}%) -->
+                        Amount: <span ng-if="Document.BidSecurityType==2"><b>{{Document.BidSecurityPercentage}}%</b> of the Bid Value (%age of Offered Cost)</span><span ng-if="Document.BidSecurityType==1"><b>{{Document.BidSecurityPercentage}}%</b> of the Estimated Value (%age of Estimate Cost)</span>
+                        <span ng-if="Document.BidSecurityType==3"><b>{{Document.BidSecurity| number : fractionSize}} PKR (Fixed)</b> </span><br />
+                        Manner of Payment:   {{GetPymentMethods(Document.BidSecurityPaymentMethod.split(','))}} <br />
+                        Beneficiary: {{Document.Agency}}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Performance Security</td>
+                    <td ng-if="Document.PerfomanceBidSecurity != null && Document.PerfomanceBidSecurity != 0">
+                        Amount:{{Document.PerfomanceBidSecurity}} % of the Contract value <br />
+                        Manner of Payment: {{GetPymentMethods(Document.PerfomanceBidSecurityPaymentMethod.split(','))}}<br />
+                        Beneficiary: {{Document.Agency}}
+                    </td>
+                    <td ng-if="Document.PerfomanceBidSecurity == null || Document.PerfomanceBidSecurity == 0">
+                        Not Required
+                    </td>
+                </tr>
+                <tr>
+                    <td>Allow Financial Bids In Foreign Currencies</td>
+                    <td>
+                        {{((Document.IsCNF)?'Yes':'No')}}
+                    </td>
+                </tr>
+                <tr ng-if="Document.IsCNF">
+                    <td>Currency</td>
+                    <td>
+                        Bidder can be select item wise Currency at the time of Financial submission on EPPS
+                    </td>
+                </tr>
+                <tr>
+                    <td>Scope of bidding</td>
+                    <td>
+                        {{((Document.Nature == 'international')?'International':'National')}}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Bid Validity Period (Days)</td>
+                    <td>{{Document.BidValidityPeriod}}</td>
+                </tr>
+                <tr>
+                    <td>JV-Consortium Allowed</td>
+                    <td>{{((Document.JointVenture)?'Yes':'No')}}</td>
+                </tr>
+                <tr ng-if="Document.JointVenture">
+                    <td>No Of JV-Consortium Allowed</td>
+                    <td>{{Document.NumberOfJVPartners}}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="page-break">
+        <h4>Eligibility Criteria for Bidders:</h4>
+
+        <div class="table-responsive">
+            <table class="table-bordered">
+                <tr>
+                    <th>S No.</th>
+                    <th>Eligibility Factors</th>
+                    <th>Requirement</th>
+                    <th>Document Required</th>
+                    <th ng-if="Document.JointVenture">Partners</th>
+                </tr>
+                <tr ng-repeat="x in EligibilityCriteria">
+                    <td>{{$index+1}}</td>
+                    <td ng-if="x.EligibilityFactor == 'Similar Assignment'">Relevent Experience</td>
+                    <td ng-if="x.EligibilityFactor !== 'Similar Assignment'">{{x.EligibilityFactor}}</td>
+                    <td>{{x.FactorDescription}}</td>
+                    <td>{{x.RequiredDocument}}</td>
+                    <td ng-if="Document.JointVenture">
+                        <span ng-if="x.PartnersJvInfo == 1">Primary Bidder</span>
+                        <span ng-if="x.PartnersJvInfo == 2">Secondary Bidder</span>
+                        <span ng-if="x.PartnersJvInfo == 3">Both</span>
+                        <span ng-if="x.PartnersJvInfo == 4">Either</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <br />
+        <div class="bu">
+            NOTE: It is mandatory for the bidders to meet all the above mentioned requirements of eligibility. In case of not meeting any single requirement, the Bid shall be declared IN-ELIGIBLE / NON-RESPONSIVE
+        </div>
+    </div>
+
+    <div ng-if="Document.EvaluationCategory > 1 && !Document.IsESubmissionAllowed1" class="page-break">
+        <h4>BIDDER’S INFORMATION: (To be filled-in by the Bidder)</h4>
+        <div class="table-responsive">
+		<table ng-repeat="x in BidderInfo">
+            <tr>
+                <td width="40%" class="no-border">{{x.Field}}</td>
+                <td width="59%" class="no-border">____________________________________</td>
+            </tr>
+            <tr>
+                <td class="no-border"><br /></td>
+            </tr>
+        </table>
+		</div>
+    </div>
+    <div class="page-break">
+        <h4>Scope Of Work</h4>
+        <div id="dateScopeOfWork" ng-bind-html="ScopeOfWork">
+        </div>
+        <br />
+    </div>
+    <div class="page-break">
+        <h4>DATA-SHEET OF THE ASSIGNMENT/ SCHEDULE OF REQUIREMENTS</h4>
+        <div ng-if="Document.EvaluationCategory >1">
+            The objective of the below given Data-Sheet / Schedule of Requirements is to provide sufficient information to bidders to understand complete scope of this procurement such that no requirement of the Procuring Agency is left un-mentioned hereunder, so as to enable the bidders to prepare their bids accordingly:
+            <div>It is mandatory for the bidders to meet the following given specifications. All offers meeting or exceeding the following minimum required specification shall be considered for further evaluations in accordance with the evaluation criteria.</div>
+        </div>
+        <br />
+        <div class="table-responsive">
+            <table class="table-bordered">
+                <tr>
+                    <th>Sr.No</th>
+                    <th>Item Name</th>
+                    <th>Quantity</th>
+                    <th>Unit</th>
+                    <th ng-if="Document.ProcurementCategoryID != 2">Specification</th>
+                    <th ng-if="Document.ProcurementCategoryID == 2">Requirement</th>
+                </tr>
+                <tr ng-repeat="x in DataSheet">
+                    <td class="top-Align">{{$index+1}}</td>
+                    <td class="top-Align">{{x.ItemName}}</td>
+                    <td class="Right-Align">{{x.Quantity| number : fractionSize}}</td>
+                    <td class="Right-Align">{{x.UnitName}}</td>
+                    <td>
+					<div class="table-responsive">
+                        <table class="no-border">
+                            <tr ng-repeat="y in x.ItemSpecificationList">
+                                <td class="no-border">{{y.Specification}}:</td>
+                                <td class="no-border">{{y.SpecDescription}}</td>
+                            </tr>
+                        </table>
+						</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <br />
+        <div ng-if="Document.EvaluationCategory >1">
+            Note: Order quantity shall be in accordance with the varying quantity requirements of the Procuring Agency
+        </div>
+        <br />
+        <div ng-if="Document.EvaluationCategory ==1">
+            * Samples of each item must be provided by the Bidder (where applicable)
+            <br />
+            <br />
+            * Brand names & model numbers (if any) referred-to in this tender document are only for reference purpose in the light of BPP Rules - 2014 # 13(1), however ALL offers in conformity with the generic specification shall be evaluated as equal. <br />
+        </div>
+
+        <div ng-if="Document.EvaluationCategory >1">
+            * Brand names & model numbers (if any) referred-to in this tender document are only for reference purpose in the light of BPP Rules - 2014 # 13(1), however ALL offers in conformity with the generic specification shall be evaluated as equal.
+            <br />
+            <br />
+            ** Ordered quantity shall not vary beyond 15% of the quantities specified in the “Data-Sheet of the Assignment” as per requirement of the Procuring Agency.<br />
+            <br />
+            <br />
+            *** Order quantity shall be in accordance with the varying quantity requirements of the Procuring Agency
+            <h4>
+                Delivery Schedule & Requirements:
+            </h4>
+            <div>
+                <strong>Place of Delivery of Goods:  	</strong>{{Document.GoodsDelivery}}
+                <br />
+                <br />
+                <strong>Last Date & Time of Delivery: </strong><span ng-bind="formatDate(Document.DeliveryLastDate) |  date:'dd MMMM, yyyy'">{{Document.DeliveryLastDate}}</span>
+                <br />
+            </div>
+            <div ng-if="Document.DeliveryAllowedCheck == 1">
+                Partial delivery is <strong>Allowed</strong>
+            </div>
+            <div ng-if="Document.DeliveryAllowedCheck == 0">
+                Partial delivery is <strong>Not-Allowed</strong>
+            </div>
+        </div>
+
+        <div ng-if="Document.OtherDeliveryRequirementsCheck ==1">
+            <h4>Other Delivery requirements: </h4>
+            {{Document.OtherDeliveryRequirements}}
+        </div>
+    </div>
+
+    <div ng-if="Document.EvaluationCategory ==1">
+        <h4>Method of Procurement Used:</h4>
+        Procedure of bidding shall be “Single stage - One envelope bidding procedure” as per Rule # 41 (2) of the Balochistan Public Procurement Rules 2014.
+    </div>
+
+    <div class="page-break">
+        <h4 ng-if="Document.EvaluationCategory >1">INSTRUCTION FOR PREPARING TECHNICAL BID</h4>
+        <div ng-if="InstToPrepBDpreContentTech!= null || InstToPrepBDpreContentTech!= undefined &&  Document.EvaluationCategory >1" ng-bind-html="InstToPrepBDpreContentTech"></div>
+
+        <div ng-if="InstructionsList.length>0">
+            <h4>Additional Instruction</h4>
+            <div class="table-responsive">
+                <table class="table-bordered">
+                    <tr>
+                        <th>S.No</th>
+                        <th>Additional Instructions</th>
+                        <th>Sub Instructions</th>
+
+                    </tr>
+                    <tr ng-repeat="x in InstructionsList  | filter:{InsType:'Technical', InActive: false} ">
+                        <td>{{$index+1}}</td>
+                        <td>{{x.Instruction}}</td>
+                        <td>
+                            <table>
+                                <tr ng-repeat="y in x.SubIns">
+                                    <td class="no-border">{{y.SubInstruction}}</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        <br />
+    </div>
+
+    <div>
+
+        <div ng-if="Document.EvaluationCategory >1 && !Document.IsESubmissionAllowed1" class="page-break">
+            <h4 class="bu">Bid Form 1</h4>
+
+            <h4>BIDDER’S INFORMATION: (To be filled-in by the Bidder)</h4>
+			<div class="table-responsive">
+            <table ng-repeat="x in BidderInfo">
+                <tr>
+                    <td width="40%" class="no-border">{{x.Field}}</td>
+                    <td width="59%" class="no-border">____________________________________</td>
+                </tr>
+                <tr>
+                    <td class="no-border"><br /></td>
+                </tr>
+            </table>
+			</div>
+        </div>
+
+        <div class="" ng-if="!Document.IsESubmissionAllowed1">
+            <h4>Bid Form 2</h4>
+            <h5>DECLARATION BY THE BIDDER</h5>
+            <div ng-bind-html="Declaration"></div>
+        </div>
+
+        <div ng-if="!Document.IsESubmissionAllowed1" class="page-break">
+            <h4> <span ng-if="!Document.IsESubmissionAllowed1">Bid Form 3 (A)</span> <span ng-if="Document.IsESubmissionAllowed1">Bid Form 1 (A)</span> <br />Technical Bid (Bidder's Eligibility) <span ng-if="!Document.IsESubmissionAllowed1">To be quoted by the bidder on bidder's letter head as part of technical bid</span>. </h4>
+
+            <!--<table>
+                <thead>
+                    <tr>
+                        <th><span>Eligibility Factor</span></th>
+                        <th><span>Factor Description</span></th>
+                        <th><span>Required Documents</span></th>
+                        <th><span>Particulars</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr ng-repeat="i in EligibilityCriteria">
+                        <td>{{i.EligibilityFactor}}</td>
+                        <td>{{i.FactorDescription}}</td>
+                        <td>{{i.RequiredDocument}}</td>
+                        <td>
+                            <table class="table-hover table-striped table">
+                                <thead>
+                                    <tr>
+                                        <th ng-repeat="t in i.FactorParticulars">{{t.Particular}}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr ng-repeat="t in [] | range:GetFactorDescriptionTemplatesValue(i.DescriptionTemplate,'RelevantExperience')">
+                                        <td ng-repeat="tt in i.FactorParticulars">_______</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>-->
+            <div>
+                <div>
+                    <div class="table-responsive">
+                        <table class="table-bordered">
+                            <thead>
+                                <tr>
+                                    <th><span>Eligibility Factor</span></th>
+                                    <th><span>Factor Description</span></th>
+                                    <th><span>Required Documents</span></th>
+                                    <th style="text-align:center !important"><span>Particulars</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ng-repeat="i in EligibilityFactorsDyn | filter:{group:Document.EligibilityGroup}">
+                                    <td>{{i.factor}}</td>
+                                    <td>
+
+                                        <span ng-repeat="t in i.DescriptionTemplate">{{t.value}}</span>
+                                    </td>
+                                    <td>{{i.document}}</td>
+                                    <td>
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th class="no-border" ng-repeat="t in i.FactorParticulars" ng-if="t.Particular != 'Flag At'">{{t.Particular}}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr ng-repeat="t in [] | range:GetFactorDescriptionTemplatesValue(i.DescriptionTemplate,'RelevantExperience')">
+                                                    <td class="no-border" ng-repeat="tt in i.FactorParticulars" ng-if="tt.Particular != 'Flag At'">_______</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div ng-if="!Document.IsESubmissionAllowed1" class="page-break">
+            <h4><span ng-if="!Document.IsESubmissionAllowed1">Bid Form 3 (B)</span><span ng-if="Document.IsESubmissionAllowed1">Bid Form 1 (B)</span></h4>
+            <h5 ng-if="!Document.IsESubmissionAllowed1">Technical Bid (Product Details) To be quoted by the bidder on bidder's letter head as part of technical bid.</h5>
+            <div class="table-responsive">
+                <table class="table-bordered">
+                    <tr>
+                        <th>Item Name</th>
+                        <th ng-if="Document.ProcurementCategoryID != 2">Required Specification</th>
+                        <th ng-if="Document.ProcurementCategoryID == 2">Required Requirement</th>
+                        <th ng-if="Document.ProcurementCategoryID != 2">Quoted Specifications <span ng-if="!Document.IsESubmissionAllowed1">(All fields are mandatory to be quoted by the bidder.)</span></th>
+                        <th ng-if="Document.ProcurementCategoryID == 2">Quoted Requirements <span ng-if="!Document.IsESubmissionAllowed1">(All fields are mandatory to be quoted by the bidder.)</span></th>
+                    </tr>
+                    <tr ng-repeat="x in DataSheet">
+                        <td width="30%" class="top-Align">{{x.ItemName}}</td>
+                        <td width="30%">
+						<div class="table-responsive">
+                            <table class="no-border">
+                                <tr ng-repeat="y in x.ItemSpecificationList">
+                                    <td class="no-border">{{y.Specification}} : {{y.SpecDescription}}</td>
+                                </tr>
+                            </table>
+							</div>
+                        </td>
+                        <td width="40%"></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="page-break">
+            <h4><span ng-if="!Document.IsESubmissionAllowed1">Bid Form 5</span><span ng-if="Document.IsESubmissionAllowed1">Bid Form 1</span></h4>
+            <h5>Manufacturer's Authorization</h5>
+            <!-- <h5>To: Procuring Agency for Goods and Services 21 Arbab Town, Quetta</h5> -->
+            <div ng-bind-html="ManufacturerAuth"></div>
+            <div ng-if="Document.IsESubmissionAllowed1">Note 1: This Authorization needs to be printed on the letterhead of the manufacturer duly signed & stamped by the competent Authority of their manufacturer</div>
+            <div ng-if="Document.IsESubmissionAllowed1">Note 2: Please Scan the filled Authorization and Upload As part of the Technical Bid.</div>
+        </div>
+        <div class="page-break">
+            <h4><span ng-if="!Document.IsESubmissionAllowed1">Bid Form 6</span><span ng-if="Document.IsESubmissionAllowed1">Bid Form 2</span></h4>
+            <h5>Performance Guarantee</h5>
+            <!-- <h5>To: Procuring Agency for Goods and Services 21 Arbab Town, Quetta</h5> -->
+            <div ng-bind-html="PerformanceGurantee"></div>
+        </div>
+    </div>
+
+    <div class="page-break" ng-if="Document.EvaluationCategory ==1">
+        <h4>Instructions for Bidders:</h4>
+        <div ng-bind-html="InstToPrepBDpreContentFin"></div>
+
+        <div class="page-break">
+            <h4>FINANCIAL EVALUATION OF BIDS</h4>
+            <div class="table-responsive">
+                <table class="table-bordered">
+                    <tr>
+                        <th>Item Name / Model & Description</th>
+                        <th>Quantity</th>
+                        <th>Responsive Bidder 1</th>
+                        <th>Responsive Bidder 2</th>
+                        <th>Responsive Bidder 3</th>
+                    </tr>
+                    <tr ng-repeat="x in DataSheet">
+                        <td>{{x.ItemName}}</td>
+                        <td class="Right-Align">{{x.Quantity| number : fractionSize}}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        <div ng-bind-html="InstToPrepBDpostContentFin"></div>
+        <div ng-if="InstructionsList.length>0">
+
+            <h4>Instructions for Preparing Financial Bid</h4>
+            <div class="table-responsive">
+                <table class="table-bordered">
+                    <tr>
+                        <th>S.No</th>
+                        <th>Additional Instructions</th>
+                        <th>Sub Instructions</th>
+                    </tr>
+                    <tr ng-repeat="x in InstructionsList  | filter:{InsType:'Financial', InActive: false} ">
+                        <td>{{$index+1}}</td>
+                        <td>{{x.Instruction}}</td>
+                        <td>
+                            <table>
+                                <tr ng-repeat="y in x.SubIns">
+                                    <td> {{y.SubInstruction}}</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        <div class="page-break">
+            <h4>(e) Bid Security & Performance Security:</h4>
+            
+                <ol>
+                    <li>
+                        Bid Security
+                        <br />
+                        <span>
+                            <!-- (between {{GetConfigurationValue('MinBidSec%')}}% - {{GetConfigurationValue('MaxBidSec%')}}%) -->
+                            Amount: <span ng-if="Document.BidSecurityType==2"><b>{{Document.BidSecurityPercentage}}%</b> of the Bid Value (%age of Offered Cost)</span><span ng-if="Document.BidSecurityType==1"><b>{{Document.BidSecurityPercentage}}%</b> of the Estimated Value (%age of Estimate Cost)</span>
+                            <span ng-if="Document.BidSecurityType==3"><b>{{Document.BidSecurity| number : fractionSize}} PKR (Fixed)</b> </span><br />
+                            Manner of Payment:   {{GetPymentMethods(Document.BidSecurityPaymentMethod.split(','))}} <br />
+                            Beneficiary: {{Document.Agency}}
+                        </span>
+                    </li>
+                    <li>
+                        Performance Security
+                        <br />
+                        <span ng-if="Document.PerfomanceBidSecurity != null && Document.PerfomanceBidSecurity != 0">
+                            Amount:{{Document.PerfomanceBidSecurity}} % of the Contract value <br />
+                            Manner of Payment: {{GetPymentMethods(Document.PerfomanceBidSecurityPaymentMethod.split(','))}}<br />
+                            Beneficiary: {{Document.Agency}}
+                        </span>
+                        <span ng-if="Document.PerfomanceBidSecurity == null || Document.PerfomanceBidSecurity == 0">
+                            Not Required
+                        </span>
+                    </li>
+                </ol>
+                <!--<ol>
+                    <li ng-if="Document.PerfomanceBidSecurity != null && Document.PerfomanceBidSecurity != 0Document.BidSecurityPercentage != null && Document.BidSecurityPercentage != 0 ">The Bids must be accompanied with Bid Security in the form of Bank Guarantee or Deposit at Call from a scheduled bank @ {{Document.BidSecurityPercentage}}%  please specify) of the total bid value favoring the {{Document.Agency}}</li>
+                    <li ng-if="Document.PerfomanceBidSecurity != null && Document.PerfomanceBidSecurity != 0">
+                        Bid Security Not Required
+                    </li>
+                    <li ng-if="Document.PerfomanceBidSecurity != null && Document.PerfomanceBidSecurity != 0">Performance Security @ {{Document.PerfomanceBidSecurity}} %   of the Total Bid value) in the form of Pay Order, Demand Draft, Bank Guarantee, or Insurance Bond (by AAA ranking Insurance Company) favoring the {{Document.Agency}} shall be required to be provided by the bidder at the time of acceptance of Supply Order/ award of contract. </li>
+                    <li ng-if="Document.PerfomanceBidSecurity == null || Document.PerfomanceBidSecurity == 0">
+                        Performance Security Not Required
+                    </li>
+                </ol>-->
+            <div> <span class="bu">(f) Submission of Bids: </span>Sealed Tenders (Single Envelope containing  bids) must reach the office of the Procurement Officer in accordance with the Letter of Invitation for Bids, through courier or may be dropped in the Tender Box at the office of the Procurement Officer</div>
+            <br />
+            <div ng-if="Document.Stage != 2"> <span class="bu">(g) Opening of bids: </span>The proposals will be opened on the same day/ last day declared for submission for bids on <span ng-bind="formatDate(Document.BidsOpeningDate) |  date:'dd MMMM, yyyy'">{{Document.BidsOpeningDate}} </span> at Time {{Document.BidsOpeningTime_Updated}}  sharp in the Office of {{Document.Agency}} in presence of the bidders who want to be present in the Bid opening session.</div>
+            <div ng-if="Document.Stage == 2"> <span class="bu">(g) Opening of bids: </span>The proposals will be opened on the same day/ last day declared for submission for bids on <span ng-bind="formatDate(Document.BidsOpeningDate) |  date:'dd MMMM, yyyy'">{{Document.RevisedBidsOpeningDate}} </span> at Time {{Document.RevisedBidsOpeningTime_Updated}}  sharp in the Office of {{Document.Agency}} in presence of the bidders who want to be present in the Bid opening session.</div>
+        </div>
+    </div>
+
+    <div class="page-break" ng-if="Document.EvaluationCategory >1">
+        <h4>Evaluation Criteria:</h4>
+        <span ng-if="Document.EvaluationCategory==1">
+            The evaluation criteria is based on
+            <span class="b">Least-Cost Selection Method </span>
+            which means,
+            <span class="b">Eligible Bidder quoting Lowest Financial Cost </span>
+            shall be declared as the lowest evaluated bidder on <span ng-if="Document.EvaluationTypeID==1">Item Wise</span><span ng-if="Document.EvaluationTypeID==2">Package Wise</span> basis.
+        </span>
+        <span ng-if="Document.EvaluationCategory==2">
+            The evaluation criteria is based on 
+            <span class="b">Least-Cost Selection Method </span>
+            where, 
+            <span class="b">Eligible Bidder, quoting Technically Responsive items at Lowest Financial Cost </span>
+            shall be declared as the lowest evaluated bidder on <span ng-if="Document.EvaluationTypeID==1">Item Wise</span><span ng-if="Document.EvaluationTypeID==2">Package Wise</span> basis.
+            <br />
+            <span>The Evaluation shall be on knock-down basis, which means that a bid failing at any evaluation stage shall not be evaluated in further stages of evaluation.</span>
+        </span>
+        <span ng-if="Document.EvaluationCategory==4">
+            The evaluation criteria is based on
+            <span class="b">Least-Cost Selection Method </span>where, the
+            <span class="b">Eligible Bidder, upon qualifying technical responsiveness through scoring {{Document.QualifingMarks}}% in technical evaluation and quoting Lowest Financial Cost </span>
+            shall be declared as the lowest evaluated bidder on <span ng-if="Document.EvaluationTypeID==1">Item Wise</span><span ng-if="Document.EvaluationTypeID==2">Package Wise</span> basis.
+            <br />
+            <span>The Evaluation shall be on knock-down basis, which means that a bid failing at any evaluation stage shall not be evaluated in further stages of evaluation.</span>
+        </span>
+        <span ng-if="Document.EvaluationCategory==3">
+            The evaluation criteria is based on
+            <span class="b">Least-Cost Selection Method </span>where, the
+            <span class="b">Eligible Bidder, upon qualifying technical responsiveness through fulfilling technical requirements and scoring {{Document.QualifingMarks}}% in technical evaluation and quoting Lowest Financial Cost </span>
+            shall be declared as the lowest evaluated bidder on <span ng-if="Document.EvaluationTypeID==1">Item Wise</span><span ng-if="Document.EvaluationTypeID==2">Package Wise</span> basis.
+            <br />
+            <span>The Evaluation shall be on knock-down basis, which means that a bid failing at any evaluation stage shall not be evaluated in further stages of evaluation</span>
+        </span>
+        <span ng-if="Document.EvaluationCategory==5">
+            The evaluation criteria is based on
+            <span class="b">Least-Cost Selection Method </span>where,
+            <span class="b">{{Document.HighestBidders}} highest scoring bidders shall be declared responsive upon qualifying Eligibility and responsiveness through scoring mechanism. Then the bidder quoting Lowest Financial Cost amongst those responsive bidders </span>
+            shall be declared as the lowest evaluated bidder on <span ng-if="Document.EvaluationTypeID==1">Item Wise</span><span ng-if="Document.EvaluationTypeID==2">Package Wise</span> basis.
+            <br />
+            <span>The Evaluation shall be on knock-down basis, which means that a bid failing at any evaluation stage shall not be evaluated in further stages of evaluation</span>
+        </span>
+        <span ng-if="Document.EvaluationCategory==6">
+            The evaluation criteria is based on
+            <span class="b">the highest scoring of the aggregate of Quality-Cost score </span>
+            where, the weightage of Quality & Cost scores shall be <span class="b">{{Document.QualityWeightage}}% (Q) </span>and <span class="b">{{Document.CostWeightage}}% (C) </span>
+            respectively. The evaluation procedure shall be as follows;
+            <br />
+            <span class="b">
+                Initially, the eligibility of Bids will be assessed, then the technical score of the eligible bids shall be calculated in the following manner:
+                Technical Score of Under consideration Bid = (Technical marks of Under consideration Bid x {{Document.QualityWeightage}}% (Q))
+
+            </span>
+            <br />
+            <span class="b">
+                Bids scoring {{Document.QualifingMarks}}% (R) in technical evaluation shall be declared responsive.
+            </span>
+            <br />
+            <span class="b">
+                Subsequently, financial score of the responsive bids shall be calculated in the following manner:
+            </span>
+            <br />
+            <span class="b">
+                Financial Score of Under consideration Bid = (Price of Under consideration Bid / Price of lowest financial bid) x {{Document.CostWeightage}}% (C)
+            </span>
+        </span>
+        <br/>
+        <span>
+            In case, two or more lowest evaluated bids are tie or equal, work would be awarded to the bidder quoting better specification or additional accessories / service. 
+            In case, the specification / service of the item/s is also identical, preference would be given to the bidder quoting shorter delivery / completion time. In case, the delivery time is also equal, 
+            preference would be given to the bidder having greater experience. In case, the experience of the bidders is also equal, preference would be given to the bidder having greater financial turn-over. In case, 
+            the financial turn-over is also same, the procuring agency shall award the contract on the basis of toss to the winning bidder.
+        </span>
+        <!--Selection of the successful bidder shall be based on the-->
+        <!--<span class="b" ng-if="Document.LeastCostSelection==1">aggregate of Least-Cost Selection Method.</span>
+    <span class="b" ng-if="Document.QualityBaseSelection==1">aggregate of Quality-Cost Selection Method.</span>
+    <span class="b" ng-if="Document.EvaluationTypeID==1 && Document.EvaluationCategory != 6"> Eligible Bidder quoting Technically Responsive items at the lowest financial cost.</span>
+    <span class="b" ng-if="Document.EvaluationTypeID==2 && Document.EvaluationCategory != 6"> Eligible Bidder quoting Technically Responsive package at the lowest financial cost.</span>
+    <br />
+    <span ng-if="Document.EvaluationCategory==6">
+        The bidder with the highest total score after Technical and Financial evaluation shall be declared as the lowest evaluated bidder.
+        Where, the weightage of Quality and Cost shall be <span>{{Document.QualityWeightage}} %</span> and <span>
+            {{Document.CostWeightage}} %
+        </span> respectively.
+        Whereas, obtaining a minimum of <span>
+            {{Document.QualifingMarks}}%
+        </span> score in Technical evaluation shall be mandatory for the bidder to be considered Technically Qualified / Responsive.
+    </span>-->
+        <div>
+            The procedure shall be applied on knock-down basis as follows: -
+        </div>
+        <div>
+            <br />
+            <div><strong><u>1.	Bidders Eligibility Assessment. </u></strong>Initial evaluation of the Technical proposals shall be carried-out by the <strong>Procurement Committee</strong>		, as per the requirements of the eligibility criteria laid down under the heading of 		“Letter of Invitation for Bids - Eligibility Criteria for Bidders” <span ng-if="!Document.IsESubmissionAllowed1">in the following manner:</span></div>
+            <br />
+
+        </div>
+
+        <div class="table-responsive" ng-if="!Document.IsESubmissionAllowed1">
+            <table class="table-bordered">
+                <tr>
+                    <th>S No.</th>
+                    <th>Bidder's Eligibility Factor</th>
+                    <th>Requirement</th>
+                    <th>
+                        Bidder 1
+                        YES/NO
+                    </th>
+                    <th>
+                        Bidder 2
+                        YES/NO
+                    </th>
+                    <th>
+                        Bidder 3
+                        YES/NO
+                    </th>
+                </tr>
+                <tr ng-repeat="x in EligibilityCriteria">
+                    <td>{{$index+1}}</td>
+                    <td>{{x.EligibilityFactor}}</td>
+                    <td>{{x.FactorDescription}}</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </table>
+        </div>
+
+        <div>
+            <br />
+            <span ng-if="!Document.IsESubmissionAllowed1">
+                i.	Firm must score “YES” in all requirements of the eligibility criteria to be categorized as 						Eligible.“NO” to any requirement of the eligibility criteria, by any bidder shall render the
+                Firm as Ineligible.
+                <br />
+                ii.	Subsequent upon said assessment, Bidders shall be categorized as:
+            </span>
+            <ol ng-if="!Document.IsESubmissionAllowed1">
+                <li>Eligible Bidders</li>
+                <li>Ineligible Bidders</li>
+            </ol>
+            <div ng-if="TSP==false">
+                <span class="bu">2.	Return of Financial Proposals from Ineligible Bidders.</span>  Proposals from Ineligible Bidders shall be 	declared  “Non-Responsive”, consequently shall NOT be accepted for any further evaluation:
+                <ol>
+                    <li>Their Financial Proposals shall be returned without being opened.</li>
+                    <li>Their Bid security shall be released upon their written request.</li>
+                </ol>
+
+            </div>
+            <div ng-if="TSP==true && TSP1== true">
+
+                <span class="bu">2.	Return of Financial Proposals from Ineligible Bidders.</span>  Proposals from Ineligible Bidders shall be 	declared  “Non-Responsive”, consequently shall NOT be accepted for any further evaluation<span ng-if="!Document.IsESubmissionAllowed1">:</span><span ng-if="!Document.IsESubmissionAllowed1">.</span>
+                <ol ng-if="!Document.IsESubmissionAllowed1">
+                    <li>Their Financial Proposals shall be returned without being opened.</li>
+                    <li>Their Bid security shall be released upon their written request.</li>
+                </ol>
+            </div>
+            <div>
+                <span>
+                    It shall be mandatory for a bidder to meet all Eligibilty Factors to be considered Eligible.
+                </span>
+            </div>
+
+            <br /><br /> <span class="bu">3. {{Document.EvaluationType}} Evaluation.</span>The Bids received from Eligible Bidders <span ng-if="!Document.IsESubmissionAllowed1">shall then be evaluated by the Technical Member / Committee or the Procurement Committee itself (If the required items are not technically complex)</span> for conformance with the required technical qualification (which includes specification, schedule of requirements and all other administrative and legal requirements as stated in the Data-Sheet) on  <strong>{{Document.EvaluationType}} </strong>basis, in the following manner:
+
+        </div>
+    </div>
+
+    <div ng-if="Document.EvaluationCategory ==1">
+        <h4>Evaluation Crireria:</h4>
+        Selection of the successful bidder shall be based on the
+        <span class="b" ng-if="Document.LeastCostSelection==1">Least-Cost Selection Method</span>
+        <span class="b" ng-if="Document.QualityBaseSelection==1">Quality-Cost Selection Method</span> which means , <span class="bu">“Lowest Financial bid, received from Eligible Bidders” </span> (as specified under the heading of the “Letter of invitation for Bids - Eligibility Criteria for Bidders”) Procedure for which is as follows:
+
+        <div>The procedure shall be applied on knock-down basis as follows:</div>
+        <div>
+            <br />
+            <strong><u>1.	Bidders Eligibility Assessment. </u></strong>Initial evaluation of the Technical proposals shall be carried-out by the
+            <strong>Procurement Committee</strong>, subsequent upon fulfilment of requirements of the eligibility criteria laid down under the heading of “Letter of Invitation for Bids - Eligibility Criteria for Bidders” and Bidders shall be categorized as:
+            <br />
+        </div>
+        <ol>
+            <li>Eligible Bidders</li>
+            <li>Ineligible Bidders</li>
+        </ol>
+
+        <div class="bu">2.	Rejection of Proposals from Ineligible Bidders.</div>  Proposals from Ineligible Bidders shall be 	declared  “Non-Responsive”, consequently shall NOT be accepted for any further evaluation and their Bid security shall be released upon their written request.
+        <br /> <div class="bu">3. {{Document.EvaluationType}} Evaluation.</div>The Bids received from Eligible Bidders shall then be evaluated by the “the Procurement Committee.”  The Proposal shall be evaluated <strong>{{Document.EvaluationType}} </strong> on specifications / requirements (as stated in the Data-Sheet) compared with specifications mentioned in the bid. The Financial Bids of the Eligible Bidders conforming to the required specifications will be announced publicly.
+        <div>
+            <br /><div class="bu">4.	Return of Proposals of Ineligible Bidders & preparation of Evaluation Report.</div> The Proposals not fulfilling the specification as per the Data Sheet shall be declared as “Non-Responsive”, consequently shall NOT be accepted for any further evaluation:
+            <ol>
+                <li>Their financial proposals shall not be considered. </li>
+                <li>Their Bid security shall be released upon their written request.</li>
+                <li>If the work can be split among multiple vendors and evaluation is being done on item-wise basis, then a Firm shall only be Non-Responsive for specific items in which it does not meet the minimum qualification. And may be recommended for items in which it is responsive.</li>
+                <li>
+                    Evaluation Report shall be prepared duly signed by all the members of the Procurement Committee, giving REASONS for;
+                    <ol>
+                        <li>Acceptance of the Eligible Bids and;</li>
+                        <li>Rejection of the Ineligible Bids</li>
+                    </ol>
+                </li>
+            </ol>
+        </div>
+        <div>
+            <span class="bu">5.	Financial Evaluation. </span> Financial Proposal of the Eligible Bidders shall be publicly announced in the <span class="bu"> same/next </span> meeting by the Procuring Agency. Financial Evaluation Report /Comparative Statement of the “Proposals” shall be prepared by the <strong class="b">Procurement Committee </strong> as per the format given hereunder. Subsequently, the prepared Financial Evaluation Report shall duly be signed by all the members of the Procurement Committee.
+        </div>
+        <div>
+            <br />         <br />         <span class="bu"> 6.   Recommendation of Procurement Committee & Uploading of Evaluation Report. </span> After the Evaluation of the Bids, this Report shall be called as the “Evaluation Report”.  This Evaluation Report must clearly state, justification for acceptance of lowest evaluated Bid, and reasons for non-acceptance of all other Bids. Consequently, lowest financial Bidder among the “Eligible Bidders” shall be recommended for the Award of Contract by the <span class="b"> Procurement Committee.</span> The Procuring Agency shall upload this Bid Evaluation Report at the website of Balochistan Public Procurement Regulatory Authority, at-least ten days prior to the award of Contract. <span ng-if="!Document.IsESubmissionAllowed1">Copy of the same shall also be provided to bidders upon their written request.</span>
+        </div>
+        <div>
+            <br />
+            <span class="bu">7.	Award of Contract.</span>  Contract for Supply of the Item/s to the recommended Bidder/s shall be placed with the lowest evaluated bidder/s <span class="b">(“Lowest Financial Bid, received from Eligible Bidder/s, for each item /package’’)</span> after three days of uploading of the Evaluation Report at B-PPRA Website.
+        </div>
+
+        <div class="page-break">
+            <span class="bu">Tender Price Assessment and Tax liability </span>
+            <br />    <span class="bu">i.	Tender Price Assessment Mechanism</span>
+            <br /><div>1. Initially, Eligibility of Bidders as required under the heading “Letter of invitation for Bids” shall be assessed by the “Procurement Committee” during the evaluation in the following manner:</div>
+
+            <h4>FORMAT FOR ASSESMENT OF BIDDERS ELIGIBILITY</h4>
+            <div class="table-responsive">
+                <table class="table-bordered">
+                    <tr>
+                        <th>Bidder's Eligibility Factor</th>
+                        <th>Requirement</th>
+                        <th>
+                            Bidder 1
+                            Yes/No
+                        </th>
+                        <th>
+                            Bidder 2
+                            Yes/No
+                        </th>
+                        <th>
+                            Bidder 3
+                            Yes/No
+                        </th>
+                    </tr>
+                    <tr ng-repeat="x in EligibilityCriteria">
+                        <td>{{x.EligibilityFactor}}</td>
+                        <td>{{x.FactorDescription}}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </table>
+            </div>
+            <br />   <div>2.	Firm must score “YES” in all requirements of the eligibility criteria to be categorized as Eligible. “NO” to any requirement of the eligibility criteria, by any bidder shall render the Firm as Ineligible.</div>
+
+            <div>3.	The Financial Bids of the Eligible Bidders shall be evaluated on the format prescribed hereunder:</div>
+
+            <div class="page-break">
+                <h4>FINANCIAL EVALUATION OF BIDS</h4>
+                <div class="table-responsive">
+                    <table class="table-bordered">
+                        <tr>
+                            <th>Item Name / Model & Description</th>
+                            <th>Quantity</th>
+                            <th>Eligible Bidder 1</th>
+                            <th>Eligible Bidder 2</th>
+                            <th>Eligible Bidder 3</th>
+                        </tr>
+                        <tr ng-repeat="x in DataSheet">
+                            <td>{{x.ItemName}}</td>
+                            <td class="Right-Align">{{x.Quantity| number : fractionSize}}</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <div>4.	Bid/s found to be financially lowest among the Responsive Bids shall be recommended for the award of contract.</div>
+        </div>
+
+        <div>
+            <h4>Terms and Conditions:</h4>
+            <div ng-bind-html="GeneralConditions"></div>
+        </div>
+
+        <div>
+            <h4>ii.		Tax Liability</h4>
+            <ol>
+                <li>Complete Tax liability is to be borne by the Vendor.</li>
+                <li>Quoted prices shall be inclusive of all applicable Taxes, be filled item-wise as per the afore-mentioned format at Para-2 and may not be applied to the sub-total of the package.</li>
+                <li>In-case of any Tax exemptions, exemption certificate from the concerned Tax Office / Regional Tax Office pertaining particularly to this case may be provided; otherwise taxes shall be deducted as per Government Policy / Rules.</li>
+            </ol>
+        </div>
+
+        <div>
+            <h4>
+                SPECIAL CONDITIONS
+            </h4>
+            <div class="table-responsive">
+                <table class="table-bordered">
+
+                    <tr>
+                        <th>S.No</th>
+                        <th>Special Condition</th>
+                        <th>Sub Condition</th>
+                    </tr>
+                    <tr ng-repeat="x in ConditionList">
+                        <td>{{$index+1}}</td>
+                        <td>{{x.Condition}}</td>
+                        <td>
+						<div class="table-responsive">
+                            <table class="no-border" cellspacing="0" cellpadding="0">
+                                <tbody>
+                                    <tr ng-repeat="y in x.SubConditionList">
+                                        <td class="no-border">{{y.Title}} : {{y.Description}}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+							</div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="page-break">
+            <h4>CURRENCY & BID VALIDITY</h4>
+                <div>
+                    Allow Financial Bids In Foreign Currencies:  {{((Document.IsCNF)?'Yes':'No')}}
+                </div>
+                <div ng-if="Document.IsCNF">
+                    Currency:  Bidder can be select item wise Currency at the time of Financial submission on EPPS
+                </div>
+            <div>
+                Bid Validity Period (Days):  {{Document.BidValidityPeriod}}
+            </div>
+        </div>
+
+        <div class="page-break" ng-if="!Document.IsESubmissionAllowed1">
+            <h4>BIDDER’S INFORMATION: (To be filled-in by the Bidder)</h4>
+			<div class="table-responsive">
+            <table ng-repeat="x in BidderInfo">
+                <tr>
+                    <td width="40%" class="no-border">{{x.Field}}</td>
+                    <td width="59%" class="no-border">____________________________________</td>
+                </tr>
+                <tr>
+                    <td class="no-border"><br /></td>
+                </tr>
+            </table>
+			</div>
+        </div>
+
+        <div class="page-break">
+            <h4>DECLARATION BY THE BIDDER</h4>
+            <div ng-bind-html="Declaration"></div>
+        </div>
+    </div>
+
+    <div ng-if="EvalCriteriaDynamic.length>0" class="page-break">
+        <h4>Evaluation Criteria</h4>
+        <div ng-repeat="i in EvalCriteriaDynamic" ng-include="'table_tree.html'"></div>
+    </div>
+
+    <div class="page-break" ng-if="Document.EvaluationCategory >1">
+
+        <h4>Technical Evaluation of Bids</h4>
+        <div class="table-responsive">
+            <table class="table-bordered">
+                <tr>
+                    <th>Item Name</th>
+                    <th>Technical Requirement</th>
+                    <th>
+                        Eligibility<br />
+                        Bidder 1<br />
+                        Fulfill
+                        <br />
+                        Requirement<br />
+                        YES / NO
+                    </th>
+                    <th>
+                        Eligibility
+                        <br />
+                        Bidder 2
+                        <br />
+                        Fulfill
+                        <br />
+                        Requirement
+                        <br />
+                        YES / NO
+                    </th>
+                    <th>
+                        Eligibility
+                        <br />
+                        Bidder 3
+                        <br />
+                        Fulfill
+                        <br />
+                        Requirement
+                        <br />
+                        YES / NO
+                    </th>
+                </tr>
+                <tr ng-repeat="x in DataSheet">
+                    <td>{{x.ItemName}}</td>
+                    <td>
+					<div class="table-responsive">
+                        <table class="no-border">
+                            <tr ng-repeat="y in x.ItemSpecificationList">
+                                <td class="no-border">{{y.Specification}} :</td>
+                                <td class="no-border">{{y.SpecDescription}}</td>
+                            </tr>
+                        </table>
+						</div>
+                    </td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </table>
+        </div>
+        <br />
+        <span class="b" ng-if="!Document.IsESubmissionAllowed1">* List all requirements stated in the Data-sheet of the assignment & schedule of requirements, to evaluate 	the bid on all the required & mentioned technical characteristics.</span>
+        <br />
+        <span ng-if="!Document.IsESubmissionAllowed1">i.	Bids conforming to the required technical qualification shall stand Responsive, hence will qualify for Financial Bid opening. All proposals shall be categorized as:</span>
+        <ol ng-if="!Document.IsESubmissionAllowed1">
+            <li>Responsive Proposals</li>
+            <li>Non-Responsive Proposals</li>
+        </ol>
+        <span class="bu">4.	Return of Non-Responsive Proposals & preparation of Technical Evaluation Report.</span> Technical Proposals not conforming to the required technical, administrative or legal requirements shall be declared as “Non-Responsive” and consequently shall NOT be accepted for any further evaluation:
+        <ol>
+            <li>Their financial proposals shall be returned without being opened.</li>
+            <li>Their Bid security shall be released upon their <span ng-if="!Document.IsESubmissionAllowed1">written request</span><span ng-if="Document.IsESubmissionAllowed1">electronic request</span>.</li>
+            <li>If the work can be split among multiple vendors and evaluation is being done on item-wise basis, then a Firm shall only be Non-Responsive for specific item/s in which it does not meet the minimum technical qualification. And may be recommended for item/s in which it is technically responsive.</li>
+            <li>
+                <span ng-if="Document.IsESubmissionAllowed1">System Generated Technical Evaluation Report Giving Reasons For Acceptance & Rejection for all Bids shall be Duly Signed by All Members of Procurement Committee & Uploaded at the EPPS.</span>
+                <span ng-if="!Document.IsESubmissionAllowed1">Technical Evaluation Report shall be prepared duly signed by all the members of the Procurement Committee, giving <strong>REASONS </strong>for;</span>
+                <ol ng-if="!Document.IsESubmissionAllowed1">
+                    <li>Acceptance of the Eligible & Responsive Bid/s</li>
+                    <li>Rejection of the Ineligible &/OR Non-Responsive Bid/s</li>
+                </ol>
+            </li>
+            <li>Technical Evaluation concludes at this stage.</li>
+        </ol>
+    </div>
+
+    <div ng-if="TSP==false">
+        <div ng-if="Document.EvaluationCategory >1 " class="page-break">
+            <span class="bu">5.	Financial Evaluation.</span> Financial Proposals of the Responsive Technical Proposals shall be publicly opened <span ng-if="Document.IsESubmissionAllowed1">Publicly opened through EPPS</span><span ng-if="!Document.IsESubmissionAllowed1">
+                as
+                specified in this document under the heading of “Letter of Invitation for Bid”
+            </span>. Financial Comparative Statement / Evaluation Report of the
+            “Responsive Proposals” shall be prepared by the <strong>Procurement Committee </strong>in the following manner:
+            <h4 ng-if="!Document.IsHaulageFormula">FINANCIAL EVALUATION OF BIDS</h4>
+            <div class="table-responsive" ng-if="!Document.IsHaulageFormula">
+                <table class="table-bordered">
+                    <tr>
+                        <th>Item Name / Model & Description</th>
+                        <th>Quantity</th>
+                        <th>Responsive Bidder 1</th>
+                        <th>Responsive Bidder 2</th>
+                        <th>Responsive Bidder 3</th>
+                    </tr>
+                    <tr ng-repeat="x in DataSheet">
+                        <td>{{x.ItemName}}</td>
+                        <td class="Right-Align">{{x.Quantity| number : fractionSize}}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </table>
+            </div>
+			<br />
+			
+            <h4 ng-if="Document.IsHaulageFormula">FINANCIAL BID EVALUATION CRITERIA</h4>
+            <p ng-if="Document.IsHaulageFormula">
+                The financial proposals of technically responsive bids shall be evaluated on the basis of <b>‘Cost of Haulage (Rs. /m3),</b> which shall be determined as under:
+            </p>
+            <div ng-if="Document.IsHaulageFormula">
+                <div class="table-responsive">
+                    <table class="table-bordered">
+                        <tr>
+                            <td>1.</td>
+                            <td>Price of bulldozer <b>[P]</b></td>
+                            <td>Rs.</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>2.</td>
+                            <td>Economic life of the bulldozer <b>(L)</b></td>
+                            <td>Hour</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>3.</td>
+                            <td>Salvage value @ 10% of P</td>
+                            <td>Rs.</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>4.</td>
+                            <td>Depreciation [(P-S)/L]</td>
+                            <td>Rs. / hour</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>5.</td>
+                            <td>Interest @15% [{(P+S)/2}/L]</td>
+                            <td>Rs. / hour</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>6.</td>
+                            <td>Insurance, Tax & Shelter @2% of P [(P x 2%)/L]</td>
+                            <td>Rs. / hour</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>7.</td>
+                            <td>Repair & Maintenance Cost @100% of P [(100%xP)/L]</td>
+                            <td>Rs. / hour</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>8.</td>
+                            <td>Fuel Cost [Specific fuel consumption (Litre/h) x Fuel Cost* (Rs. /h)]</td>
+                            <td>Rs. / hour</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>9.</td>
+                            <td>Wages of Operational Staff</td>
+                            <td>Rs. / hour</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>10.</td>
+                            <td><b>Cost of Operation (4+5+6+7+8+9)</b></td>
+                            <td><b>Rs. / hour</b></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>11.</td>
+                            <td>Actual hourly production <b>(Pl see ‘NOTE’ below)</b></td>
+                            <td>m3 / hour</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>12.</td>
+                            <td><b>Cost of Haulage (10 /11)</b></td>
+                            <td><b>Rs. / m3</b></td>
+                            <td></td>
+                        </tr>
+                    </table>
+                </div>
+                <p>
+                    *Fuel cost shall be the prevailing selling price of diesel at the time of opening of financial proposals of bids.
+                </p>
+                <h4>NOTE:	CALCULATION OF ACTUAL HOURLY PRODUCTION (@S. No. 11)</h4>
+                <br />
+                <ol type="A">
+                    <li>
+                        <b>Theoretical hourly production (m3 / hour) –</b> Q = q x (60 / cm) x e x E<br />
+                        <b>Soil type	=	Hard to Cut</b><br />
+                        Where <br />
+                        Q	=	Theoretical hourly production (m3/h)<br />
+                        q	=	Production per cycle of loose soil (m3)<br />
+                        cm	=	Cycle time (in minute)<br />
+                        e	=	Grade factor (1 for 0 grade)<br />
+                        E	=	Job efficiency (0.75 as average)<br />
+                        <ol type="a">
+                            <li>
+                                q	=	q1 x a<br />
+                                q1	=	Blade capacity (m3) [0.8 x W x H2]<br />
+                                W = Width of blade (m)<br />
+                                H = Height of blade (m)<br />
+                                a	=	Blade factor (0.8)
+                            </li>
+                            <li>
+                                cm	=	D/F + D/R + Z<br />
+                                D	=	Haul Distance = 25 m<br />
+                                F	=	Forward Speed (m/min) – <b>Bidder shall specify</b><br />
+                                R	=	Reverse Speed (m/min) – <b>Bidder shall specify</b><br />
+                                Z	=	Time required for gear shifting (0.08 min)
+                            </li>
+                        </ol>
+                    </li>
+                    <li>
+                        <b>Actual hourly production =	0.8 x Q (m3 / hour)</b>
+                    </li>
+                </ol>
+            </div>
+            <br />
+            <h4 ng-if="Document.IsHaulageFormula">SAMPLE CALCULATIONS</h4>
+            <div ng-if="Document.IsHaulageFormula">
+                <div class="table-responsive">
+                    <table class="table-bordered">
+                        <tr>
+                            <td rowspan="2">S.No.</td>
+                            <td rowspan="2">Name of Firm</td>
+                            <td rowspan="2">Cost of Haulage (Rs./m3)</td>
+                            <td rowspan="2">Factor</td>
+                            <td colspan="2">Marks</td>
+                            <td rowspan="2">Total Marks (out of 100)</td>
+                        </tr>
+                        <tr>
+                            <td>Financial Evaluation (out of 35)</td>
+                            <td>Technical Evaluation (out of 65)</td>
+                        </tr>
+                        <tr>
+                            <td>1</td>
+                            <td>2</td>
+                            <td>3</td>
+                            <td>4</td>
+                            <td>5</td>
+                            <td>6</td>
+                            <td>7 (5 + 6)</td>
+                        </tr>
+                        <tr>
+                            <td>1</td>
+                            <td>Firm A</td>
+                            <td>95</td>
+                            <td>(95/95) = 1.00</td>
+                            <td>1.00 x 35 = 35</td>
+                            <td>(75/100) x 65 = 48.8</td>
+                            <td>83.8</td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td>Firm B</td>
+                            <td>105</td>
+                            <td>(95/105) = 0.90</td>
+                            <td>0.90 x 35 = 31.5</td>
+                            <td>(78/100) x 65 = 50.7</td>
+                            <td>82.2</td>
+                        </tr>
+                        <tr>
+                            <td>3</td>
+                            <td>Firm C</td>
+                            <td>120</td>
+                            <td>(95/120) = 0.79</td>
+                            <td>0.79 x 35 = 27.7</td>
+                            <td>(80/100) x 65 = 52.0</td>
+                            <td>79.7</td>
+                        </tr>
+                        <tr>
+                            <td>4</td>
+                            <td>Firm D</td>
+                            <td>125</td>
+                            <td>(95/125) = 0.76</td>
+                            <td>0.76 x 35 = 26.6</td>
+                            <td>(82/100) x 65 = 53.3</td>
+                            <td>79.9</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <br />
+            <div ng-if="Document.EvaluationCategory==6">
+                <h4>COMPLETE EVALUATION OF BIDS</h4>
+                <div class="table-responsive">
+                    <table class="table-bordered">
+                        <tr>
+                            <th colspan="3">Techincal Evaluation</th>
+                            <th colspan="3">Financial Evaluation</th>
+                        </tr>
+                        <tr>
+                            <th>Bidders</th>
+                            <th>Techincal Score</th>
+                            <th>Techincal Score {{Document.QualityWeightage}} % Weightage</th>
+                            <th>Price</th>
+                            <th>Financial Score</th>
+                            <th>Financial Score {{Document.CostWeightage}} % Weightage</th>
+                        </tr>
+                        <tr>
+                            <td>Bidder 1</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Bidder 2</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Bidder 3</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>Bidder 4</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <br />
+            <span class="bu">6. Recommendation of Procurement Committee & Uploading of Evaluation Report.</span> After Technical and Financial Evaluation of the Bids, both the Technical & the Financial Evaluation Reports shall be combined, this Report shall be called the “Evaluation Report”.  The Evaluation Report must clearly state justification for acceptance of lowest evaluated Bid/s, and reason/s for non-acceptance of all other Bids. Consequently, lowest 	financial Bidder among the “Eligible and Responsive Bidders” shall be recommended for the Award of Contract by the <strong>Procurement Committee</strong>. The Procuring Agency shall upload this Bid Evaluation Report at the website of Balochistan Public Procurement Regulatory Authority under the relevant TSE number, at-least three days prior to the award of Contract. Copy of the same shall be provided to bidders upon their request.
+            <br />
+            <div>
+                    <span class="bu">7.	Award of Contract.</span>  Contract for Supply of Item/s to the recommended Bidder/s i.e. the lowest evaluated 	bidder/s <span class="bu">(“Eligible Bidder/s quoting Technically Responsive items at lowest Financial cost, for {{Document.EvaluationType}}</span> shall be placed after three days of uploading of the Evaluation Report at B-PPRA Website.
+            </div>
+        </div>
+    </div>
+
+    <div ng-if="TSP==true && TSP1==false">
+        <div ng-if="Document.EvaluationCategory >1">
+            <br />
+            <span class="bu">6. Recommendation of Procurement Committee & Uploading of Evaluation Report.</span> After Technical and Financial Evaluation of the Bids, both the Technical & the Financial Evaluation Reports shall be combined, this Report shall be called the “Evaluation Report”.  The Evaluation Report must clearly state justification for acceptance of lowest evaluated Bid/s, and reason/s for non-acceptance of all other Bids. Consequently, lowest 	financial Bidder among the “Eligible and Responsive Bidders” shall be recommended for the Award of Contract by the <strong>Procurement Committee</strong>. The Procuring Agency shall upload this Bid Evaluation Report at the website of Balochistan Public Procurement Regulatory Authority under the relevant TSE number, at-least ten days prior to the award of Contract. Copy of the same shall be provided to bidders upon their request.
+            <br />
+            <div>
+                <span class="bu">7.	Award of Contract.</span>  Contract for Supply of Item/s to the recommended Bidder/s i.e. the lowest evaluated 	bidder/s <span class="bu">(“Eligible Bidder/s quoting Technically Responsive items at lowest Financial cost, for {{Document.EvaluationType}}</span> shall be placed after ten days of uploading of the Evaluation Report at B-PPRA Website.
+            </div>
+        </div>
+    </div>
+
+    <div ng-if="TSP==true && TSP1!=false">
+        <div ng-if="Document.EvaluationCategory >1" class="page-break">
+
+            <span class="bu">5.	Financial Evaluation.</span> Financial Proposals of the Responsive Technical Proposals shall be publicly opened as
+            specified in this document under the heading of “Letter of Invitation for Bid”. Financial Comparative Statement / Evaluation Report of the
+            “Responsive Proposals” shall be prepared by the <strong>Procurement Committee </strong>in the following manner:
+            <h4>FINANCIAL EVALUATION OF BIDS</h4>
+
+            <div class="table-responsive">
+                <table class="table-bordered">
+                    <tr>
+                        <th>Item Name / Model & Description</th>
+                        <th>Quantity</th>
+                        <th>Responsive Bidder 1</th>
+                        <th>Responsive Bidder 2</th>
+                        <th>Responsive Bidder 3</th>
+                    </tr>
+                    <tr ng-repeat="x in DataSheet">
+                        <td>{{x.ItemName}}</td>
+                        <td class="Right-Align">{{x.Quantity| number : fractionSize}}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                </table>
+            </div>
+            <br />
+            <div ng-if="Document.EvaluationCategory==6">
+                <h4>COMPLETE EVALUATION OF BIDS</h4>
+                <div class="table-responsive">
+                    <table class="table-bordered">
+                        <tr>
+                            <th colspan="3">Techincal Evaluation</th>
+                            <th colspan="3">Financial Evaluation</th>
+                        </tr>
+                        <tr>
+                            <th>Bidders</th>
+                            <th>Techincal Score</th>
+                            <th>Techincal Score {{Document.QualityWeightage}} % Weightage</th>
+                            <th>Price</th>
+                            <th>Financial Score</th>
+                            <th>Financial Score {{Document.CostWeightage}} % Weightage</th>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <br />
+            <span class="bu">6. Recommendation of Procurement Committee & Uploading of Evaluation Report.</span> After Technical and Financial Evaluation of the Bids, both the Technical & the Financial Evaluation Reports shall be combined, this Report shall be called the “Evaluation Report”.  The Evaluation Report must clearly state justification for acceptance of lowest evaluated Bid/s, and reason/s for non-acceptance of all other Bids. Consequently, lowest 	financial Bidder among the “Eligible and Responsive Bidders” shall be recommended for the Award of Contract by the <strong>Procurement Committee</strong>. The Procuring Agency shall upload this Bid Evaluation Report at the website of Balochistan Public Procurement Regulatory Authority under the relevant TSE number, at-least ten days prior to the award of Contract. Copy of the same shall be provided to bidders upon their request.
+            <br />
+            <div>
+                <span class="bu">7.	Award of Contract1.</span>  Contract for Supply of Item/s to the recommended Bidder/s i.e. the lowest evaluated 	bidder/s <span class="bu">(“Eligible Bidder/s quoting Technically Responsive items at lowest Financial cost, for {{Document.EvaluationType}}</span> shall be placed after ten days of uploading of the Evaluation Report at B-PPRA Website.
+            </div>
+        </div>
+    </div>
+
+    <!--For All stages-->
+    <div>
+
+    </div>
+
+    <div ng-if="TSP==false">
+        <div ng-if="Document.EvaluationCategory > 1">
+
+            <div class="page-break" ng-if="false">
+
+                <div class="Center-Align">
+
+                    <img src="../../Images/BPPRA_Logo_HD.jpeg" width="175" height="175">
+                </div>
+                <h4 class="Right-Align" ng-if="Document.IsPublished">Reference Number  {{Document.TSENumber}}</h4>
+                <h4 class="Right-Align">Dated  <label>{{formatDate(AajkiTareekh) | date:'dd MMMM, yyyy'}}</label></h4>
+                <h2 class="Center-AlignUnderline" ng-bind-html="Document.Agency"></h2>
+
+                <h2 class="Center-AlignUnderline">BIDDING DOCUMENT FOR THE PURCHASE OF </h2>
+                <h2 class="Center-AlignUnderline" ng-bind-html="Document.ProcurementTitle"></h2>
+                <h2 class="Center-AlignUnderline">(FINANCIAL PROPOSAL)</h2>
+                <h2 class="Center-AlignUnderline" ng-bind-html="Document.TSENumber" ng-if="Document.IsPublished"></h2>
+                <h2 class="Center-AlignUnderline">NAME OF BIDDER:___________________________</h2>
+                <h2 class="Center-Align">(To be filled-in by the Bidder)</h2>
+                <h2>Designation of the Procurement Officer:_________________________________</h2>
+                <h2>Procuring Agency’s Address:____________________________________________</h2>
+                <h2>Procuring Agency’s Phone:________________________Fax No:_______________</h2>
+                <h2>Procuring Agency’s Website: (If Any)____________________________________</h2>
+            </div>
+
+            <div class="page-break" ng-if="!Document.IsESubmissionAllowed1 && false">
+                <h4>BIDDER’S INFORMATION: (To be filled-in by the Bidder)</h4>
+                <table ng-repeat="x in BidderInfo">
+                    <tr>
+                        <td width="40%" class="no-border">{{x.Field}}</td>
+                        <td width="59%" class="no-border">____________________________________</td>
+                    </tr>
+                    <tr>
+                        <td class="no-border"><br /></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="page-break" ng-if="false">
+                <div>
+                    <br />
+                    <div><span class="bu">1.	Financial Evaluation.</span> Financial Proposals of the Responsive Technical Proposals shall be publicly opened as specified in this document under the heading of “Letter of Invitation for Bid”.</div>
+                    <div>2. Financial Comparative Statement / Evaluation Report of the “Responsive Proposals” shall be prepared by the <strong>Procurement Committee </strong>in the following manner:</div>
+                </div>
+
+                <h4>FINANCIAL EVALUATION OF BIDS</h4>
+                <div class="table-responsive">
+                    <table class="table-bordered">
+                        <tr>
+                            <th>Item Name / Model & Description</th>
+                            <th>Quantity</th>
+                            <th>Responsive Bidder 1</th>
+                            <th>Responsive Bidder 2</th>
+                            <th>Responsive Bidder 3</th>
+                        </tr>
+                        <tr ng-repeat="x in DataSheet">
+                            <td>{{x.ItemName}}</td>
+                            <td class="Right-Align">{{x.Quantity| number : fractionSize}}</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </table>
+                </div>
+                <br />
+                <div>
+                    Subsequently, the prepared Financial Evaluation Report shall duly be signed by all the members of the Procurement Committee.
+                </div>
+            </div>
+
+            <div class="page-break">
+                <h4 ng-if="!Document.IsCNF">INSTRUCTIONS FOR PREPARING FINANCIAL PROPOSAL</h4>
+
+                <div ng-if="Document.ProposedMethodID == 2" ng-bind-html="InstToPrepBDpreContentFin"></div>
+                <div class="table-responsive" ng-if="!Document.IsCNF">
+                    <table class="table-bordered">
+
+                        <tr>
+                            <th>A</th>
+                            <th>B</th>
+                            <th>C</th>
+                            <th>D</th>
+                            <th>E</th>
+                            <!--<th>F</th>-->
+                        </tr>
+                        <tr>
+                            <th>S. No.</th>
+                            <th>Item Name</th>
+                            <th>Quantity</th>
+                            <th>Unit Price (Including All Applicable Taxes & Costs)</th>
+                            <!--<th>Income Tax + GST</th>-->
+                            <th>Unit Total Price (Including All Cost)</th>
+                        </tr>
+                        <tr>
+                            <td>A</td>
+                            <td>B</td>
+                            <td>C</td>
+                            <td>D</td>
+                            <!--<td>E</td>-->
+                            <td>(C x D) = E</td>
+                        </tr>
+
+
+                        <tr ng-repeat="i in [1,2,3,4,5]">
+                            <td>{{$index+1}}</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <!--<td></td>-->
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td>Grand Total</td>
+                            <!--<td></td>-->
+                            <td>(E1 + E2 + E3 + E4 + E5)</td>
+                        </tr>
+
+
+                    </table>
+                </div>
+                <br />
+                <br />
+                <h4 ng-if="Document.IsCNF">INSTRUCTIONS FOR PREPARING FINANCIAL PROPOSAL For Letter of Creidt(LC) Tenders Only</h4>
+                <span ng-if="Document.IsCNF"><b>Note:</b> The below format of financial proposal is applicable on Letter of Credit(LC) Tenders Only.</span>
+                <div ng-if="Document.IsCNF" class="table-responsive">
+                    <table class="table-bordered">
+
+                        <tr>
+                            <th>A</th>
+                            <th>B</th>
+                            <th>C</th>
+                            <th>D</th>
+                            <th>E</th>
+                        </tr>
+                        <tr>
+                            <th>S. No.</th>
+                            <th>Item Name</th>
+                            <th>Unit Price</th>
+                            <th>Income Tax + GST</th>
+                            <th>Total bid Price on CNF basis</th>
+                        </tr>
+
+
+                        <tr ng-repeat="i in [1,2,3,4,5]">
+                            <td>{{$index+1}}</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+
+
+                    </table>
+                </div>
+
+                <br />
+                <br />
+                <h4 ng-if="Document.IsCNF">Price Schedule C&F Tender</h4>
+                <div ng-if="Document.IsCNF" class="table-responsive">
+                    <table class="table-bordered">
+
+                        <thead>
+                            <tr>
+                                <th>S. No.</th>
+                                <th>Item Name</th>
+                                <th>Make</th>
+                                <th>Model</th>
+                                <th>Country of Origin</th>
+                                <th>Name of Port of Dispatch</th>
+                                <th>Unit C&F Price in US Dollar</th>
+                            </tr>
+
+                            <tr ng-repeat="i in [1,2,3,4,5]">
+                                <td>{{$index+1}}</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+
+                        </thead>
+                    </table>
+                </div>
+                <div ng-bind-html="InstToPrepBDpostContentFin"></div>
+
+                <div ng-if="InstructionsList.length>0">
+                    <h4>Additional Instruction</h4>
+                    <div class="table-responsive">
+                        <table class="table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>S.No</th>
+                                    <th>Additional Instructions</th>
+                                    <th>Sub Instructions</th>
+                                </tr>
+
+                            </thead>
+                            <tr ng-repeat="x in InstructionsList  | filter:{InsType:'Financial', InActive: false} ">
+                                <td>{{$index+1}}</td>
+                                <td>{{x.Instruction}}</td>
+                                <td>
+                                    <table>
+                                        <tr ng-repeat="y in x.SubIns">
+                                            <td class="no-border">{{y.SubInstruction}}</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="page-break">
+                <h4>GENERAL CONDITIONS</h4>
+                <div ng-bind-html="GeneralConditions"></div>
+            </div>
+
+            <div>
+                <h4>SPECIAL CONDITIONS</h4>
+                <div class="table-responsive">
+                    <table class="table-bordered">
+                        <thead>
+                            <tr>
+                                <th>S.No</th>
+                                <th>Special Condition</th>
+                                <th>Sub Condition</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="x in ConditionList| orderBy : 'SortOrder' ">
+                                <td><b>{{$index+1}}</b></td>
+                                <td>{{x.Condition}}</td>
+                                <td>
+								<div class="table-responsive">
+                                    <table class="no-border" cellspacing="0" cellpadding="0">
+                                        <tbody>
+                                            <tr ng-repeat="y in x.SubConditionList | orderBy : 'SortOrder'">
+                                                <td class="no-border">
+                                                    <b>{{$parent.$index+1}}.{{$index+1}}</b> <span ng-bind-html="y.Title"></span>:<br />
+                                                    <!--{{DecodeHtml(y.Description)}}-->
+                                                    <span ng-bind-html="y.Description"></span>
+                                                    <!--<span></span>-->
+                                                    <!--<table ng-if="y.BlanksConditionList.length > 0" class="table table-hover table-striped table-bordered">
+        <thead>
+            <tr>
+                <th>Particulars</th>
+                <th>Particulars Entered</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr ng-repeat="xy in y.BlanksConditionList">
+                <td>
+                    {{xy.FieldName}}
+                </td>
+                <td>
+                    {{xy.ManualEntries}}
+                </td>
+            </tr>
+        </tbody>
+    </table>-->
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+									</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="page-break">
+                <h4>CURRENCY & BID VALIDITY</h4>
+                    <div>
+                        Allow Financial Bids In Foreign Currencies:  {{((Document.IsCNF)?'Yes':'No')}}
+                    </div>
+                    <div ng-if="Document.IsCNF">
+                        Currency:  Bidder can be select item wise Currency at the time of Financial submission on EPPS
+                    </div>
+                <div>
+                    Bid Validity Period (Days):  {{Document.BidValidityPeriod}}
+                </div>
+            </div>
+
+            <div class="page-break">
+                <h4>CONTRACT AGREEMENT</h4>
+                <div ng-bind-html="ContractAgreement"></div>
+            </div>
+
+            <div>
+                <h4>INTEGRITY PACT</h4>
+                <div ng-bind-html="IntegrityImpact"></div>
+            </div>
+        </div>
+    </div>
+
+    <div ng-if="TSP==true">
+        <div ng-if="TSP1==true">
+            <div ng-if="Document.EvaluationCategory > 1">
+
+                <div class="page-break">
+
+                    <div class="Center-Align">
+
+                        <img src="../../Images/BPPRA_Logo_HD.jpeg" width="175" height="175">
+                    </div>
+                    <h4 class="Right-Align" ng-if="Document.IsPublished">Reference Number  {{Document.TSENumber}}</h4>
+                    <h4 class="Right-Align">Dated  <label>{{formatDate(AajkiTareekh) | date:'dd MMMM, yyyy'}}</label></h4>
+
+                    <h2 class="Center-AlignUnderline" ng-bind-html="Document.Agency"></h2>
+
+                    <h2 class="Center-AlignUnderline">BIDDING DOCUMENT FOR THE PURCHASE OF </h2>
+                    <h2 class="Center-AlignUnderline" ng-bind-html="Document.ProcurementTitle"></h2>
+                    <h2 class="Center-AlignUnderline">(FINANCIAL PROPOSAL)</h2>
+                    <h2 class="Center-AlignUnderline" ng-bind-html="Document.TSENumber" ng-if="Document.IsPublished"></h2>
+                    <h2 class="Center-AlignUnderline">NAME OF BIDDER:_________________________________</h2>
+                    <h2 class="Center-Align">(To be filled-in by the Bidder)</h2>
+
+                    <h2>Designation of the Procurement Officer:_________________________________</h2>
+                    <h2>Procuring Agency’s Address:____________________________________________</h2>
+                    <h2>Procuring Agency’s Phone:___________________________Fax No:____________</h2>
+                    <h2>Procuring Agency’s Website: (If Any)____________________________________</h2>
+                </div>
+
+                <div class="page-break" ng-if="!Document.IsESubmissionAllowed1">
+                    <h4>BIDDER’S INFORMATION: (To be filled-in by the Bidder)</h4>
+					<div class="table-responsive">
+                    <table ng-repeat="x in BidderInfo">
+                        <tr>
+                            <td width="40%" class="no-border">{{x.Field}}</td>
+                            <td width="59%" class="no-border">____________________________________</td>
+                        </tr>
+                        <tr>
+                            <td class="no-border"><br /></td>
+                        </tr>
+                    </table>
+					</div>
+                </div>
+                <div class="page-break">
+                    <div>
+                        <br />
+                        <div><span class="bu">1.	Financial Evaluation.</span> Financial Proposals of the Responsive Technical Proposals shall be publicly opened as specified in this document under the heading of “Letter of Invitation for Bid”.</div>
+                        <br /><div>2. Financial Comparative Statement / Evaluation Report of the “Responsive Proposals” shall be prepared by the <strong>Procurement Committee </strong>in the following manner:</div>
+                    </div>
+
+                    <h4>FINANCIAL EVALUATION OF BIDS</h4>
+                    <div class="table-responsive">
+                        <table class="table-bordered">
+                            <tr>
+                                <th>Item Name / Model & Description</th>
+                                <th>Quantity</th>
+                                <th>Responsive Bidder 1</th>
+                                <th>Responsive Bidder 2</th>
+                                <th>Responsive Bidder 3</th>
+                            </tr>
+                            <tr ng-repeat="x in DataSheet">
+                                <td>{{x.ItemName}}</td>
+                                <td class="Right-Align">{{x.Quantity| number : fractionSize}}</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        </table>
+                    </div>
+                    <br />
+                    <div>
+                        Subsequently, the prepared Financial Evaluation Report shall duly be signed by all the members of the Procurement Committee.
+                    </div>
+                </div>
+
+
+                <div class="page-break">
+                    <h4>INSTRUCTIONS FOR PREPARING FINANCIAL PROPOSAL</h4>
+
+                    <div ng-if="Document.ProposedMethodID == 2" ng-bind-html="InstToPrepBDpreContentFin"></div>
+
+                    <div class="table-responsive">
+                        <table class="table-bordered">
+
+                            <tr>
+                                <td>A</td>
+                                <td>B</td>
+                                <td>C</td>
+                                <td>D</td>
+                                <td>E</td>
+                                <td>F</td>
+                            </tr>
+                            <tr>
+                                <td>S. No.</td>
+                                <td>Item Name</td>
+                                <td>Quantity</td>
+                                <td>Unit Price</td>
+                                <td>Income Tax + GST</td>
+                                <td>Total Price (Including Taxes)</td>
+                            </tr>
+                            <tr>
+                                <td>A</td>
+                                <td>B</td>
+                                <td>C</td>
+                                <td>C x D</td>
+                                <td>E</td>
+                                <td>(C x D) + E = F</td>
+                            </tr>
+
+
+                            <tr ng-repeat="i in [1,2,3,4,5]">
+                                <td>{{$index+1}}</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+
+                        </table>
+                    </div>
+                    <br />
+                    <div ng-bind-html="InstToPrepBDpostContentFin"></div>
+
+                    <div ng-if="angular.isDefined(InstructionsList)">
+                        <h4>Additional Instruction</h4>
+                        <div class="table-responsive">
+                            <table class="table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>S.No</th>
+                                        <th>Additional Instructions</th>
+                                        <th>Sub Instructions</th>
+                                    </tr>
+
+                                </thead>
+                                <tr ng-repeat="x in InstructionsList  | filter:{InsType:'Financial'} ">
+                                    <td>{{$index+1}}</td>
+                                    <td>{{x.Instruction}}</td>
+                                    <td>
+                                        <table>
+                                            <tr ng-repeat="y in x.SubIns">
+                                                <td class="no-border">{{y.SubInstruction}}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-break">
+                    <h4>GENERAL CONDITIONS</h4>
+                    <div ng-bind-html="GeneralConditions"></div>
+                </div>
+
+                <div>
+                    <h4>
+                        SPECIAL CONDITIONS
+                    </h4>
+                    <div class="table-responsive">
+                        <table class="table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>S.No</th>
+                                    <th>Special Condition</th>
+                                    <th>Sub Condition</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ng-repeat="x in ConditionList">
+                                    <td>{{$index+1}}</td>
+                                    <td>{{x.Condition}}</td>
+                                    <td>
+                                        <table class="no-border" cellspacing="0" cellpadding="0">
+                                            <tbody>
+                                                <tr ng-repeat="y in x.SubConditionList">
+                                                    <td class="no-border">{{y.Title}} : {{y.Description}}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="page-break">
+                    <h4>CURRENCY & BID VALIDITY</h4>
+                        <div>
+                            Allow Financial Bids In Foreign Currencies:  {{((Document.IsCNF)?'Yes':'No')}}
+                        </div>
+                        <div ng-if="Document.IsCNF">
+                            Currency:  Bidder can be select item wise Currency at the time of Financial submission on EPPS
+                        </div>
+                    <div>
+                        Bid Validity Period (Days):  {{Document.BidValidityPeriod}}
+                    </div>
+                </div>
+
+                <div class="page-break">
+                    <h4>CONTRACT AGREEMENT</h4>
+                    <div ng-bind-html="ContractAgreement"></div>
+                </div>
+
+                <div>
+                    <h4>INTEGRITY PACT</h4>
+                    <div ng-bind-html="IntegrityImpact"></div>
+                </div>
+            </div>
+        </div>
+		</div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>
+                            <div class="footer-space"><br /><br /><br /><br /></div>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+            <!--<div class="header">this is header</div>-->
+            <div class="page-footer">
+                <div ng-if="Document.IsPublished">This is BPPRA System Generated Document through {{Document.Agency}}</div>
+                <div ng-if="Document.IsPublished">Reference Number: {{Document.TSENumber}}</div>
+            </div>
+        </center>
+ </div>
+    <script id="table_tree.html" type="text/ng-template">
+
+            <caption style="text-align: left">
+
+                <div class="greyHeader topMargin">
+                    <strong> {{parent.data.data1.value}} <span ng-if="i.Scoring !== undefined && i.Scoring != '' && i.Scoring != null">-</span> {{i.Scoring}} <span ng-if="i.SectionType !== undefined && i.SectionType != '' && i.SectionType != null">-</span> {{i.SectionType}}</strong>
+				</div>
+
+                <!--<span ng-bind="i.SecTitle"></span>
+                <span ng-bind="i.SectionType"></span>
+                <span ng-bind="i.Scoring"></span>-->
+            </caption>
+        <table class="table-bordered">
+            <tr>
+                <th>Sr. #</th>
+                <th ng-repeat="c in i.ColumnTable">{{c.ColumnLabel}}</th>
+            </tr>
+            <tr ng-repeat="r in i.RowTable">
+                <td>
+                    <span ng-init="r.lvl=parent?parent.lvl+'.'+ ($index+1):$index+1">{{r.lvl}}</span>
+                </td>
+                <td ng-repeat="c in i.ColumnTable">
+                    {{(r.data['data'+c.ColumnNo].value=='Y')?'Yes':(r.data['data'+c.ColumnNo].value=='N')?'NO':r.data['data'+c.ColumnNo].value}}
+                </td>
+            </tr>
+        </table>
+        <div ng-repeat="r in i.RowTable" ng-if="r.child.length>0">
+            <div ng-repeat="i in r.child" ng-init="parent=r;" ng-include="'table_tree.html'"></div>
+        </div>
+    </script>
+</body>
+</html>

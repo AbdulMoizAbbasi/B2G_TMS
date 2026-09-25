@@ -72,3 +72,8 @@ class User(Base):
         back_populates="user",
         uselist=False,
     )
+
+    tender_overrides = relationship(
+        "TenderFieldOverride",
+        back_populates="user",
+    )
