@@ -59,7 +59,9 @@ def parse_federal_estimated_value(bid_security):
         return None, None
 
     try:
-        value = Decimal(str(bid_security).replace(",", "").strip())
+        value = Decimal(
+            str(bid_security).replace(",", "").strip()
+        )
 
         estimated_value = value / Decimal("0.02")
 
@@ -90,7 +92,6 @@ def get_federal_documents(tender):
 
     The Advertisement is intentionally excluded.
     """
-
     documents = tender.get("Documents") or []
 
     for document in documents:
@@ -111,7 +112,6 @@ def get_federal_documents(tender):
     return []
 
 
-
 def map_federal_tender(tender, relevance_result):
     """
     Map one Federal PPRA tender into the normalized DB structure.
@@ -125,22 +125,38 @@ def map_federal_tender(tender, relevance_result):
         )
     )
 
+    print(
+        f"[FEDERAL CITY DEBUG] "
+        f"web_tender_no={tender.get('web_tender_no')} | "
+        f"city={tender.get('City')!r}"
+    )
+    
     return {
-        "source_id": 1,
+        "source_name": "Federal PPRA",
 
-        "web_tender_no": tender.get("web_tender_no"),
+        "web_tender_no": tender.get(
+            "web_tender_no"
+        ),
 
         "tender_reference_no": tender.get(
             "Tender No / Reference No / Tender Inquiry No"
         ),
 
-        "tender_name": tender.get("Tender Title"),
+        "tender_name": tender.get(
+            "Tender Title"
+        ),
 
-        "city": tender.get("City"),
+        "city": tender.get(
+            "City"
+        ),
 
-        "authority": tender.get("Organization Name"),
+        "authority": tender.get(
+            "Organization Name"
+        ),
 
-        "organization": tender.get("Office Name"),
+        "organization": tender.get(
+            "Office Name"
+        ),
 
         "estimated_value": estimated_value,
 
@@ -158,15 +174,22 @@ def map_federal_tender(tender, relevance_result):
             tender.get("detail_url")
         ),
 
-        "primary_document_url": get_federal_primary_document_url(
+        "primary_document_url": (
+            get_federal_primary_document_url(
+                tender
+            )
+        ),
+
+        "documents": get_federal_documents(
             tender
         ),
 
-        "documents": get_federal_documents(tender),
-
         "raw_data": tender,
 
-        "relevance": relevance_result.get("relevance", {}),
+        "relevance": relevance_result.get(
+            "relevance",
+            {},
+        ),
     }
 
 
@@ -208,7 +231,9 @@ def get_punjab_documents(tender):
     """
     Return only the Punjab PPRA Bidding Document.
     """
-    url = get_punjab_primary_document_url(tender)
+    url = get_punjab_primary_document_url(
+        tender
+    )
 
     if not url:
         return []
@@ -229,7 +254,7 @@ def map_punjab_tender(tender, relevance_result):
     This function does not write to the database.
     """
     return {
-        "source_id": 3,
+        "source_name": "Punjab PPRA",
 
         "web_tender_no": None,
 
@@ -277,7 +302,7 @@ def map_punjab_tender(tender, relevance_result):
 
         "relevance": relevance_result.get(
             "relevance",
-            {}
+            {},
         ),
     }
 
@@ -322,41 +347,72 @@ def get_kp_primary_document_url(tender):
 
 
 def get_kp_documents(tender):
-    url = get_kp_primary_document_url(tender)
+    url = get_kp_primary_document_url(
+        tender
+    )
 
     if not url:
         return []
 
-    return [{
-        "document_type": "PRIMARY",
-        "document_name": "Bidding Document",
-        "source_url": url,
-    }]
+    return [
+        {
+            "document_type": "PRIMARY",
+            "document_name": "Bidding Document",
+            "source_url": url,
+        }
+    ]
 
 
 def map_kp_tender(tender, relevance_result):
     return {
-        "source_id": 2,
-        "web_tender_no": tender.get("tender_number"),
+        "source_name": "KP PPRA",
+
+        "web_tender_no": tender.get(
+            "tender_number"
+        ),
+
         "tender_reference_no": None,
-        "tender_name": tender.get("tender_details"),
+
+        "tender_name": tender.get(
+            "tender_details"
+        ),
+
         "city": None,
+
         "authority": None,
-        "organization": tender.get("organization_details"),
+
+        "organization": tender.get(
+            "organization_details"
+        ),
+
         "estimated_value": None,
+
         "estimated_value_source": None,
+
         "advertised_date": parse_kp_date(
             tender.get("advertised_date")
         ),
+
         "closed_date": parse_kp_date(
             tender.get("closing_date")
         ),
-        "source_detail_url": tender.get("detail_url"),
-        "primary_document_url": get_kp_primary_document_url(
+
+        "source_detail_url": tender.get(
+            "detail_url"
+        ),
+
+        "primary_document_url": (
+            get_kp_primary_document_url(
+                tender
+            )
+        ),
+
+        "documents": get_kp_documents(
             tender
         ),
-        "documents": get_kp_documents(tender),
+
         "raw_data": tender,
+
         "relevance": relevance_result.get(
             "relevance",
             {},
@@ -391,7 +447,9 @@ def parse_balochistan_estimated_value(value):
         return None
 
     try:
-        return float(str(value).replace(",", "").strip())
+        return float(
+            str(value).replace(",", "").strip()
+        )
     except (ValueError, TypeError):
         return None
 
@@ -404,49 +462,96 @@ def get_balochistan_primary_document_url(tender):
 
     return (
         "https://bpptwo.vdc.services:9446/"
-        f"Reports/GoodsProcurement/BiddingDocument.html?id={tender_id}"
+        f"Reports/GoodsProcurement/"
+        f"BiddingDocument.html?id={tender_id}"
     )
 
 
 def get_balochistan_documents(tender):
-    url = get_balochistan_primary_document_url(tender)
+    url = get_balochistan_primary_document_url(
+        tender
+    )
 
     if not url:
         return []
 
-    return [{
-        "document_type": "PRIMARY",
-        "document_name": "Bidding Document",
-        "source_url": url,
-    }]
+    return [
+        {
+            "document_type": "PRIMARY",
+            "document_name": "Bidding Document",
+            "source_url": url,
+        }
+    ]
 
 
-def map_balochistan_tender(tender, relevance_result):
+def map_balochistan_tender(
+    tender,
+    relevance_result,
+):
     return {
-        "source_id": 5,
-        "web_tender_no": tender.get("TSENumber"),
-        "tender_reference_no": None,
-        "tender_name": tender.get("TenderName"),
-        "city": tender.get("District"),
-        "authority": tender.get("Department"),
-        "organization": tender.get("Agency"),
-        "estimated_value": parse_balochistan_estimated_value(
-            tender.get("EstCost")
-        ),
-        "estimated_value_source": "source",
-        "advertised_date": parse_balochistan_date(
-            tender.get("PublishedDate")
-        ),
-        "closed_date": parse_balochistan_date(
-            tender.get("CloseDate")
-        ),
-        "source_detail_url": None,
-        "primary_document_url": get_balochistan_primary_document_url(tender),
-        "documents": get_balochistan_documents(tender),
-        "raw_data": tender,
-        "relevance": relevance_result.get("relevance", {}),
-    }
+        "source_name": "Balochistan PPRA",
 
+        "web_tender_no": tender.get(
+            "TSENumber"
+        ),
+
+        "tender_reference_no": None,
+
+        "tender_name": tender.get(
+            "TenderName"
+        ),
+
+        "city": tender.get(
+            "District"
+        ),
+
+        "authority": tender.get(
+            "Department"
+        ),
+
+        "organization": tender.get(
+            "Agency"
+        ),
+
+        "estimated_value": (
+            parse_balochistan_estimated_value(
+                tender.get("EstCost")
+            )
+        ),
+
+        "estimated_value_source": "source",
+
+        "advertised_date": (
+            parse_balochistan_date(
+                tender.get("PublishedDate")
+            )
+        ),
+
+        "closed_date": (
+            parse_balochistan_date(
+                tender.get("CloseDate")
+            )
+        ),
+
+        "source_detail_url": None,
+
+        "primary_document_url": (
+            get_balochistan_primary_document_url(
+                tender
+            )
+        ),
+
+        "documents": get_balochistan_documents(
+            tender
+        ),
+
+        "raw_data": tender,
+
+        "relevance": relevance_result.get(
+            "relevance",
+            {},
+        ),
+    }
 
 
 def parse_sindh_date(value):
@@ -484,27 +589,56 @@ def parse_sindh_estimated_value(value):
 
 def map_sindh_tender(tender, relevance_result):
     return {
-        "source_id": 4,
-        "web_tender_no": tender.get("tenderNumbers"),
-        "tender_reference_no": tender.get("tenderNumber"),
-        "tender_name": tender.get("name"),
-        "city": tender.get("location"),
-        "authority": tender.get("departmentName"),
-        "organization": tender.get("departmentName"),
-        "estimated_value": parse_sindh_estimated_value(
-            tender.get("estimatedCost")
+        "source_name": "Sindh PPRA",
+
+        "web_tender_no": tender.get(
+            "tenderNumbers"
         ),
+
+        "tender_reference_no": tender.get(
+            "tenderNumber"
+        ),
+
+        "tender_name": tender.get(
+            "name"
+        ),
+
+        "city": tender.get(
+            "location"
+        ),
+
+        "authority": tender.get(
+            "departmentName"
+        ),
+
+        "organization": tender.get(
+            "departmentName"
+        ),
+
+        "estimated_value": (
+            parse_sindh_estimated_value(
+                tender.get("estimatedCost")
+            )
+        ),
+
         "estimated_value_source": "source",
+
         "advertised_date": parse_sindh_date(
             tender.get("publishDate")
         ),
+
         "closed_date": parse_sindh_date(
             tender.get("lastSubmissionDate")
         ),
+
         "source_detail_url": None,
+
         "primary_document_url": None,
+
         "documents": [],
+
         "raw_data": tender,
+
         "relevance": relevance_result.get(
             "relevance",
             {},

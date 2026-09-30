@@ -109,14 +109,12 @@ def get_checkpoint(portal):
     Returns:
         {
             "last_date": "...",
-            "last_tender_key": "...",
             "last_run_at": "..."
         }
 
     If no checkpoint exists, returns:
         {
             "last_date": None,
-            "last_tender_key": None,
             "last_run_at": None
         }
     """
@@ -133,7 +131,6 @@ def get_checkpoint(portal):
     ):
         return {
             "last_date": None,
-            "last_tender_key": None,
             "last_run_at": None,
         }
 
@@ -141,19 +138,14 @@ def get_checkpoint(portal):
         "last_date": checkpoint.get(
             "last_date"
         ),
-        "last_tender_key": checkpoint.get(
-            "last_tender_key"
-        ),
         "last_run_at": checkpoint.get(
             "last_run_at"
         ),
     }
 
-
 def update_checkpoint(
     portal,
     last_date,
-    last_tender_key,
 ):
     """
     Update the checkpoint for a portal.
@@ -161,6 +153,8 @@ def update_checkpoint(
     The checkpoint is updated only after the caller
     confirms that the portal's data was successfully
     processed and stored.
+
+    Only the last processed date is stored.
     """
 
     if not portal:
@@ -173,19 +167,11 @@ def update_checkpoint(
             "last_date cannot be empty."
         )
 
-    if not last_tender_key:
-        raise ValueError(
-            "last_tender_key cannot be empty."
-        )
-
     checkpoints = load_checkpoints()
 
     checkpoints[portal] = {
         "last_date": str(
             last_date
-        ),
-        "last_tender_key": str(
-            last_tender_key
         ),
         "last_run_at": datetime.now().astimezone().isoformat(
             timespec="seconds"
@@ -197,7 +183,6 @@ def update_checkpoint(
     )
 
     return checkpoints[portal]
-
 
 def clear_checkpoint(portal):
     """
@@ -250,11 +235,6 @@ if __name__ == "__main__":
     updated = update_checkpoint(
         portal=portal,
         last_date="2026-09-09",
-        last_tender_key=(
-            "https://eproc.punjab.gov.pk/"
-            "Tenders/50485054/4857/"
-            "0909202607415253562330255530.pdf"
-        ),
     )
 
     print()

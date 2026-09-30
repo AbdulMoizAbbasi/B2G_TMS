@@ -4878,3 +4878,1541 @@ tbody tr:last-child td {
     padding-left: 60px;
   }
 }
+/* =========================
+   LOGIN PAGE
+   ========================= */
+
+.login-page {
+  min-height: 100vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+
+  padding: 40px;
+
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+
+  box-shadow:
+    0 12px 35px rgba(15, 23, 42, 0.10);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-header h1 {
+  margin: 0;
+
+  color: var(--text-primary);
+
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.login-header p {
+  margin: 8px 0 0;
+
+  color: var(--text-secondary);
+
+  font-size: 14px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: var(--text-primary);
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form-group input {
+  width: 100%;
+  box-sizing: border-box;
+
+  height: 44px;
+  padding: 0 13px;
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  outline: none;
+
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+
+  font-size: 13px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.form-group input::placeholder {
+  color: var(--text-muted);
+}
+
+.form-group input:focus {
+  border-color: var(--accent);
+
+  box-shadow:
+    0 0 0 3px var(--accent-soft);
+}
+
+.login-error {
+  margin-bottom: 16px;
+
+  padding: 10px 12px;
+
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+
+  background: #fef2f2;
+  color: #b91c1c;
+
+  font-size: 12px;
+}
+
+.login-button {
+  width: 100%;
+  height: 44px;
+
+  padding: 0 16px;
+
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+
+  background: var(--accent);
+  color: white;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    opacity 0.2s ease,
+    transform 0.1s ease;
+}
+
+.login-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.login-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.login-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-theme-toggle {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+
+  width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.login-theme-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.user-info {
+  margin-bottom: 12px;
+}
+
+.user-name {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.user-role {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.logout-button {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 10px 12px;
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  background: transparent;
+  color: var(--text-secondary);
+
+  font-size: 13px;
+  font-weight: 500;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.logout-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.auth-loading {
+  min-height: 100vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   TENDER DETAIL — ACTION BUTTONS
+   ========================================================= */
+
+.tender-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Common action button */
+.tender-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 36px;
+  padding: 0 13px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+.tender-action-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.tender-action-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.tender-action-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* -------------------------
+   Edit
+   ------------------------- */
+
+.edit-tender-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 36px;
+  padding: 0 13px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.edit-tender-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+  transform: translateY(-1px);
+}
+
+
+/* -------------------------
+   Delete
+   ------------------------- */
+
+.delete-tender-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 36px;
+  padding: 0 13px;
+
+  border: 1px solid #ef4444;
+  border-radius: 7px;
+
+  background: transparent;
+  color: #dc2626;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.delete-tender-button:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #dc2626;
+  color: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.delete-tender-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* -------------------------
+   Save
+   ------------------------- */
+
+.save-tender-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 36px;
+  padding: 0 14px;
+
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+
+  background: var(--accent);
+  color: #ffffff;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+.save-tender-button:hover:not(:disabled) {
+  opacity: 0.92;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
+
+.save-tender-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+
+/* -------------------------
+   Cancel
+   ------------------------- */
+
+.cancel-tender-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 36px;
+  padding: 0 14px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.cancel-tender-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.cancel-tender-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   TENDER DETAIL — EDIT FORM
+   ========================================================= */
+
+.tender-edit-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.tender-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tender-edit-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.tender-edit-field label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tender-edit-field input,
+.tender-edit-field textarea,
+.tender-edit-field select {
+  width: 100%;
+  min-height: 38px;
+
+  padding: 8px 10px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--bg-primary);
+  color: var(--text-primary);
+
+  font-size: 12px;
+
+  outline: none;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.tender-edit-field textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.tender-edit-field input:focus,
+.tender-edit-field textarea:focus,
+.tender-edit-field select:focus {
+  border-color: var(--accent);
+
+  box-shadow:
+    0 0 0 3px var(--accent-soft);
+}
+
+.tender-edit-field input:disabled,
+.tender-edit-field textarea:disabled,
+.tender-edit-field select:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+
+/* Edit action row */
+
+.tender-edit-actions {
+  grid-column: 1 / -1;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 9px;
+
+  padding-top: 6px;
+}
+
+
+/* =========================================================
+   PARTICIPATION
+   ========================================================= */
+
+.participation-card {
+  margin-bottom: 18px;
+}
+
+.participation-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.participation-header h2 {
+  margin-bottom: 5px;
+}
+
+.participation-header p {
+  margin: 0;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+
+/* Status badge */
+
+.participation-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  min-height: 30px;
+  padding: 0 11px;
+
+  border: 1px solid transparent;
+  border-radius: 7px;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+.participation-status.participating {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.participation-status.not-participating {
+  border-color: var(--border);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+
+/* Coordinator action buttons */
+
+.participation-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  margin-top: 18px;
+}
+
+.participation-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 37px;
+  padding: 0 14px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+.participation-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.participation-button.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+
+  box-shadow:
+    0 0 0 2px var(--accent-soft);
+}
+
+.participation-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   JBC / EMPLOYEE ASSIGNMENT
+   ========================================================= */
+
+.delegation-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+
+  margin-top: 18px;
+  padding: 15px;
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  background: var(--bg-hover);
+}
+
+.delegation-section label {
+  color: var(--text-muted);
+
+  font-size: 11px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.delegation-section select {
+  width: 100%;
+  max-width: 420px;
+
+  min-height: 38px;
+  padding: 0 11px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+
+  font-size: 12px;
+  font-weight: 500;
+
+  cursor: pointer;
+
+  outline: none;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.delegation-section select:hover:not(:disabled) {
+  border-color: var(--text-muted);
+}
+
+.delegation-section select:focus {
+  border-color: var(--accent);
+
+  box-shadow:
+    0 0 0 3px var(--accent-soft);
+}
+
+.delegation-section select:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+
+/* Read-only JBC information for Admin / Viewer */
+
+.delegated-employee-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  margin-top: 16px;
+  padding: 12px 14px;
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  background: var(--bg-hover);
+}
+
+.delegated-employee-label {
+  color: var(--text-muted);
+
+  font-size: 11px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.delegated-employee-name {
+  color: var(--text-primary);
+
+  font-size: 12px;
+  font-weight: 600;
+
+  text-align: right;
+}
+
+
+/* Participation error */
+
+.participation-error {
+  margin-top: 12px;
+  padding: 9px 11px;
+
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+
+  background: #fef2f2;
+  color: #b91c1c;
+
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 800px) {
+
+  .tender-edit-form {
+    grid-template-columns: 1fr;
+  }
+
+  .tender-edit-field.full-width {
+    grid-column: auto;
+  }
+
+  .tender-edit-actions {
+    grid-column: auto;
+
+    justify-content: stretch;
+    flex-direction: column;
+  }
+
+  .tender-edit-actions button {
+    width: 100%;
+  }
+
+  .participation-header {
+    flex-direction: column;
+  }
+
+  .participation-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .participation-button {
+    width: 100%;
+  }
+
+  .delegation-section select {
+    max-width: none;
+  }
+
+  .delegated-employee-display {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .delegated-employee-name {
+    text-align: left;
+  }
+}
+
+/* ---------------------------------------------------------
+   Participation Summary
+   --------------------------------------------------------- */
+
+.participation-summary {
+  margin-top: 24px;
+}
+
+.participation-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.participation-summary-item {
+  padding: 18px 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fafafa;
+  min-height: 92px;
+}
+
+.participation-summary-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.participation-summary-value {
+  display: block;
+  font-size: 15px;
+  color: #111827;
+  line-height: 1.5;
+}
+
+.participation-summary-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.participation-summary-status.participating {
+  color: #15803d;
+}
+
+.participation-summary-status.under-review {
+  color: #b45309;
+}
+
+.participation-summary-status.not-participating {
+  color: #dc2626;
+}
+
+.participation-summary-status.not-reviewed {
+  color: #6b7280;
+}
+
+.participation-products-item {
+  min-width: 0;
+}
+
+.participation-product-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.participation-product-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.participation-empty {
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.participation-summary-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.edit-participation-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  background: white;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.edit-participation-button:hover {
+  background: #f9fafb;
+}
+
+.edit-participation-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Mobile */
+
+@media (max-width: 900px) {
+  .participation-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .participation-summary-actions {
+    justify-content: flex-start;
+  }
+}
+
+
+/* ==============================
+   PARTICIPATION
+   ============================== */
+
+.participation-card {
+  margin-bottom: 18px;
+}
+
+.participation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.participation-header h2 {
+  margin-bottom: 6px;
+}
+
+.participation-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.participation-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.participation-status.participating {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.participation-status.under-review {
+  color: #b45309;
+  background: #fef3c7;
+}
+
+.participation-status.not-participating {
+  color: #64748b;
+  background: var(--bg-hover);
+}
+
+.participation-status.not-reviewed {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+/* ---------------------------------------------------------
+   Participation Status Buttons
+   --------------------------------------------------------- */
+
+.participation-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.participation-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.participation-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.participation-button.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.participation-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------
+   Participation Summary
+   --------------------------------------------------------- */
+
+.participation-summary {
+  margin-top: 24px;
+}
+
+.participation-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.participation-summary-item {
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  min-height: 92px;
+}
+
+.participation-summary-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.participation-summary-value {
+  display: block;
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.participation-summary-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.participation-summary-status.participating {
+  color: #15803d;
+}
+
+.participation-summary-status.under-review {
+  color: #b45309;
+}
+
+.participation-summary-status.not-participating {
+  color: #dc2626;
+}
+
+.participation-summary-status.not-reviewed {
+  color: var(--text-secondary);
+}
+
+.participation-products-item {
+  min-width: 0;
+}
+
+.participation-product-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.participation-product-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.participation-empty {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.participation-summary-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.edit-participation-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.edit-participation-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.edit-participation-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------
+   Participation Assignment
+   --------------------------------------------------------- */
+
+.participation-assignment {
+  margin-top: 22px;
+}
+
+.delegation-section {
+  margin-bottom: 18px;
+}
+
+.delegation-section label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.delegation-section select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.delegation-section select:focus {
+  border-color: var(--accent);
+}
+
+.delegation-section select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------
+   Product Multi Select
+   --------------------------------------------------------- */
+
+.product-selection-section {
+  position: relative;
+}
+
+.product-multi-select {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.product-multi-select:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.product-multi-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.product-multi-select.open {
+  border-color: var(--accent);
+}
+
+.product-multi-select-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.product-multi-select-icon {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.product-multi-select-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.product-selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.product-selected-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Dropdown */
+
+.product-multi-select-menu {
+  position: absolute;
+  z-index: 1000;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow);
+}
+
+.product-multi-select-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.product-multi-select-option:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.product-multi-select-option.selected {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.product-multi-select-checkbox {
+  width: 17px;
+  height: 17px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--accent);
+}
+
+.product-multi-select-option.selected
+  .product-multi-select-checkbox {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.product-multi-select-empty {
+  padding: 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: center;
+}
+
+.product-selection-help {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+/* ---------------------------------------------------------
+   Participation Requirements
+   --------------------------------------------------------- */
+
+.participation-requirement {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.requirement-complete {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.requirement-pending {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------
+   Participation Save / Cancel
+   --------------------------------------------------------- */
+
+.participation-save-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.cancel-edit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancel-edit-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.save-participation-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save-participation-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.save-participation-button:disabled,
+.cancel-edit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------
+   Admin / Viewer Read-only Participation
+   --------------------------------------------------------- */
+
+.participation-readonly {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.participation-readonly-item {
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.participation-readonly-item > span {
+  display: block;
+  margin-bottom: 9px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.participation-readonly-item > strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Mobile */
+
+@media (max-width: 900px) {
+  .participation-summary-grid,
+  .participation-readonly {
+    grid-template-columns: 1fr;
+  }
+
+  .participation-summary-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 650px) {
+  .participation-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .participation-actions {
+    flex-direction: column;
+  }
+
+  .participation-button {
+    justify-content: center;
+  }
+
+  .participation-save-row {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .cancel-edit-button,
+  .save-participation-button {
+    width: 100%;
+  }
+}

@@ -1,67 +1,35 @@
-from datetime import datetime
-
-from database.connection import SessionLocal
-from database.models.tender import Tender
-from database.models.tender_source import TenderSource
-from database.models.tender_relevance import TenderRelevance
-from database.models.tender_document import TenderDocument
+from tender_scraper.storage.region_mapper import get_region_name
 
 
-db = SessionLocal()
+test_cases = [
+    ("Federal PPRA", "Islamabad"),
+    ("Federal PPRA", "Rawalpindi"),
+    ("Federal PPRA", "Wah Cantt"),
+    ("Federal PPRA", "Peshawar"),
+    ("Federal PPRA", "Nowshera"),
+    ("Federal PPRA", "Lahore"),
+    ("Federal PPRA", "Multan"),
+    ("Federal PPRA", "Karachi"),
+    ("Federal PPRA", "Hyderabad"),
+    ("Federal PPRA", "Quetta"),
+    ("Federal PPRA", "Unknown City"),
+    ("Federal PPRA", None),
 
-try:
-    source = (
-        db.query(TenderSource)
-        .filter(TenderSource.id == 1)
-        .first()
+    ("KP PPRA", None),
+    ("Punjab PPRA", None),
+    ("Sindh PPRA", None),
+    ("Balochistan PPRA", None),
+]
+
+
+for source, city in test_cases:
+    region = get_region_name(
+        source_name=source,
+        city=city,
     )
 
-    if source is None:
-        raise RuntimeError("Tender source 1 not found")
-
-    tender = Tender(
-        source_id=source.id,
-        web_tender_no="DELETE-TEST-001",
-        tender_reference_no="DELETE-TEST-001",
-        tender_name="TEMPORARY DELETE TEST TENDER",
-        city="Test City",
-        authority="Test Authority",
-        organization="Test Organization",
-        advertised_date=datetime.now(),
-        closed_date=datetime.now(),
-        raw_data={"test": True},
+    print(
+        f"{source:20} | "
+        f"{str(city):20} → "
+        f"{region}"
     )
-
-    db.add(tender)
-    db.flush()
-
-    relevance = TenderRelevance(
-        tender_jazzid=tender.jazzid,
-        keyword_score=0,
-        matched_keywords=[],
-        matched_capabilities=[],
-    )
-
-    document = TenderDocument(
-        tender_jazzid=tender.jazzid,
-        document_type="PRIMARY",
-        document_name="delete-test.pdf",
-        source_url="https://example.com/delete-test.pdf",
-        local_path="test/delete-test.pdf",
-        download_status="PENDING",
-    )
-
-    db.add(relevance)
-    db.add(document)
-
-    db.commit()
-
-    print("Temporary tender created successfully")
-    print("JAZZID:", tender.jazzid)
-
-except Exception:
-    db.rollback()
-    raise
-
-finally:
-    db.close()

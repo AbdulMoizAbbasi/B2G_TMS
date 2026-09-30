@@ -1,8 +1,11 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "./App.css";
 
+import { AuthProvider } from "./auth/AuthContext";
+import Login from "./pages/Login";
 import TenderDetail from "./pages/TenderDetail";
 import Layout from "./components/Layout";
+import ProtectedRoute from "./components/ProtectedRoute";
 import AllTenders from "./pages/AllTenders";
 import ParticipatedTenders from "./pages/ParticipatedTenders";
 import EvaluationReports from "./pages/EvaluationReports";
@@ -13,53 +16,38 @@ import ProjectDetail from "./pages/ProjectDetail";
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          
-          {/* All Tenders */}
-          <Route
-            index
-            element={<AllTenders />}
-          />
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
-          {/* Tender Detail */}
-          <Route
-            path="tenders/:tenderId"
-            element={<TenderDetail />}
-          />
-
-          {/* Participated Tenders */}
-          <Route
-            path="participated"
-            element={<ParticipatedTenders />}
-          />
-
-          {/* Evaluation Reports */}
-          <Route
-            path="evaluations"
-            element={<EvaluationReports />}
-          />
-
-          {/* Evaluation Detail */}
-          <Route
-            path="evaluations/:tenderNo"
-            element={<EvaluationDetail />}
-          />
-
-          {/* Project Updates */}
-          <Route
-            path="project-updates"
-            element={<ProjectUpdates />}
-          />
-
-          {/* Project Detail */}
-          <Route
-            path="project-updates/:projectId"
-            element={<ProjectDetail />}
-          />
-
-        </Route>
-      </Routes>
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<AllTenders />} />
+              <Route path="tenders/:tenderId" element={<TenderDetail />} />
+              <Route
+                path="participated"
+                element={<ParticipatedTenders />}
+              />
+              <Route
+                path="evaluations"
+                element={<EvaluationReports />}
+              />
+              <Route
+                path="evaluations/:tenderNo"
+                element={<EvaluationDetail />}
+              />
+              <Route
+                path="project-updates"
+                element={<ProjectUpdates />}
+              />
+              <Route
+                path="project-updates/:projectId"
+                element={<ProjectDetail />}
+              />
+            </Route>
+          </Route>
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

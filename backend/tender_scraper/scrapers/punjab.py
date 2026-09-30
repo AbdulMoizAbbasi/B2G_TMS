@@ -734,26 +734,19 @@ def parse_tender_date(date_string):
 def filter_checkpoint_tenders(
     tenders,
     checkpoint_date,
-    checkpoint_key,
 ):
     """
-    Remove tenders already processed according
-    to the checkpoint.
+    Punjab only uses the checkpoint date.
 
-    Punjab cannot filter by time, so the complete
-    checkpoint date is downloaded again.
+    The complete checkpoint date is fetched again because
+    Punjab supports date filtering but the tender ordering
+    is not a reliable checkpoint boundary.
 
-    The checkpoint tender is located in the
-    portal's current ordering and only rows
-    appearing after it are returned.
+    All tenders on the checkpoint date are kept.
 
-    If the checkpoint tender cannot be found,
-    all tenders for that date are returned
-    conservatively.
+    Existing tenders are handled by the database
+    upsert logic.
     """
-
-    if not checkpoint_key:
-        return tenders
 
     if not tenders:
         return []
@@ -775,11 +768,9 @@ def filter_checkpoint_tenders(
 
         return tenders
 
-    checkpoint_index = None
+    filtered = []
 
-    for index, tender in enumerate(
-        tenders
-    ):
+    for tender in tenders:
 
         tender_date = parse_tender_date(
             tender.get(
@@ -788,65 +779,15 @@ def filter_checkpoint_tenders(
             )
         )
 
-        if tender_date != checkpoint_date_obj:
+        if tender_date is None:
+            # Keep unknown dates for safety.
+            filtered.append(tender)
             continue
 
-        tender_key = get_tender_unique_key(
-            tender
-        )
+        if tender_date >= checkpoint_date_obj:
+            filtered.append(tender)
 
-        if tender_key == checkpoint_key:
-
-            checkpoint_index = index
-
-            break
-
-    if checkpoint_index is None:
-
-        print()
-        print(
-            "WARNING: Checkpoint tender was "
-            "not found in the filtered result."
-        )
-
-        print(
-            "Checkpoint tender may have been "
-            "removed, reordered, or changed."
-        )
-
-        print(
-            "No checkpoint-based rows will "
-            "be discarded for this date."
-        )
-
-        return tenders
-
-    new_tenders = tenders[
-        checkpoint_index + 1:
-    ]
-
-    print()
-    print("=" * 70)
-    print("CHECKPOINT FILTER RESULT")
-    print("=" * 70)
-
-    print(
-        f"Checkpoint position: "
-        f"{checkpoint_index + 1}"
-    )
-
-    print(
-        f"Tenders before checkpoint: "
-        f"{checkpoint_index + 1}"
-    )
-
-    print(
-        f"Tenders after checkpoint: "
-        f"{len(new_tenders)}"
-    )
-
-    return new_tenders
-
+    return filtered
 
 def scrape_date(
     session,
@@ -981,9 +922,6 @@ def scrape_punjab_tenders(
         The complete checkpoint date is fetched because
         Punjab only supports date filtering.
 
-        Previously processed rows are removed using
-        last_tender_key when the checkpoint tender can
-        be located.
 
         All dates after the checkpoint date are treated
         as new.
@@ -1021,12 +959,16 @@ def scrape_punjab_tenders(
     # Read checkpoint
     # ------------------------------------------------------
 
-    checkpoint = get_checkpoint(PORTAL_NAME)
-    checkpoint_date = checkpoint.get("last_date")
-    checkpoint_key = checkpoint.get("last_tender_key")
+    checkpoint = get_checkpoint(
+        PORTAL_NAME
+    )
+
+    checkpoint_date = checkpoint.get(
+        "last_date"
+    )
+
     checkpoint_candidate = {
-    "last_date": checkpoint_date,
-    "last_tender_key": checkpoint_key,
+        "last_date": checkpoint_date,
     }
 
     print()
@@ -1044,10 +986,6 @@ def scrape_punjab_tenders(
         f"{checkpoint_date}"
     )
 
-    print(
-        f"Last tender key: "
-        f"{checkpoint_key}"
-    )
 
     # ------------------------------------------------------
     # Parse configured start date
@@ -1220,22 +1158,11 @@ def scrape_punjab_tenders(
         # for this date BEFORE filtering old checkpoint records.
         # ---------------------------------------------------------
         if date_tenders:
-            candidate_tender = None
-            candidate_key = None
-
-            for tender in reversed(date_tenders):
-                key = get_tender_unique_key(tender)
-
-                if key:
-                    candidate_tender = tender
-                    candidate_key = key
-                    break
-
-            if candidate_tender is not None and candidate_key:
-                checkpoint_candidate = {
-                    "last_date": current_date.strftime("%Y-%m-%d"),
-                    "last_tender_key": candidate_key,
-                }
+            checkpoint_candidate = {
+                "last_date": current_date.strftime(
+                    "%Y-%m-%d"
+                ),
+            }
 
         # ---------------------------------------------------------
         # Only filter already-processed tenders on the checkpoint
@@ -1245,12 +1172,10 @@ def scrape_punjab_tenders(
             use_checkpoint
             and checkpoint_date
             and current_date.strftime("%Y-%m-%d") == checkpoint_date
-            and checkpoint_key
         ):
             date_tenders = filter_checkpoint_tenders(
                 tenders=date_tenders,
                 checkpoint_date=checkpoint_date,
-                checkpoint_key=checkpoint_key,
             )
 
         all_tenders.extend(date_tenders)

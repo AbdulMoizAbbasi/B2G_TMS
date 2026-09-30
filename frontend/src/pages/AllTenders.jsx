@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
-import { normalizeTenders } from "../utils/tenderNormalizer";
+import { useAuth } from "../auth/AuthContext";
 import {
   Search,
   SlidersHorizontal,
@@ -37,11 +37,14 @@ function parseDate(value) {
 }
 
 function getEstimatedValue(tender) {
-  if (tender.estimatedValue === null) {
+  if (
+    tender.estimated_value === null ||
+    tender.estimated_value === undefined
+  ) {
     return null;
   }
 
-  const value = String(tender.estimatedValue)
+  const value = String(tender.estimated_value)
     .replace(/,/g, "")
     .replace(/[^\d.-]/g, "");
 
@@ -69,6 +72,9 @@ function csvValue(value) {
 
 function AllTenders() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const isAdmin = user?.role === "ADMIN";
 
   const [tenders, setTenders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -116,13 +122,10 @@ function AllTenders() {
           "/api/tenders"
         );
 
-        const normalized = normalizeTenders(
-          response.data
-        );
-
-        setTenders(normalized);
+        setTenders(response.data);
       } catch (err) {
         console.error(err);
+
         setError(
           "Failed to load tenders."
         );
@@ -134,6 +137,68 @@ function AllTenders() {
     fetchTenders();
   }, []);
 
+  /*
+   * Check the backend scraper status.
+   *
+   * This is intentionally Admin-only because the
+   * scraper status endpoint is Admin-only.
+   */
+  useEffect(() => {
+    if (!isAdmin) {
+      setScraperRunning(false);
+      return;
+    }
+
+    const checkScraperStatus = async () => {
+      try {
+        const response = await api.get(
+          "/api/admin/scraper/status"
+        );
+
+        setScraperRunning(
+          response.data.running === true
+        );
+      } catch (err) {
+        console.error(
+          "Failed to check scraper status:",
+          err
+        );
+      }
+    };
+
+    // Check once when the page loads.
+    checkScraperStatus();
+
+    return () => {};
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin || !scraperRunning) {
+      return;
+    }
+
+    const intervalId = setInterval(async () => {
+      try {
+        const response = await api.get(
+          "/api/admin/scraper/status"
+        );
+
+        setScraperRunning(
+          response.data.running === true
+        );
+      } catch (err) {
+        console.error(
+          "Failed to check scraper status:",
+          err
+        );
+      }
+    }, 2000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [isAdmin, scraperRunning]);
+
   const filterOptions = useMemo(() => {
     const sources = new Set();
     const capabilities = new Set();
@@ -143,7 +208,7 @@ function AllTenders() {
         sources.add(tender.source);
       }
 
-      tender.capability?.forEach(
+      (tender.matched_capabilities || []).forEach(
         (capability) => {
           if (capability) {
             capabilities.add(capability);
@@ -166,17 +231,15 @@ function AllTenders() {
     const result = tenders.filter((tender) => {
       if (searchTerm) {
         const searchableText = [
-          tender.tenderNo,
-          tender.referenceNo,
-          tender.tenderName,
+          tender.web_tender_no,
+          tender.tender_reference_no,
+          tender.tender_name,
           tender.authority,
           tender.organization,
           tender.city,
-          tender.location,
           tender.source,
-          tender.status,
-          ...(tender.capability || []),
-          ...(tender.matchedKeywords || []),
+          ...(tender.matched_capabilities || []),
+          ...(tender.keywords_matched || []),
         ]
           .filter(Boolean)
           .join(" ")
@@ -205,7 +268,7 @@ function AllTenders() {
         selectedCapabilities.length > 0
       ) {
         const hasCapability =
-          tender.capability?.some(
+          tender.matched_capabilities?.some(
             (capability) =>
               selectedCapabilities.includes(
                 capability
@@ -218,9 +281,9 @@ function AllTenders() {
       }
 
       const relevance =
-        typeof tender.relevanceScore ===
+        typeof tender.relevance_score ===
         "number"
-          ? tender.relevanceScore
+          ? tender.relevance_score
           : null;
 
       if (relevanceFilter !== "all") {
@@ -276,7 +339,7 @@ function AllTenders() {
 
       const advertisedDate =
         parseDate(
-          tender.advertisedDate
+          tender.advertised_date
         );
 
       if (advertisedFrom) {
@@ -312,7 +375,7 @@ function AllTenders() {
 
       const closingDate =
         parseDate(
-          tender.closingDate
+          tender.closed_date
         );
 
       if (closingFrom) {
@@ -355,21 +418,21 @@ function AllTenders() {
 
       if (sortBy === "relevance") {
         valueA =
-          a.relevanceScore ?? -Infinity;
+          a.relevance_score ?? -Infinity;
 
         valueB =
-          b.relevanceScore ?? -Infinity;
+          b.relevance_score ?? -Infinity;
       }
 
       if (sortBy === "closingDate") {
         valueA =
           parseDate(
-            a.closingDate
+            a.closed_date
           )?.getTime() ?? Infinity;
 
         valueB =
           parseDate(
-            b.closingDate
+            b.closed_date
           )?.getTime() ?? Infinity;
       }
 
@@ -386,12 +449,12 @@ function AllTenders() {
       if (sortBy === "advertisedDate") {
         valueA =
           parseDate(
-            a.advertisedDate
+            a.advertised_date
           )?.getTime() ?? -Infinity;
 
         valueB =
           parseDate(
-            b.advertisedDate
+            b.advertised_date
           )?.getTime() ?? -Infinity;
       }
 
@@ -421,69 +484,23 @@ function AllTenders() {
     if (scraperRunning) return;
 
     try {
-      setScraperRunning(true);
       setScraperMessage("");
 
-      const response =
-        await api.post(
-          "/api/scraper/tenders/run"
-        );
+      /*
+       * The backend becomes the source of truth.
+       *
+       * We do not set scraperRunning back to false here.
+       * The polling effect will detect when the backend
+       * scraper finishes.
+       */
+      setScraperRunning(true);
 
-      console.log(
-        "SCRAPER RESULTS:",
-        JSON.stringify(
-          response.data.results,
-          null,
-          2
-        )
+      await api.post(
+        "/api/admin/run-scraper"
       );
 
-      const tenderResponse =
-        await api.get(
-          "/api/tenders"
-        );
-
-      const normalized =
-        normalizeTenders(
-          tenderResponse.data
-        );
-
-      setTenders(normalized);
-
-      const results =
-        response.data.results || {};
-
-      const federal =
-        results["Federal PPRA"] || {};
-
-      const punjab =
-        results["Punjab PPRA"] || {};
-
-      const balochistan =
-        results["Balochistan PPRA"] || {};
-
-      const totalKept =
-        Number(federal.kept || 0) +
-        Number(punjab.kept || 0) +
-        Number(balochistan.kept || 0);
-
-      const inserted =
-        Number(
-          punjab.storage?.inserted || 0
-        );
-
-      const updated =
-        Number(
-          punjab.storage?.updated || 0
-        );
-
       setScraperMessage(
-        `Scraper completed successfully. ` +
-        `Federal: ${federal.kept || 0} relevant, ` +
-        `Punjab: ${punjab.kept || 0} relevant, ` +
-        `Balochistan: ${balochistan.kept || 0} relevant. ` +
-        `New: ${inserted}, Updated: ${updated}, ` +
-        `Total: ${normalized.length}.`
+        "Tender scraper started successfully."
       );
     } catch (err) {
       console.error(
@@ -491,11 +508,27 @@ function AllTenders() {
         err
       );
 
-      setScraperMessage(
-        "Failed to run scraper."
-      );
-    } finally {
+      /*
+       * If another Admin started the scraper between
+       * our status check and POST, the backend returns 409.
+       */
+      if (
+        err.response?.status === 409
+      ) {
+        setScraperRunning(true);
+
+        setScraperMessage(
+          "Scraper is already running."
+        );
+
+        return;
+      }
+
       setScraperRunning(false);
+
+      setScraperMessage(
+        "Failed to start scraper."
+      );
     }
   }
 
@@ -524,38 +557,36 @@ function AllTenders() {
 
   function downloadCSV() {
     const headers = [
-      "Tender No",
-      "Reference No",
+      "Web Tender No",
+      "Tender Reference No",
       "Tender Name",
+      "City",
       "Authority",
       "Organization",
-      "City",
       "Estimated Value",
-      "Bid Security",
       "Advertised Date",
-      "Closing Date",
-      "Matched Keywords",
-      "Relevance",
+      "Closed Date",
       "Source",
-      "Status",
+      "Matched Keywords",
+      "Relevance Score",
+      "Matched Capabilities",
     ];
 
     const rows =
       filteredTenders.map((tender) => [
-        tender.tenderNo,
-        tender.referenceNo,
-        tender.tenderName,
+        tender.web_tender_no,
+        tender.tender_reference_no,
+        tender.tender_name,
+        tender.city,
         tender.authority,
         tender.organization,
-        tender.city,
-        tender.estimatedValue,
-        tender.bidSecurity,
-        tender.advertisedDate,
-        tender.closingDate,
-        tender.matchedKeywords,
-        tender.relevanceScore,
+        tender.estimated_value,
+        tender.advertised_date,
+        tender.closed_date,
         tender.source,
-        tender.status,
+        tender.keywords_matched,
+        tender.relevance_score,
+        tender.matched_capabilities,
       ]);
 
     const csv = [
@@ -631,25 +662,27 @@ function AllTenders() {
 
         <div className="page-header-actions">
 
-          <button
-            type="button"
-            className="run-scraper-button"
-            onClick={runScraper}
-            disabled={scraperRunning}
-          >
-            <RefreshCw
-              size={16}
-              className={
-                scraperRunning
-                  ? "scraper-spinning"
-                  : ""
-              }
-            />
+          {isAdmin && (
+            <button
+              type="button"
+              className="run-scraper-button"
+              onClick={runScraper}
+              disabled={scraperRunning}
+            >
+              <RefreshCw
+                size={16}
+                className={
+                  scraperRunning
+                    ? "scraper-spinning"
+                    : ""
+                }
+              />
 
-            {scraperRunning
-              ? "Running Scraper..."
-              : "Run Scraper"}
-          </button>
+              {scraperRunning
+                ? "Executing..."
+                : "Run Scraper"}
+            </button>
+          )}
 
           <div className="total-tenders">
             <span>Total Tenders</span>
@@ -973,20 +1006,18 @@ function AllTenders() {
             <thead>
 
               <tr>
-                <th>Tender No</th>
-                <th>Reference No</th>
+                <th>Web Tender No</th>
+                <th>Tender Reference No</th>
                 <th>Tender Name</th>
+                <th>City</th>
                 <th>Authority</th>
                 <th>Organization</th>
-                <th>City</th>
                 <th>Estimated Value</th>
-                <th>Bid Security</th>
                 <th>Advertised Date</th>
-                <th>Closing Date</th>
-                <th>Matched Keywords</th>
-                <th>Relevance</th>
+                <th>Closed Date</th>
                 <th>Source</th>
-                <th>Status</th>
+                <th>Matched Keywords</th>
+                <th>Relevance Score</th>
               </tr>
 
             </thead>
@@ -996,7 +1027,7 @@ function AllTenders() {
               {filteredTenders.map(
                 (tender) => (
                   <tr
-                    key={tender.id}
+                    key={tender.jazzid}
                   >
 
                     <td>
@@ -1005,19 +1036,19 @@ function AllTenders() {
                         className="tender-link"
                         onClick={() =>
                           openTender(
-                            tender.id
+                            tender.jazzid
                           )
                         }
                       >
                         {displayValue(
-                          tender.tenderNo
+                          tender.web_tender_no
                         )}
                       </button>
                     </td>
 
                     <td className="reference-cell">
                       {displayValue(
-                        tender.referenceNo
+                        tender.tender_reference_no
                       )}
                     </td>
 
@@ -1027,14 +1058,20 @@ function AllTenders() {
                         className="tender-link tender-name-link"
                         onClick={() =>
                           openTender(
-                            tender.id
+                            tender.jazzid
                           )
                         }
                       >
                         {displayValue(
-                          tender.tenderName
+                          tender.tender_name
                         )}
                       </button>
+                    </td>
+
+                    <td>
+                      {displayValue(
+                        tender.city
+                      )}
                     </td>
 
                     <td>
@@ -1051,41 +1088,37 @@ function AllTenders() {
 
                     <td>
                       {displayValue(
-                        tender.city
+                        tender.estimated_value
                       )}
                     </td>
 
                     <td>
                       {displayValue(
-                        tender.estimatedValue
+                        tender.advertised_date
                       )}
                     </td>
 
                     <td>
                       {displayValue(
-                        tender.bidSecurity
+                        tender.closed_date
                       )}
                     </td>
 
                     <td>
-                      {displayValue(
-                        tender.advertisedDate
-                      )}
-                    </td>
-
-                    <td>
-                      {displayValue(
-                        tender.closingDate
-                      )}
+                      <span className="source-badge">
+                        {displayValue(
+                          tender.source
+                        )}
+                      </span>
                     </td>
 
                     <td>
                       <div className="tag-list">
 
                         {tender
-                          .matchedKeywords
+                          .keywords_matched
                           ?.length
-                          ? tender.matchedKeywords.map(
+                          ? tender.keywords_matched.map(
                               (keyword) => (
                                 <span
                                   className="tag keyword-tag"
@@ -1107,23 +1140,9 @@ function AllTenders() {
                     <td>
                       <span className="relevance-score">
                         {displayValue(
-                          tender.relevanceScore
+                          tender.relevance_score
                         )}
                       </span>
-                    </td>
-
-                    <td>
-                      <span className="source-badge">
-                        {displayValue(
-                          tender.source
-                        )}
-                      </span>
-                    </td>
-
-                    <td>
-                      {displayValue(
-                        tender.status
-                      )}
                     </td>
 
                   </tr>

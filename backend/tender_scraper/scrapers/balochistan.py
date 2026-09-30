@@ -103,31 +103,36 @@ def fetch_page(page, model):
 
 def filter_checkpoint_tenders(tenders, checkpoint):
     """
-    Balochistan returns tenders newest -> oldest.
+    Filter Balochistan tenders using the checkpoint date only.
 
-    Newer date than checkpoint:
+    Tenders newer than the checkpoint date:
         keep
 
-    Older date than checkpoint:
-        discard
+    Tenders on the checkpoint date:
+        keep
 
-    Same date:
-        keep records appearing before the checkpoint tender.
+    Tenders older than the checkpoint date:
+        discard
 
     Unknown dates:
         keep for safety.
+
+    Tender number is intentionally not used as a checkpoint
+    boundary. Existing tenders are handled by the database
+    upsert logic.
     """
 
     if not checkpoint:
         return tenders
 
     last_date = checkpoint.get("last_date")
-    last_tender_key = checkpoint.get("last_tender_key")
 
-    if not last_date or not last_tender_key:
+    if not last_date:
         return tenders
 
-    checkpoint_date = parse_tender_date(last_date)
+    checkpoint_date = parse_tender_date(
+        last_date
+    )
 
     if checkpoint_date is None:
         print(
@@ -136,25 +141,10 @@ def filter_checkpoint_tenders(tenders, checkpoint):
         )
         return tenders
 
-    checkpoint_position = None
-
-    for index, tender in enumerate(tenders):
-        tender_key = get_tender_key(tender)
-
-        if tender_key == str(last_tender_key).strip():
-            checkpoint_position = index
-            break
-
-    if checkpoint_position is None:
-        print(
-            "Warning: Checkpoint tender was not found in scraped results. "
-            "Returning all tenders for safety."
-        )
-        return tenders
-
     filtered = []
 
-    for index, tender in enumerate(tenders):
+    for tender in tenders:
+
         tender_date = parse_tender_date(
             tender.get("PublishedDate")
         )
@@ -163,12 +153,8 @@ def filter_checkpoint_tenders(tenders, checkpoint):
             filtered.append(tender)
             continue
 
-        if tender_date > checkpoint_date:
+        if tender_date >= checkpoint_date:
             filtered.append(tender)
-
-        elif tender_date == checkpoint_date:
-            if index < checkpoint_position:
-                filtered.append(tender)
 
     return filtered
 
@@ -181,17 +167,19 @@ def build_checkpoint_metadata(
     """
     Balochistan returns newest -> oldest.
 
-    The checkpoint represents the newest tender reached
-    during the current scrape.
+    The checkpoint represents the newest tender date
+    reached during the current scrape.
+
+    Only the date is stored. Tender number is not used
+    as a checkpoint boundary.
     """
 
     if not scraped_tenders:
         return None
 
     newest_date = None
-    newest_index = None
 
-    for index, tender in enumerate(scraped_tenders):
+    for tender in scraped_tenders:
         tender_date = parse_tender_date(
             tender.get("PublishedDate")
         )
@@ -201,23 +189,14 @@ def build_checkpoint_metadata(
 
         if newest_date is None or tender_date > newest_date:
             newest_date = tender_date
-            newest_index = index
 
-    if newest_date is None or newest_index is None:
-        return None
-
-    newest_tender = scraped_tenders[newest_index]
-
-    tender_key = get_tender_key(newest_tender)
-
-    if not tender_key:
+    if newest_date is None:
         return None
 
     return {
         "last_date": newest_date.strftime(
             "%Y-%m-%dT%H:%M:%S"
         ),
-        "last_tender_key": tender_key,
     }
 
 
@@ -237,10 +216,7 @@ def scrape_balochistan_tenders(
     if use_checkpoint:
         checkpoint = get_checkpoint(PORTAL_NAME)
 
-        if (
-            checkpoint.get("last_date")
-            and checkpoint.get("last_tender_key")
-        ):
+        if checkpoint.get("last_date"):
             effective_date_from = checkpoint["last_date"]
         else:
             effective_date_from = date_from
@@ -255,13 +231,8 @@ def scrape_balochistan_tenders(
             f"Last date: "
             f"{checkpoint.get('last_date')}"
         )
-        print(
-            f"Last tender key: "
-            f"{checkpoint.get('last_tender_key')}"
-        )
     else:
         print("Last date: None")
-        print("Last tender key: None")
 
     print(
         f"Requested start date: "
@@ -324,22 +295,16 @@ def scrape_balochistan_tenders(
             "Checkpoint candidate date: "
             f"{checkpoint_metadata['last_date']}"
         )
-
-        print(
-            "Checkpoint candidate tender: "
-            f"{checkpoint_metadata['last_tender_key']}"
-        )
     else:
         print(
             "Checkpoint candidate: None"
         )
 
     # ---------------------------------------------------------
-    # Checkpoint filtering is performed on the RAW API data.
+    # Checkpoint filtering is date-based only.
     #
-    # The checkpoint logic uses:
-    #     PublishedDate
-    #     TSENumber
+    # All tenders on the checkpoint date are kept.
+    # Tender number is NOT used as a checkpoint boundary.
     # ---------------------------------------------------------
 
     if use_checkpoint and checkpoint:

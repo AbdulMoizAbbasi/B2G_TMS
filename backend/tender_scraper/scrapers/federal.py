@@ -394,48 +394,6 @@ def deduplicate_tenders(tenders):
     return unique_tenders
 
 
-# ============================================================
-# CHECKPOINT / LAST TENDER FILTER
-# ============================================================
-
-def filter_after_tender(
-    tenders,
-    last_tender_no,
-):
-    """
-    Date filtering is already performed by the
-    Federal PPRA portal.
-
-    If last_tender_no is provided, return only
-    tenders appearing after that tender in the
-    date-filtered result.
-
-    If last_tender_no is not provided, return
-    all tenders from the requested date range.
-    """
-
-    if not last_tender_no:
-        return tenders
-
-    last_tender_no = str(
-        last_tender_no
-    ).strip()
-
-    for index, tender in enumerate(tenders):
-
-        key = get_tender_key(tender)
-
-        if key == last_tender_no:
-
-            return tenders[:index]
-
-    print(
-        "[Federal PPRA] Last tender number was not found "
-        "inside the filtered result. Returning all "
-        "scraped tenders."
-    )
-
-    return tenders
 
 
 def build_checkpoint_candidate(
@@ -446,22 +404,17 @@ def build_checkpoint_candidate(
     Build the next checkpoint from the latest tender
     returned by the Federal portal.
 
-    Checkpoint date is stored in YYYY-MM-DD because
-    this is the exact format required by the Federal
-    advertisement-date filter.
+    Only the advertisement date is stored.
+
+    Tender number is intentionally not used as a
+    checkpoint because tender ordering is not a reliable
+    boundary for incremental scraping.
     """
 
     if not tenders:
         return previous_checkpoint
 
     last_tender = tenders[0]
-
-    last_tender_key = get_tender_key(
-        last_tender
-    )
-
-    if not last_tender_key:
-        return previous_checkpoint
 
     advertised_date = (
         last_tender.get("Advertisement Date")
@@ -477,50 +430,33 @@ def build_checkpoint_candidate(
 
     parsed_date = None
 
-    # Portal currently displays dates such as:
-    # September 13, 2026
-
     try:
-
         parsed_date = datetime.strptime(
             advertised_date,
             "%B %d, %Y",
         )
-
     except ValueError:
         pass
 
-    # Also support abbreviated month names.
-
     if parsed_date is None:
-
         try:
-
             parsed_date = datetime.strptime(
                 advertised_date,
                 "%b %d, %Y",
             )
-
         except ValueError:
             pass
 
-    # If the detail page already gives YYYY-MM-DD,
-    # preserve it directly.
-
     if parsed_date is None:
-
         try:
-
             parsed_date = datetime.strptime(
                 advertised_date,
                 "%Y-%m-%d",
             )
-
         except ValueError:
             pass
 
     if parsed_date is None:
-
         print(
             "[Federal PPRA] Could not determine "
             f"checkpoint date from: {advertised_date}"
@@ -534,9 +470,6 @@ def build_checkpoint_candidate(
 
     return {
         "last_date": checkpoint_date,
-        "last_tender_key": str(
-            last_tender_key
-        ),
     }
 
 
@@ -734,8 +667,6 @@ def scrape_federal_tenders(
             Keep the supplied date_to.
             Fetch the complete checkpoint date because
             the Federal portal supports date-range filtering.
-            Remove previously processed tenders using
-            last_tender_key.
 
     IMPORTANT:
 
@@ -758,13 +689,8 @@ def scrape_federal_tenders(
         "last_date"
     )
 
-    checkpoint_key = checkpoint.get(
-        "last_tender_key"
-    )
-
     checkpoint_candidate = {
         "last_date": checkpoint_date,
-        "last_tender_key": checkpoint_key,
     }
 
     print(
@@ -783,13 +709,11 @@ def scrape_federal_tenders(
 
     effective_date_from = date_from
     effective_date_to = date_to
-    last_tender_no = None
 
     if use_checkpoint and checkpoint_date:
 
         effective_date_from = checkpoint_date
 
-        last_tender_no = checkpoint_key
 
         print(
             f"[Federal PPRA] Checkpoint found."
@@ -805,10 +729,6 @@ def scrape_federal_tenders(
             f"{effective_date_to}"
         )
 
-        print(
-            f"[Federal PPRA] Last tender number: "
-            f"{last_tender_no}"
-        )
 
     else:
 
@@ -984,16 +904,13 @@ def scrape_federal_tenders(
     )
 
     # --------------------------------------------------------
-    # LAST TENDER FILTER
+    # ALL TENDERS
     # --------------------------------------------------------
 
-    new_tenders = filter_after_tender(
-        all_tenders,
-        last_tender_no,
-    )
+    new_tenders = all_tenders
 
     print(
-        f"[Federal PPRA] Tenders after last tender filter: "
+        f"[Federal PPRA] Tenders to process: "
         f"{len(new_tenders)}"
     )
 

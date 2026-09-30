@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, BigInteger
+from sqlalchemy import DateTime, ForeignKey, String, BigInteger, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.models.base import Base
@@ -39,6 +39,11 @@ class TenderParticipation(Base):
 
     delegated_employee_id: Mapped[int | None] = mapped_column(
         ForeignKey("employees.id"),
+        nullable=True,
+    )
+
+    product_ids: Mapped[list[int] | None] = mapped_column(
+        JSON,
         nullable=True,
     )
 

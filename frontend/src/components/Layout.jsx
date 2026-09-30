@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
+import { LogOut } from "lucide-react";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -10,6 +12,7 @@ import {
 } from "lucide-react";
 
 function Layout() {
+  const { user, logout } = useAuth();
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem("theme") === "dark";
   });
@@ -76,6 +79,26 @@ function Layout() {
             );
           })}
         </nav>
+        <div className="sidebar-footer">
+          <div className="user-info">
+            <div className="user-name">
+              {user?.name || user?.username}
+            </div>
+
+            <div className="user-role">
+              {user?.role}
+            </div>
+          </div>
+
+          <button
+            className="logout-button"
+            onClick={logout}
+            title="Logout"
+          >
+            <LogOut size={18} />
+            <span>Logout</span>
+          </button>
+        </div>
       </aside>
 
       <main className="main-content">

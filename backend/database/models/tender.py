@@ -29,6 +29,11 @@ class Tender(Base):
         nullable=False,
     )
 
+    region_id: Mapped[int | None] = mapped_column(
+        ForeignKey("regions.id"),
+        nullable=True,
+    )
+
     web_tender_no: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
@@ -109,6 +114,11 @@ class Tender(Base):
         back_populates="tenders",
     )
 
+    region = relationship(
+        "Region",
+        back_populates="tenders",
+    )
+
     relevance = relationship(
         "TenderRelevance",
         back_populates="tender",
@@ -133,5 +143,11 @@ class Tender(Base):
         "TenderFieldOverride",
         back_populates="tender",
         uselist=False,
+        passive_deletes=True,
+    )
+
+    region_assignments = relationship(
+        "TenderRegionAssignment",
+        back_populates="tender",
         passive_deletes=True,
     )

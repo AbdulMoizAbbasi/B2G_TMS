@@ -518,31 +518,24 @@ def deduplicate_tenders(tenders):
 def filter_checkpoint_tenders(
     tenders,
     checkpoint_date,
-    checkpoint_key,
 ):
     """
     KP tenders are scraped one advertisement date
     at a time.
 
-    On the checkpoint date:
+    All tenders on the checkpoint date are kept.
+    Existing tenders are handled by the database
+    upsert logic.
 
-        tenders appearing before the checkpoint
-        are considered already processed.
-
-    If the checkpoint tender cannot be found,
-    return all tenders conservatively.
+    Tender number is intentionally not used as a
+    checkpoint boundary.
     """
-
-    if not checkpoint_key:
-        return tenders
 
     if not tenders:
         return []
 
-    checkpoint_date_obj = (
-        parse_tender_date(
-            checkpoint_date
-        )
+    checkpoint_date_obj = parse_tender_date(
+        checkpoint_date
     )
 
     if checkpoint_date_obj is None:
@@ -552,11 +545,9 @@ def filter_checkpoint_tenders(
 
         return tenders
 
-    checkpoint_index = None
+    filtered = []
 
-    for index, tender in enumerate(
-        tenders
-    ):
+    for tender in tenders:
 
         tender_date = parse_tender_date(
             tender.get(
@@ -565,44 +556,15 @@ def filter_checkpoint_tenders(
             )
         )
 
-        if tender_date != checkpoint_date_obj:
+        if tender_date is None:
+            # Keep unknown dates for safety.
+            filtered.append(tender)
             continue
 
-        tender_key = (
-            get_tender_unique_key(
-                tender
-            )
-        )
+        if tender_date >= checkpoint_date_obj:
+            filtered.append(tender)
 
-        if (
-            tender_key
-            == str(
-                checkpoint_key
-            ).strip()
-        ):
-
-            checkpoint_index = index
-
-            break
-
-    if checkpoint_index is None:
-
-        print(
-            "[KP PPRA] Checkpoint tender "
-            "was not found in the date result."
-        )
-
-        print(
-            "[KP PPRA] Returning all tenders "
-            "for this date conservatively."
-        )
-
-        return tenders
-
-    return tenders[
-        checkpoint_index + 1:
-    ]
-
+    return filtered
 
 # ============================================================
 # SCRAPE ONE DATE
@@ -701,32 +663,22 @@ def build_checkpoint_candidate(
 ):
     """
     Build checkpoint metadata from the latest
-    tender reached during the current scrape.
+    tender date reached during the current scrape.
 
-    Because KP is scraped date-by-date, the last
-    tender in the final successfully scraped date
-    becomes the checkpoint candidate.
+    KP is scraped date-by-date, so the current date
+    becomes the checkpoint date.
+
+    Tender number is intentionally not stored as a
+    checkpoint boundary.
     """
 
     if not scraped_tenders:
-        return None
-
-    last_tender = scraped_tenders[-1]
-
-    tender_key = (
-        get_tender_unique_key(
-            last_tender
-        )
-    )
-
-    if not tender_key:
         return None
 
     return {
         "last_date": current_date.strftime(
             "%Y-%m-%d"
         ),
-        "last_tender_key": tender_key,
     }
 
 
@@ -758,10 +710,6 @@ def scrape_kp_tenders(
     This function does NOT update the checkpoint.
     """
 
-    # --------------------------------------------------------
-    # READ CHECKPOINT
-    # --------------------------------------------------------
-
     checkpoint = get_checkpoint(
         PORTAL_NAME
     )
@@ -770,13 +718,8 @@ def scrape_kp_tenders(
         "last_date"
     )
 
-    checkpoint_key = checkpoint.get(
-        "last_tender_key"
-    )
-
     checkpoint_candidate = {
         "last_date": checkpoint_date,
-        "last_tender_key": checkpoint_key,
     }
 
     print()
@@ -792,11 +735,6 @@ def scrape_kp_tenders(
     print(
         f"Last date: "
         f"{checkpoint_date}"
-    )
-
-    print(
-        f"Last tender key: "
-        f"{checkpoint_key}"
     )
 
     # --------------------------------------------------------
@@ -963,15 +901,12 @@ def scrape_kp_tenders(
         if (
             use_checkpoint
             and checkpoint_date
-            and checkpoint_key
             and date_string == checkpoint_date
         ):
-
             date_tenders = (
                 filter_checkpoint_tenders(
                     tenders=date_tenders,
                     checkpoint_date=checkpoint_date,
-                    checkpoint_key=checkpoint_key,
                 )
             )
 

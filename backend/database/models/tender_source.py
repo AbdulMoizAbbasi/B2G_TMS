@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.models.base import Base
@@ -20,11 +20,6 @@ class TenderSource(Base):
         nullable=False,
     )
 
-    region_id: Mapped[int] = mapped_column(
-        ForeignKey("regions.id"),
-        nullable=False,
-    )
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
@@ -35,12 +30,7 @@ class TenderSource(Base):
         nullable=False,
     )
 
-    region = relationship(
-        "Region",
-        back_populates="tender_sources",
-    )
-
     tenders = relationship(
-    "Tender",
-    back_populates="source",
+        "Tender",
+        back_populates="source",
     )

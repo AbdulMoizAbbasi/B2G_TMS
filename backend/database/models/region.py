@@ -1,11 +1,9 @@
 from datetime import datetime
 
 from sqlalchemy import DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.models.base import Base
-
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
 class Region(Base):
@@ -32,11 +30,23 @@ class Region(Base):
         nullable=False,
     )
 
-    tender_sources = relationship("TenderSource", back_populates="region")
-    employees = relationship("Employee", back_populates="region")
+    employees = relationship(
+        "Employee",
+        back_populates="region",
+    )
 
     coordinator = relationship(
         "Coordinator",
         back_populates="region",
         uselist=False,
+    )
+
+    tenders = relationship(
+        "Tender",
+        back_populates="region",
+    )
+
+    tender_region_assignments = relationship(
+        "TenderRegionAssignment",
+        back_populates="region",
     )

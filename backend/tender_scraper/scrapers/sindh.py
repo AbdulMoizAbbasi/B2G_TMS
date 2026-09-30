@@ -372,98 +372,26 @@ def sort_tenders(
 def filter_checkpoint_tenders(
     tenders,
     checkpoint_date,
-    checkpoint_key,
 ):
 
     #
-    # No checkpoint key means there is
+    # No checkpoint date means there is
     # nothing to filter.
     #
 
-    if not checkpoint_key:
+    if not checkpoint_date:
 
         return tenders
 
-    sorted_tenders = sort_tenders(
-        tenders
-    )
-
-    checkpoint_index = None
-
-    for index, tender in enumerate(
-        sorted_tenders
-    ):
-
-        tender_key = tender.get(
-            "tenderNumber"
-        )
-
-        if not tender_key:
-
-            continue
-
-        if str(
-            tender_key
-        ).strip() == str(
-            checkpoint_key
-        ).strip():
-
-            checkpoint_index = index
-
-            break
-
     #
-    # Checkpoint tender not found.
+    # All tenders returned here belong to
+    # the checkpoint date because this
+    # function is only called when:
     #
-    # Be conservative and return all
-    # records so that we don't risk
-    # missing tenders.
+    # current_date_string == checkpoint_date
     #
 
-    if checkpoint_index is None:
-
-        print()
-        print(
-            f"[{PORTAL_NAME}] "
-            f"Checkpoint tender "
-            f"{checkpoint_key} "
-            f"was not found on "
-            f"{checkpoint_date}."
-        )
-
-        print(
-            f"[{PORTAL_NAME}] "
-            f"Returning all tenders "
-            f"for this date."
-        )
-
-        return sorted_tenders
-
-    #
-    # Everything after the checkpoint
-    # is new.
-    #
-
-    new_tenders = (
-        sorted_tenders[
-            checkpoint_index + 1:
-        ]
-    )
-
-    print()
-    print(
-        f"[{PORTAL_NAME}] "
-        f"Checkpoint found: "
-        f"{checkpoint_key}"
-    )
-
-    print(
-        f"[{PORTAL_NAME}] "
-        f"Tenders after checkpoint: "
-        f"{len(new_tenders)}"
-    )
-
-    return new_tenders
+    return tenders
 
 
 # ============================================================
@@ -476,50 +404,10 @@ def build_checkpoint_candidate(
 ):
 
     if not tenders:
-
-        return None
-
-    #
-    # Sindh API ordering is not reliable.
-    # Determine the latest tender using
-    # publishDate + tenderNumber.
-    #
-
-    sorted_tenders = sort_tenders(
-        tenders
-    )
-
-    latest_tender = (
-        sorted_tenders[-1]
-    )
-
-    tender_key = latest_tender.get(
-        "tenderNumber"
-    )
-
-    if not tender_key:
-
-        published_document_id = (
-            latest_tender.get(
-                "publishedDocumentID"
-            )
-        )
-
-        if published_document_id:
-
-            tender_key = str(
-                published_document_id
-            )
-
-    if not tender_key:
-
         return None
 
     return {
         "last_date": current_date,
-        "last_tender_key": str(
-            tender_key
-        ),
     }
 
 
@@ -639,10 +527,6 @@ def scrape_sindh_tenders(
         "last_date"
     )
 
-    checkpoint_key = checkpoint.get(
-        "last_tender_key"
-    )
-
     # --------------------------------------------------------
     # 2. DETERMINE EFFECTIVE START DATE
     # --------------------------------------------------------
@@ -667,10 +551,6 @@ def scrape_sindh_tenders(
             f"{checkpoint_date}"
         )
 
-        print(
-            f"Last tender key: "
-            f"{checkpoint_key}"
-        )
 
     else:
 
@@ -826,14 +706,11 @@ def scrape_sindh_tenders(
                     filter_checkpoint_tenders(
                         tenders=scraped_date_tenders,
                         checkpoint_date=checkpoint_date,
-                        checkpoint_key=checkpoint_key,
                     )
                 )
 
-            #
-            # Add only new/unprocessed
-            # tenders to final result.
-            #
+            # Add tenders from this date to the final result.
+            # Existing tenders are handled by database upsert logic.
 
             all_tenders.extend(
                 date_tenders
@@ -900,10 +777,6 @@ def scrape_sindh_tenders(
             f"{checkpoint_candidate['last_date']}"
         )
 
-        print(
-            f"Last tender key: "
-            f"{checkpoint_candidate['last_tender_key']}"
-        )
 
     else:
 
