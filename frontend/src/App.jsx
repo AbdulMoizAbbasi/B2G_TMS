@@ -7,11 +7,7 @@ import TenderDetail from "./pages/TenderDetail";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AllTenders from "./pages/AllTenders";
-import ParticipatedTenders from "./pages/ParticipatedTenders";
-import EvaluationReports from "./pages/EvaluationReports";
-import EvaluationDetail from "./pages/EvaluationDetail";
-import ProjectUpdates from "./pages/ProjectUpdates";
-import ProjectDetail from "./pages/ProjectDetail";
+import Overview from "./pages/Overview";
 
 function App() {
   return (
@@ -23,27 +19,8 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Layout />}>
               <Route index element={<AllTenders />} />
+              <Route path="overview" element={<Overview />} />
               <Route path="tenders/:tenderId" element={<TenderDetail />} />
-              <Route
-                path="participated"
-                element={<ParticipatedTenders />}
-              />
-              <Route
-                path="evaluations"
-                element={<EvaluationReports />}
-              />
-              <Route
-                path="evaluations/:tenderNo"
-                element={<EvaluationDetail />}
-              />
-              <Route
-                path="project-updates"
-                element={<ProjectUpdates />}
-              />
-              <Route
-                path="project-updates/:projectId"
-                element={<ProjectDetail />}
-              />
             </Route>
           </Route>
         </Routes>

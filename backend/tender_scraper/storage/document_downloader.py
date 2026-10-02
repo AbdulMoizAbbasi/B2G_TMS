@@ -1,15 +1,11 @@
-from pathlib import Path
 from datetime import datetime, timezone
 
 import requests
 
+from config.paths import DATA_DIR, DOCUMENTS_DIR
+
 
 REQUEST_TIMEOUT = 60
-
-DOCUMENTS_DIR = (
-    Path(__file__).resolve().parent.parent.parent
-    / "documents"
-)
 
 
 def download_document(
@@ -50,9 +46,7 @@ def download_document(
 
         file_size = file_path.stat().st_size
 
-        backend_root = Path(__file__).resolve().parent.parent.parent
-
-        relative_path = file_path.relative_to(backend_root)
+        relative_path = file_path.relative_to(DATA_DIR)
 
         return {
             "download_status": "DOWNLOADED",
@@ -61,7 +55,11 @@ def download_document(
             "downloaded_at": datetime.now(timezone.utc),
         }
 
-    except requests.RequestException:
+    except requests.RequestException as exc:
+        print(
+            f"[Document Download] Failed to download {url}: "
+            f"{type(exc).__name__}: {exc}"
+        )
         return {
             "download_status": "FAILED",
             "local_path": None,

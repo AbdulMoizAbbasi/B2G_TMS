@@ -1,13 +1,8 @@
 import json
 from datetime import datetime
-from pathlib import Path
+from config.paths import CHECKPOINT_FILE
 
 
-CHECKPOINT_FILE = (
-    Path(__file__).resolve().parent.parent
-    / "state"
-    / "checkpoints.json"
-)
 
 
 def _ensure_checkpoint_file():

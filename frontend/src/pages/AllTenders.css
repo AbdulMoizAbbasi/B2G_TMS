@@ -1,0 +1,1387 @@
+/* All Tenders page */
+.tender-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+
+  color: var(--accent);
+
+  font: inherit;
+  font-weight: 600;
+
+  text-align: left;
+  cursor: pointer;
+}
+
+.tender-link:hover {
+  text-decoration: underline;
+}
+
+.tender-name-link {
+  font-weight: 600;
+}
+
+
+.selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.selection-actions > span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  margin-right: auto;
+}
+
+.selection-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.selection-actions button:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.selection-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.selection-actions .delete-selected-button {
+  border-color: #dc2626;
+  background: #dc2626;
+  color: white;
+}
+
+.selection-actions .delete-selected-button:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+/* Admin selection checkboxes */
+
+.selection-actions + .table-container input[type="checkbox"],
+.table-container input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+@media (max-width: 650px) {
+  .selection-actions {
+    flex-wrap: wrap;
+  }
+
+  .selection-actions > span {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .selection-actions button {
+    flex: 1;
+  }
+}
+
+/* =========================================================
+   ALL TENDERS PAGE
+   Exact styling for AllTenders.jsx
+   ========================================================= */
+
+.tenders-page {
+  width: 100%;
+  max-width: 100%;
+}
+
+
+/* =========================================================
+   PAGE HEADER
+   ========================================================= */
+
+.tenders-page .page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+
+  margin-bottom: 22px;
+}
+
+.tenders-page .page-header h1 {
+  margin: 0;
+
+  color: var(--text-primary);
+
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.tenders-page .page-header p {
+  margin: 6px 0 0;
+
+  max-width: 700px;
+
+  color: var(--text-secondary);
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.tenders-page .page-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 18px;
+}
+
+
+/* =========================================================
+   RUN SCRAPER
+   ========================================================= */
+
+.tenders-page .run-scraper-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  min-height: 38px;
+
+  padding: 0 13px;
+
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+
+  background: var(--accent);
+  color: #ffffff;
+
+  font-size: 12px;
+  font-weight: 650;
+
+  cursor: pointer;
+
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.tenders-page .run-scraper-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.tenders-page .run-scraper-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.tenders-page .run-scraper-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.scraper-spinning {
+  animation: scraper-spin 1s linear infinite;
+}
+
+@keyframes scraper-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* =========================================================
+   TOTAL TENDERS
+   ========================================================= */
+
+.tenders-page .total-tenders {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+
+  min-width: 95px;
+}
+
+.tenders-page .total-tenders span {
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tenders-page .total-tenders strong {
+  margin-top: 3px;
+
+  color: var(--text-primary);
+
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+
+/* =========================================================
+   SCRAPER MESSAGE
+   ========================================================= */
+
+.tenders-page .scraper-message {
+  display: flex;
+  align-items: center;
+
+  min-height: 38px;
+
+  margin-bottom: 16px;
+  padding: 0 12px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+
+  font-size: 12px;
+}
+
+
+/* =========================================================
+   SUMMARY CARDS
+   ========================================================= */
+
+.tenders-page .tender-summary-cards {
+  display: grid;
+
+  grid-template-columns:
+    repeat(5, minmax(0, 1fr));
+
+  gap: 12px;
+
+  margin-bottom: 22px;
+}
+
+.tenders-page .tender-summary-card {
+  min-height: 92px;
+
+  padding: 15px 16px;
+
+  border: 1px solid var(--border);
+  border-radius: 9px;
+
+  background: var(--bg-secondary);
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.tenders-page .tender-summary-card:hover {
+  border-color: var(--text-muted);
+
+  transform: translateY(-1px);
+}
+
+.tenders-page .tender-summary-card span {
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tenders-page .tender-summary-card strong {
+  margin-top: 10px;
+
+  color: var(--text-primary);
+
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+
+/* =========================================================
+   TABLE SECTION
+   ========================================================= */
+
+.tenders-page .table-section {
+  width: 100%;
+
+  border: 1px solid var(--border);
+  border-radius: 10px;
+
+  background: var(--bg-secondary);
+
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   TABLE SECTION HEADER
+   ========================================================= */
+
+.tenders-page .table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 24px;
+
+  padding: 18px 18px;
+
+  border-bottom: 1px solid var(--border);
+
+  background: var(--bg-secondary);
+}
+
+.tenders-page .table-header > div:first-child {
+  min-width: 220px;
+}
+
+.tenders-page .table-header h2 {
+  margin: 0;
+
+  color: var(--text-primary);
+
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.tenders-page .table-header > div:first-child > span {
+  display: block;
+
+  margin-top: 5px;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.tenders-page .table-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 8px;
+
+  flex-wrap: wrap;
+}
+
+
+/* =========================================================
+   CLEAR FILTERS
+   ========================================================= */
+
+.tenders-page .clear-filters {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 34px;
+
+  padding: 0 9px;
+
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  background: transparent;
+  color: var(--accent);
+
+  font-size: 11px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.tenders-page .clear-filters:hover {
+  background: var(--bg-hover);
+}
+
+
+/* =========================================================
+   SORT CONTROLS
+   ========================================================= */
+
+.tenders-page .sort-controls {
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  min-height: 34px;
+
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tenders-page .sort-controls select {
+  height: 34px;
+
+  padding: 0 8px;
+
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  outline: none;
+
+  background: var(--bg-primary);
+  color: var(--text-primary);
+
+  font-size: 11px;
+
+  cursor: pointer;
+}
+
+.tenders-page .sort-controls select:focus {
+  border-color: var(--accent);
+}
+
+
+/* =========================================================
+   DOWNLOAD CSV
+   ========================================================= */
+
+.tenders-page .download-csv-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 34px;
+
+  padding: 0 10px;
+
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  background: var(--bg-primary);
+  color: var(--text-primary);
+
+  font-size: 11px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.tenders-page .download-csv-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+}
+
+
+/* =========================================================
+   ADMIN SELECTION ACTIONS
+   ========================================================= */
+
+.tenders-page .selection-actions {
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  min-height: 34px;
+
+  margin: 0;
+  padding: 0;
+
+  border: none;
+
+  background: transparent;
+}
+
+.tenders-page .selection-actions > span {
+  display: inline-flex;
+  align-items: center;
+
+  height: 34px;
+
+  padding: 0 8px;
+
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 600;
+
+  white-space: nowrap;
+}
+
+.tenders-page .selection-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  height: 34px;
+
+  padding: 0 9px;
+
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  background: var(--bg-primary);
+  color: var(--text-primary);
+
+  font-size: 11px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.tenders-page .selection-actions button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+}
+
+.tenders-page .selection-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tenders-page .selection-actions .delete-selected-button {
+  border-color: #dc2626;
+
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.tenders-page .selection-actions .delete-selected-button:hover:not(:disabled) {
+  border-color: #b91c1c;
+
+  background: #b91c1c;
+}
+
+
+/* =========================================================
+   TABLE CONTAINER
+   ========================================================= */
+
+.tenders-page .table-container {
+  width: 100%;
+
+  overflow-x: auto;
+
+  border: none;
+  border-radius: 0;
+
+  background: var(--bg-secondary);
+}
+
+.tenders-page table {
+  width: 100%;
+
+  min-width: 1250px;
+
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+
+/* =========================================================
+   TABLE COLUMN HEADERS — PROMINENT
+   ========================================================= */
+
+.tenders-page thead th {
+  padding: 14px 11px 12px;
+
+  border-bottom: 2px solid var(--border);
+
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+
+  font-size: 13px;
+  font-weight: 700;
+
+  line-height: 1.3;
+
+  text-align: left;
+
+  vertical-align: top;
+
+  white-space: nowrap;
+
+  letter-spacing: 0.1px;
+}
+
+.tenders-page thead th:first-child {
+  padding-left: 15px;
+}
+
+.tenders-page thead th:last-child {
+  padding-right: 15px;
+}
+
+
+/* =========================================================
+   TABLE COLUMN FILTER INPUTS
+   ========================================================= */
+
+.tenders-page .column-filter-input {
+  display: block;
+
+  width: 100%;
+
+  min-width: 115px;
+  height: 32px;
+
+  margin-top: 8px;
+  padding: 0 8px;
+
+  border: 1px solid var(--border);
+  border-radius: 5px;
+
+  outline: none;
+
+  background: var(--bg-primary);
+  color: var(--text-primary);
+
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.tenders-page .column-filter-input::placeholder {
+  color: var(--text-muted);
+}
+
+.tenders-page .column-filter-input:focus {
+  border-color: var(--accent);
+}
+
+
+/* =========================================================
+   RANGE FILTERS
+   ========================================================= */
+
+.tenders-page .column-range-filter {
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+
+  margin-top: 8px;
+}
+
+.tenders-page .column-range-filter input {
+  width: 100%;
+
+  min-width: 110px;
+  height: 31px;
+
+  padding: 0 8px;
+
+  border: 1px solid var(--border);
+  border-radius: 5px;
+
+  outline: none;
+
+  background: var(--bg-primary);
+  color: var(--text-primary);
+
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.tenders-page .column-range-filter input::placeholder {
+  color: var(--text-muted);
+}
+
+.tenders-page .column-range-filter input:focus {
+  border-color: var(--accent);
+}
+
+
+/* =========================================================
+   CHECKBOXES
+   ========================================================= */
+
+.tenders-page input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+
+  margin: 0;
+
+  accent-color: var(--accent);
+
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   TABLE BODY
+   ========================================================= */
+
+.tenders-page tbody td {
+  padding: 11px 10px;
+
+  border-bottom: 1px solid var(--border);
+
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+
+  font-size: 11px;
+  line-height: 1.45;
+
+  vertical-align: middle;
+}
+
+.tenders-page tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tenders-page tbody tr:hover td {
+  background: var(--bg-hover);
+}
+
+
+/* =========================================================
+   TENDER LINKS
+   ========================================================= */
+
+.tenders-page .tender-link {
+  display: inline;
+
+  margin: 0;
+  padding: 0;
+
+  border: none;
+
+  background: transparent;
+  color: var(--accent);
+
+  font: inherit;
+  font-weight: 600;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.tenders-page .tender-link:hover {
+  text-decoration: underline;
+}
+
+.tenders-page .tender-name-link {
+  max-width: 360px;
+
+  font-weight: 600;
+
+  line-height: 1.45;
+}
+
+.tenders-page .tender-name {
+  min-width: 250px;
+}
+
+
+/* =========================================================
+   VIEW BUTTON
+   ========================================================= */
+
+.tenders-page .view-tender-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 30px;
+
+  padding: 0 9px;
+
+  border: 1px solid var(--border);
+  border-radius: 5px;
+
+  background: var(--bg-primary);
+  color: var(--text-primary);
+
+  font-size: 10px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.tenders-page .view-tender-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.tenders-page .empty-state {
+  padding: 55px 20px;
+
+  text-align: center;
+}
+
+.tenders-page .empty-state h3 {
+  margin: 0 0 6px;
+
+  color: var(--text-primary);
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tenders-page .empty-state p {
+  margin: 0 0 16px;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+}
+
+.tenders-page .clear-empty-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 34px;
+
+  padding: 0 11px;
+
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  background: var(--bg-primary);
+  color: var(--text-primary);
+
+  font-size: 11px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.tenders-page .clear-empty-button:hover {
+  background: var(--bg-hover);
+}
+
+
+/* =========================================================
+   TABLE SCROLLBAR
+   ========================================================= */
+
+.tenders-page .table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.tenders-page .table-container::-webkit-scrollbar-track {
+  background: var(--bg-hover);
+}
+
+.tenders-page .table-container::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 8px;
+}
+
+.tenders-page .table-container::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+
+/* =========================================================
+   RESPONSIVE — 1300px
+   ========================================================= */
+
+@media (max-width: 1300px) {
+
+  .tenders-page .tender-summary-cards {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+
+  .tenders-page .table-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tenders-page .table-header-actions {
+    width: 100%;
+
+    justify-content: flex-start;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE — 900px
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+  .tenders-page .page-header {
+    flex-direction: column;
+  }
+
+  .tenders-page .page-header-actions {
+    width: 100%;
+
+    justify-content: space-between;
+  }
+
+  .tenders-page .tender-summary-cards {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .tenders-page .table-header-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tenders-page .sort-controls {
+    width: 100%;
+  }
+
+  .tenders-page .sort-controls select {
+    flex: 1;
+  }
+
+  .tenders-page .selection-actions {
+    width: 100%;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE — 600px
+   ========================================================= */
+
+@media (max-width: 600px) {
+
+  .tenders-page .page-header-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tenders-page .total-tenders {
+    align-items: flex-start;
+  }
+
+  .tenders-page .tender-summary-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .tenders-page .table-header {
+    padding: 13px;
+  }
+
+  .tenders-page .table-header-actions {
+    width: 100%;
+  }
+
+  .tenders-page .sort-controls {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .tenders-page .download-csv-button {
+    width: 100%;
+  }
+
+  .tenders-page .selection-actions {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .tenders-page .selection-actions > span {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tenders-page .selection-actions button {
+    flex: 1;
+  }
+}
+
+.tenders-page .web-tender-no-column {
+  width: 132px;
+  min-width: 0;
+  max-width: 132px;
+}
+
+.tenders-page table.tenders-table {
+  width: 100%;
+  min-width: 1280px;
+  table-layout: fixed;
+}
+
+.tenders-page .tenders-table col.selection-column {
+  width: 38px;
+}
+
+.tenders-page .tenders-table col.web-tender-no-column {
+  width: 132px;
+}
+
+.tenders-page .tenders-table col.tender-name-column {
+  width: 305px;
+}
+
+.tenders-page .tenders-table col.city-column {
+  width: 105px;
+}
+
+.tenders-page .tenders-table col.organization-column {
+  width: 190px;
+}
+
+.tenders-page .tenders-table col.submission-date-column {
+  width: 130px;
+}
+
+.tenders-page .tenders-table col.estimated-value-column {
+  width: 140px;
+}
+
+.tenders-page .tenders-table col.participation-status-column {
+  width: 165px;
+}
+
+.tenders-page .tenders-table col.actions-column {
+  width: 78px;
+}
+
+.tenders-page .tenders-table th {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.tenders-page .tenders-table td {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.tenders-page .tenders-table th.web-tender-no-column,
+.tenders-page .tenders-table td.web-tender-no-column {
+  width: 132px;
+  min-width: 0;
+  max-width: 132px;
+}
+
+.tenders-page .tenders-table th.tender-name-column,
+.tenders-page .tenders-table td.tender-name {
+  width: 305px;
+  min-width: 0;
+  max-width: 305px;
+}
+
+.tenders-page .tenders-table .tender-name-link {
+  display: block;
+  width: 100%;
+  max-width: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.tenders-page .tenders-table .column-filter-input,
+.tenders-page .tenders-table .column-range-filter input {
+  min-width: 0;
+}
+
+.tenders-page .table-header {
+  padding: 20px 22px;
+  border-top: 3px solid var(--accent);
+}
+
+.tenders-page .table-header h2 {
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.35px;
+}
+
+.tenders-page .table-header > div:first-child > span {
+  width: fit-content;
+  margin-top: 7px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-primary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tenders-page .product-filter-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tenders-page .product-filter-control select {
+  height: 34px;
+  max-width: 210px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.tenders-page .product-filter-control select:focus {
+  border-color: var(--accent);
+}
+
+/* Clearer surface contrast across the tender dashboard. */
+.tenders-page .tender-summary-card {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
+}
+
+.tenders-page .table-section {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-raised);
+}
+
+.tenders-page .table-header {
+  background: var(--table-header);
+  border-bottom-color: var(--border-strong);
+}
+
+.tenders-page thead th {
+  background: var(--table-header);
+  border-bottom-color: var(--border-strong);
+}
+
+.tenders-page tbody td {
+  font-size: 12px;
+  border-bottom-color: var(--border);
+}
+
+.tenders-page tbody tr:nth-child(even) td {
+  background: var(--table-row-alt);
+}
+
+.tenders-page tbody tr:hover td {
+  background: var(--bg-hover);
+}
+
+.tenders-page .column-filter-input,
+.tenders-page .column-range-filter input,
+.tenders-page .sort-controls select {
+  border-color: var(--border-strong);
+  background: var(--bg-secondary);
+  font-size: 11px;
+}
+
+.tenders-page .column-filter-input:focus,
+.tenders-page .column-range-filter input:focus,
+.tenders-page .sort-controls select:focus {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.tenders-page .total-tenders {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow);
+}
+
+.tenders-page .tender-summary-card span {
+  font-size: 12px;
+}
+
+.tenders-page .web-tender-no-column .tender-link {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+.tenders-page button.tender-summary-card {
+  width: 100%;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tenders-page button.tender-summary-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-raised);
+}
+
+.tenders-page button.tender-summary-card.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent), var(--shadow);
+}
+
+.tenders-page button.tender-summary-card.active strong {
+  color: var(--accent);
+}
+
+.tenders-page .clear-filters {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+}
+
+.tenders-page .clear-filters:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.tenders-page .scraper-button-group {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tenders-page .scraper-info-button {
+  width: 38px;
+  min-width: 38px;
+  padding: 0;
+}
+
+.tenders-page .scraper-checkpoint-panel {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(520px, calc(100vw - 48px));
+  max-height: min(75vh, 420px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-raised);
+}
+
+.tenders-page .scraper-checkpoint-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tenders-page .scraper-checkpoint-header h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tenders-page .scraper-checkpoint-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+}
+
+.tenders-page .scraper-checkpoint-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tenders-page .scraper-checkpoint-table-wrap {
+  overflow-x: auto;
+}
+
+.tenders-page table.scraper-checkpoint-table {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  border-collapse: collapse;
+  box-shadow: none;
+  table-layout: auto;
+}
+
+.tenders-page .scraper-checkpoint-table th,
+.tenders-page .scraper-checkpoint-table td {
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.tenders-page .scraper-checkpoint-table th {
+  background: var(--table-header);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tenders-page .scraper-checkpoint-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tenders-page .scraper-checkpoint-state,
+.tenders-page .scraper-checkpoint-error {
+  margin: 0;
+  padding: 10px 0 2px;
+  font-size: 12px;
+}
+
+.tenders-page .scraper-checkpoint-state {
+  color: var(--text-secondary);
+}
+
+.tenders-page .scraper-checkpoint-error {
+  color: var(--danger-text);
+}

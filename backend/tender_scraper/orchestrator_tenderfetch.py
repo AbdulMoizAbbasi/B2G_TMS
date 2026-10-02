@@ -305,43 +305,50 @@ def process_federal():
             )
 
             # ------------------------------------------------
-            # Download primary document
+            # Download primary document only for relevant
+            # tenders
             # ------------------------------------------------
 
-            documents = mapped_tender.get(
-                "documents",
-                [],
+            keyword_score = relevance.get(
+                "keyword_score",
+                0,
             )
 
-            for document in documents:
+            if keyword_score > 0:
 
-                source_url = document.get(
-                    "source_url"
+                documents = mapped_tender.get(
+                    "documents",
+                    [],
                 )
 
-                if not source_url:
-                    continue
+                for document in documents:
 
-                download_result = download_document(
-                    source_url,
-                    source=FEDERAL_PORTAL,
-                    tender_key=(
-                        tender.get(
-                            "web_tender_no"
-                        )
-                        or tender.get(
-                            "id"
-                        )
-                    ),
-                    document_name=(
-                        "tender_document.pdf"
-                    ),
-                )
+                    source_url = document.get(
+                        "source_url"
+                    )
 
-                document.update(
-                    download_result
-                )
+                    if not source_url:
+                        continue
 
+                    download_result = download_document(
+                        source_url,
+                        source=FEDERAL_PORTAL,
+                        tender_key=(
+                            tender.get(
+                                "web_tender_no"
+                            )
+                            or tender.get(
+                                "id"
+                            )
+                        ),
+                        document_name=(
+                            "tender_document.pdf"
+                        ),
+                    )
+
+                    document.update(
+                        download_result
+                    )
             # ------------------------------------------------
             # Persist tender
             # ------------------------------------------------
@@ -565,38 +572,45 @@ def process_punjab():
             )
 
             # ------------------------------------------------
-            # Download primary document
+            # Download primary document only for relevant
+            # tenders
             # ------------------------------------------------
 
-            documents = mapped_tender.get(
-                "documents",
-                [],
+            keyword_score = relevance.get(
+                "keyword_score",
+                0,
             )
 
-            for document in documents:
+            if keyword_score > 0:
 
-                source_url = document.get(
-                    "source_url"
+                documents = mapped_tender.get(
+                    "documents",
+                    [],
                 )
 
-                if not source_url:
-                    continue
+                for document in documents:
 
-                download_result = download_document(
-                    source_url,
-                    source=PUNJAB_PORTAL,
-                    tender_key=tender.get(
-                        "id"
-                    ),
-                    document_name=(
-                        "bidding_document.pdf"
-                    ),
-                )
+                    source_url = document.get(
+                        "source_url"
+                    )
 
-                document.update(
-                    download_result
-                )
+                    if not source_url:
+                        continue
 
+                    download_result = download_document(
+                        source_url,
+                        source=PUNJAB_PORTAL,
+                        tender_key=tender.get(
+                            "id"
+                        ),
+                        document_name=(
+                            "bidding_document.pdf"
+                        ),
+                    )
+
+                    document.update(
+                        download_result
+                    )
             # ------------------------------------------------
             # Persist
             # ------------------------------------------------
@@ -800,45 +814,47 @@ def process_balochistan():
             )
 
             # ------------------------------------------------
-            # Download primary document
+            # Download primary document only for relevant
+            # tenders
             # ------------------------------------------------
 
-            documents = mapped_tender.get(
-                "documents",
-                [],
-            )
+            if keyword_score > 0:
 
-            for document in documents:
-
-                source_url = document.get(
-                    "source_url"
+                documents = mapped_tender.get(
+                    "documents",
+                    [],
                 )
 
-                if not source_url:
-                    continue
+                for document in documents:
 
-                tender_key = (
-                    tender.get(
-                        "TSENumber"
+                    source_url = document.get(
+                        "source_url"
                     )
-                    or str(
+
+                    if not source_url:
+                        continue
+
+                    tender_key = (
                         tender.get(
-                            "Id"
+                            "TSENumber"
+                        )
+                        or str(
+                            tender.get(
+                                "Id"
+                            )
                         )
                     )
-                )
 
-                download_result = download_document(
-                    source_url,
-                    source=BALOCHISTAN_PORTAL,
-                    tender_key=tender_key,
-                    document_name="Bidding Document",
-                )
+                    download_result = download_document(
+                        source_url,
+                        source=BALOCHISTAN_PORTAL,
+                        tender_key=tender_key,
+                        document_name="Bidding Document",
+                    )
 
-                document.update(
-                    download_result
-                )
-
+                    document.update(
+                        download_result
+                    )
             # ------------------------------------------------
             # Persist
             # ------------------------------------------------
@@ -1057,43 +1073,50 @@ def process_kp():
             )
 
             # ------------------------------------------------
-            # Download primary bidding document
+            # Download primary bidding document only for
+            # relevant tenders
             # ------------------------------------------------
 
-            documents = mapped_tender.get(
-                "documents",
-                [],
+            keyword_score = relevance.get(
+                "keyword_score",
+                0,
             )
 
-            for document in documents:
+            if keyword_score > 0:
 
-                source_url = document.get(
-                    "source_url"
+                documents = mapped_tender.get(
+                    "documents",
+                    [],
                 )
 
-                if not source_url:
-                    continue
+                for document in documents:
 
-                download_result = (
-                    download_document(
-                        url=source_url,
-                        source=KP_PORTAL,
-                        tender_key=(
-                            tender.get("id")
-                            or tender.get(
-                                "tender_number"
-                            )
-                        ),
-                        document_name=document.get(
-                            "document_name"
-                        ),
+                    source_url = document.get(
+                        "source_url"
                     )
-                )
 
-                document.update(
-                    download_result
-                )
+                    if not source_url:
+                        continue
 
+                    download_result = (
+                        download_document(
+                            url=source_url,
+                            source=KP_PORTAL,
+                            tender_key=(
+                                tender.get("id")
+                                or tender.get(
+                                    "tender_number"
+                                )
+                            ),
+                            document_name=document.get(
+                                "document_name"
+                            ),
+                        )
+                    )
+
+                    document.update(
+                        download_result
+                    )
             # ------------------------------------------------
             # Persist
             # ------------------------------------------------
@@ -1303,120 +1326,121 @@ def process_sindh():
             )
 
             # -----------------------------------------------
-            # Download primary document
+            # Download primary document only for relevant
+            # tenders
             # -----------------------------------------------
+            if keyword_score > 0:
 
-            published_document_id = tender.get(
-                "publishedDocumentID"
-            )
-
-            documents = mapped_tender.get(
-                "documents",
-                [],
-            )
-
-            if published_document_id:
-
-                print()
-                print(
-                    "[Sindh PPRA] Fetching "
-                    "document metadata..."
+                published_document_id = tender.get(
+                    "publishedDocumentID"
                 )
 
-                try:
+                documents = mapped_tender.get(
+                    "documents",
+                    [],
+                )
 
-                    document_metadata = (
-                        get_sindh_document_metadata(
-                            published_document_id
-                        )
+                if published_document_id:
+
+                    print()
+                    print(
+                        "[Sindh PPRA] Fetching "
+                        "document metadata..."
                     )
 
-                    if document_metadata:
+                    try:
 
-                        file_id = document_metadata.get(
-                            "file_id"
+                        document_metadata = (
+                            get_sindh_document_metadata(
+                                published_document_id
+                            )
                         )
 
-                        file_guid = document_metadata.get(
-                            "file_guid"
-                        )
+                        if document_metadata:
 
-                        if file_id and file_guid:
+                            file_id = document_metadata.get(
+                                "file_id"
+                            )
 
-                            tender_key = (
-                                tender.get(
-                                    "tenderNumber"
+                            file_guid = document_metadata.get(
+                                "file_guid"
+                            )
+
+                            if file_id and file_guid:
+
+                                tender_key = (
+                                    tender.get(
+                                        "tenderNumber"
+                                    )
+                                    or tender.get(
+                                        "publishedDocumentID"
+                                    )
                                 )
-                                or tender.get(
-                                    "publishedDocumentID"
+
+                                print(
+                                    "[Sindh PPRA] "
+                                    "Downloading bidding document..."
                                 )
-                            )
 
-                            print(
-                                "[Sindh PPRA] "
-                                "Downloading bidding document..."
-                            )
-
-                            download_result = (
-                                download_sindh_document(
-                                    file_id=file_id,
-                                    file_guid=file_guid,
-                                    tender_key=tender_key,
-                                    document_name=(
-                                        "Bidding Document.pdf"
-                                    ),
+                                download_result = (
+                                    download_sindh_document(
+                                        file_id=file_id,
+                                        file_guid=file_guid,
+                                        tender_key=tender_key,
+                                        document_name=(
+                                            "Bidding Document.pdf"
+                                        ),
+                                    )
                                 )
-                            )
 
-                            documents.append(
-                                {
-                                    "document_type": "PRIMARY",
-                                    "document_name": (
-                                        "Bidding Document.pdf"
-                                    ),
-                                    "source_url": None,
-                                    **download_result,
-                                }
-                            )
+                                documents.append(
+                                    {
+                                        "document_type": "PRIMARY",
+                                        "document_name": (
+                                            "Bidding Document.pdf"
+                                        ),
+                                        "source_url": None,
+                                        **download_result,
+                                    }
+                                )
 
-                            mapped_tender[
-                                "primary_document_url"
-                            ] = None
+                                mapped_tender[
+                                    "primary_document_url"
+                                ] = None
 
-                            print(
-                                "[Sindh PPRA] "
-                                "Document downloaded."
-                            )
+                                print(
+                                    "[Sindh PPRA] "
+                                    "Document downloaded."
+                                )
+
+                            else:
+
+                                print(
+                                    "[Sindh PPRA] "
+                                    "Document metadata missing "
+                                    "file ID/GUID."
+                                )
 
                         else:
 
                             print(
                                 "[Sindh PPRA] "
-                                "Document metadata missing "
-                                "file ID/GUID."
+                                "No document metadata found."
                             )
 
-                    else:
+                    except Exception as exc:
 
                         print(
-                            "[Sindh PPRA] "
-                            "No document metadata found."
+                            "[Sindh PPRA] Document download "
+                            f"failed: {exc}"
                         )
 
-                except Exception as exc:
+                else:
 
                     print(
-                        "[Sindh PPRA] Document download "
-                        f"failed: {exc}"
+                        "[Sindh PPRA] No "
+                        "publishedDocumentID."
                     )
-
-            else:
-
-                print(
-                    "[Sindh PPRA] No "
-                    "publishedDocumentID."
-                )
-
             # -----------------------------------------------
             # Persist
             # -----------------------------------------------

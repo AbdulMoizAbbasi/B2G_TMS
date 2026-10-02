@@ -9,13 +9,13 @@ import {
   Pencil,
   Save,
   Ban,
-  Clock3,
   ClipboardList,
   ChevronDown,
   Check,
 } from "lucide-react";
 import api from "../api";
 import { useAuth } from "../auth/AuthContext";
+import "./TenderDetail.css";
 
 function displayValue(value) {
   if (
@@ -79,6 +79,7 @@ function TenderDetail() {
     user?.role === "COORDINATOR";
 
   const [tender, setTender] = useState(null);
+  const [regions, setRegions] = useState([]);
 
   /*
    * ---------------------------------------------------------
@@ -190,6 +191,28 @@ function TenderDetail() {
 
     fetchTender();
   }, [tenderId]);
+
+  /*
+   * ---------------------------------------------------------
+   * Fetch regions
+   * ---------------------------------------------------------
+   */
+
+  useEffect(() => {
+    const fetchRegions = async () => {
+      try {
+        const response = await api.get("/api/regions");
+        setRegions(response.data);
+      } catch (err) {
+        console.error(
+          "Failed to load regions:",
+          err
+        );
+      }
+    };
+
+    fetchRegions();
+  }, []);
 
   /*
    * ---------------------------------------------------------
@@ -388,6 +411,9 @@ function TenderDetail() {
           tender.closed_date
         ),
 
+      region_id:
+        tender.region_id ?? "",
+
       relevance_score:
         tender.relevance_score ?? "",
     });
@@ -470,6 +496,33 @@ function TenderDetail() {
         )}`,
         payload
       );
+
+      const selectedRegionId =
+        editValues.region_id === "" ||
+        editValues.region_id === null ||
+        editValues.region_id === undefined
+          ? null
+          : Number(editValues.region_id);
+
+      const currentRegionId =
+        tender.region_id === null ||
+        tender.region_id === undefined
+          ? null
+          : Number(tender.region_id);
+
+      if (
+        selectedRegionId !== null &&
+        selectedRegionId !== currentRegionId
+      ) {
+        await api.patch(
+          `/api/tenders/${encodeURIComponent(
+            tenderId
+          )}/region`,
+          {
+            region_id: selectedRegionId,
+          }
+        );
+      }
 
       const response = await api.get(
         `/api/tenders/${tenderId}`
@@ -955,9 +1008,6 @@ function TenderDetail() {
       case "PARTICIPATING":
         return "Participating";
 
-      case "UNDER_REVIEW":
-        return "Under Review";
-
       case "NOT_PARTICIPATING":
         return "Not Participating";
 
@@ -972,9 +1022,6 @@ function TenderDetail() {
       case "PARTICIPATING":
         return "participating";
 
-      case "UNDER_REVIEW":
-        return "under-review";
-
       case "NOT_PARTICIPATING":
         return "not-participating";
 
@@ -988,9 +1035,6 @@ function TenderDetail() {
     switch (participation) {
       case "PARTICIPATING":
         return <CheckCircle2 size={16} />;
-
-      case "UNDER_REVIEW":
-        return <Clock3 size={16} />;
 
       case "NOT_PARTICIPATING":
         return <XCircle size={16} />;
@@ -1346,11 +1390,37 @@ function TenderDetail() {
               Region
             </span>
 
-            <strong>
-              {displayValue(
-                tender.region
-              )}
-            </strong>
+            {editMode ? (
+              <select
+                value={editValues.region_id ?? ""}
+                onChange={(event) =>
+                  handleEditChange(
+                    "region_id",
+                    event.target.value
+                  )
+                }
+                className="detail-edit-input"
+              >
+                <option value="">
+                  Select Region
+                </option>
+
+                {regions.map((region) => (
+                  <option
+                    key={region.id}
+                    value={region.id}
+                  >
+                    {region.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <strong>
+                {displayValue(
+                  tender.region
+                )}
+              </strong>
+            )}
           </div>
 
           <div className="detail-item">
@@ -1474,20 +1544,16 @@ function TenderDetail() {
             <strong>
               {tender.primary_document_url ? (
                 <a
-                  href={
-                    tender.primary_document_url
-                  }
+                  href={tender.primary_document_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="detail-link"
                 >
-                  Open Document
-                  <ExternalLink
-                    size={14}
-                  />
+                  View Document
+                  <ExternalLink size={14} />
                 </a>
               ) : (
-                "—"
+                "Document Not Available"
               )}
             </strong>
           </div>
@@ -1663,30 +1729,6 @@ function TenderDetail() {
                   />
 
                   Not Reviewed
-                </button>
-
-                {/* Under Review */}
-
-                <button
-                  type="button"
-                  className={`participation-button ${
-                    participation ===
-                    "UNDER_REVIEW"
-                      ? "selected"
-                      : ""
-                  }`}
-                  disabled={
-                    participationLoading
-                  }
-                  onClick={() =>
-                    handleParticipationChange(
-                      "UNDER_REVIEW"
-                    )
-                  }
-                >
-                  <Clock3 size={16} />
-
-                  Under Review
                 </button>
 
                 {/* Participating */}

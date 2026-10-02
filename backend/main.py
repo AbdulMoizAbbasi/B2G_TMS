@@ -1,12 +1,15 @@
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 import threading
 from fastapi import Header
 from pathlib import Path
+from config.paths import (DATA_DIR, DOCUMENTS_DIR, CHECKPOINT_FILE,)
 
 from sqlalchemy.orm import Session
+import mimetypes
 
 import jwt
 import os
@@ -23,6 +26,7 @@ from database.models.employee import Employee
 from database.models.product import Product
 from database.models.tender_region_assignment import TenderRegionAssignment
 from database.models.region import Region
+from tender_scraper.storage.document_downloader import download_document
 
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -39,7 +43,8 @@ from auth import (
 # ============================================================
 # SCRAPER EXECUTION STATE
 # ============================================================
-
+document_download_locks = {}
+document_download_locks_lock = threading.Lock()
 scraper_lock = threading.Lock()
 scraper_running = False
 
@@ -88,6 +93,14 @@ def require_alert_service_key(
 
     return True
 
+
+def get_document_download_lock(jazzid: int):
+    with document_download_locks_lock:
+        if jazzid not in document_download_locks:
+            document_download_locks[jazzid] = threading.Lock()
+
+        return document_download_locks[jazzid]
+    
 
 
 def get_current_user(
@@ -227,6 +240,8 @@ class TenderDelegationRequest(BaseModel):
 class TenderRegionUpdateRequest(BaseModel):
     region_id: int
 
+class BulkTenderDeleteRequest(BaseModel):
+    jazzids: list[int]
 
 @app.get("/")
 def root():
@@ -310,7 +325,7 @@ def get_tenders(
             TenderSource,
             Tender.source_id == TenderSource.id,
         )
-        .join(
+        .outerjoin(
             TenderRelevance,
             TenderRelevance.tender_jazzid == Tender.jazzid,
         )
@@ -320,6 +335,13 @@ def get_tenders(
         )
     )
 
+    # ---------------------------------------------------------
+    # COORDINATOR ACCESS
+    # ---------------------------------------------------------
+    # Coordinators only see:
+    # 1. Tenders assigned to their region
+    # 2. Tenders with relevance score > 0
+    # ---------------------------------------------------------
     if current_user.role.name == "COORDINATOR":
         coordinator = (
             db.query(Coordinator)
@@ -338,58 +360,111 @@ def get_tenders(
             TenderRelevance.keyword_score > 0,
         )
 
-    tenders = query.order_by(Tender.jazzid.desc()).all()
+    # ---------------------------------------------------------
+    # FETCH TENDERS
+    # ---------------------------------------------------------
+    tenders = (
+        query
+        .order_by(Tender.jazzid.desc())
+        .all()
+    )
 
     result = []
 
+    # ---------------------------------------------------------
+    # BUILD RESPONSE
+    # ---------------------------------------------------------
     for tender in tenders:
+
+        # Admin field overrides
         override = tender.field_override
 
-        result.append({
-            "jazzid": tender.jazzid,
-            "source_id": tender.source_id,
-            "source": tender.source.name,
-            "region": tender.region.name if tender.region else None,
+        # -----------------------------------------------------
+        # PARTICIPATION STATUS
+        # -----------------------------------------------------
+        # If no participation record exists, the tender is
+        # considered NOT_REVIEWED.
+        # -----------------------------------------------------
+        participation_status = (
+            tender.participation.status
+            if tender.participation
+            else "NOT_REVIEWED"
+        )
 
+        result.append({
+            # -------------------------------------------------
+            # BASIC INFORMATION
+            # -------------------------------------------------
+            "jazzid": tender.jazzid,
+
+            "source_id": tender.source_id,
+
+            "source": (
+                tender.source.name
+                if tender.source
+                else None
+            ),
+
+            "region": (
+                tender.region.name
+                if tender.region
+                else None
+            ),
+
+            # -------------------------------------------------
+            # TENDER INFORMATION
+            # -------------------------------------------------
             "web_tender_no": (
                 override.web_tender_no
-                if override and override.web_tender_no is not None
+                if override
+                and override.web_tender_no is not None
                 else tender.web_tender_no
             ),
 
             "tender_reference_no": (
                 override.tender_reference_no
-                if override and override.tender_reference_no is not None
+                if override
+                and override.tender_reference_no is not None
                 else tender.tender_reference_no
             ),
 
             "tender_name": (
                 override.tender_name
-                if override and override.tender_name is not None
+                if override
+                and override.tender_name is not None
                 else tender.tender_name
             ),
 
             "city": (
                 override.city
-                if override and override.city is not None
+                if override
+                and override.city is not None
                 else tender.city
             ),
 
             "authority": (
                 override.authority
-                if override and override.authority is not None
+                if override
+                and override.authority is not None
                 else tender.authority
             ),
 
             "organization": (
                 override.organization
-                if override and override.organization is not None
+                if override
+                and override.organization is not None
                 else tender.organization
             ),
 
+            # -------------------------------------------------
+            # ESTIMATED VALUE
+            # -------------------------------------------------
             "estimated_value": (
                 float(override.estimated_value)
-                if override and override.estimated_value is not None
+                if (
+                    override
+                    and override.estimated_value is not None
+                )
                 else (
                     float(tender.estimated_value)
                     if tender.estimated_value is not None
@@ -397,27 +472,85 @@ def get_tenders(
                 )
             ),
 
+            # -------------------------------------------------
+            # DATES
+            # -------------------------------------------------
             "advertised_date": (
                 override.advertised_date
-                if override and override.advertised_date is not None
+                if (
+                    override
+                    and override.advertised_date is not None
+                )
                 else tender.advertised_date
             ),
 
             "closed_date": (
                 override.closed_date
-                if override and override.closed_date is not None
+                if (
+                    override
+                    and override.closed_date is not None
+                )
                 else tender.closed_date
             ),
 
+            # -------------------------------------------------
+            # DOCUMENT / SOURCE URLS
+            # -------------------------------------------------
             "source_detail_url": tender.source_detail_url,
+
             "primary_document_url": tender.primary_document_url,
 
-            "keywords_matched": tender.relevance.matched_keywords,
-            "relevance_score": float(tender.relevance.keyword_score),
-            "matched_capabilities": tender.relevance.matched_capabilities,
+            # -------------------------------------------------
+            # RELEVANCE
+            # -------------------------------------------------
+            "keywords_matched": (
+                tender.relevance.matched_keywords
+                if tender.relevance
+                else []
+            ),
+
+            "relevance_score": (
+                float(tender.relevance.keyword_score)
+                if (
+                    tender.relevance
+                    and tender.relevance.keyword_score is not None
+                )
+                else 0
+            ),
+
+            "matched_capabilities": (
+                tender.relevance.matched_capabilities
+                if tender.relevance
+                else []
+            ),
+
+            # -------------------------------------------------
+            # PARTICIPATION
+            # -------------------------------------------------
+            "participation_status": participation_status,
         })
 
     return result
+
+@app.get("/api/regions")
+def get_regions(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    regions = (
+        db.query(Region)
+        .order_by(Region.name.asc())
+        .all()
+    )
+
+    return [
+        {
+            "id": region.id,
+            "name": region.name,
+        }
+        for region in regions
+    ]
+
 
 
 @app.patch("/api/tenders/{jazzid}/region")
@@ -491,7 +624,7 @@ def get_tender(
             TenderSource,
             Tender.source_id == TenderSource.id,
         )
-        .join(
+        .outerjoin(
             TenderRelevance,
             TenderRelevance.tender_jazzid == Tender.jazzid,
         )
@@ -533,6 +666,19 @@ def get_tender(
         )
 
     override = tender.field_override
+    document = (
+        db.query(TenderDocument)
+        .filter(
+            TenderDocument.tender_jazzid == tender.jazzid,
+            TenderDocument.document_type == "PRIMARY",
+        )
+        .first()
+    )
+
+    document_available = (
+        document is not None
+        and document.download_status == "DOWNLOADED"
+    )
 
     return {
         "jazzid": tender.jazzid,
@@ -608,6 +754,14 @@ def get_tender(
         "matched_capabilities": (
             tender.relevance.matched_capabilities
         ),
+        "document": {
+            "available": document_available,
+            "status": (
+                document.download_status
+                if document
+                else None
+            ),
+        },
     }
 
 
@@ -628,6 +782,39 @@ def get_tender_participation(
             status_code=404,
             detail="Tender not found",
         )
+
+    if current_user.role.name == "COORDINATOR":
+        coordinator = (
+            db.query(Coordinator)
+            .filter(
+                Coordinator.user_id == current_user.id
+            )
+            .first()
+        )
+
+        if coordinator is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Coordinator region is not configured",
+            )
+
+        relevance = (
+            db.query(TenderRelevance)
+            .filter(
+                TenderRelevance.tender_jazzid == jazzid
+            )
+            .first()
+        )
+
+        if (
+            tender.region_id != coordinator.region_id
+            or relevance is None
+            or relevance.keyword_score <= 0
+        ):
+            raise HTTPException(
+                status_code=404,
+                detail="Tender not found",
+            )
 
     participation = (
         db.query(TenderParticipation)
@@ -893,7 +1080,7 @@ def get_pending_participation_alerts(
                 == Tender.jazzid,
             )
             .filter(
-                TenderSource.region_id
+                Tender.region_id
                 == coordinator.region_id,
                 TenderRelevance.keyword_score > 0,
             )
@@ -1066,6 +1253,98 @@ def delegate_tender(
         "delegated_employee_name": employee.name,
     }
 
+def download_tender_document_if_available(
+    db: Session,
+    tender: Tender,
+):
+    """
+    Download the tender's primary document if a source URL exists
+    and the document has not already been downloaded.
+    """
+
+    if not tender.primary_document_url:
+        return False
+
+    download_lock = get_document_download_lock(
+        tender.jazzid
+    )
+
+    if not download_lock.acquire(blocking=False):
+        raise HTTPException(
+            status_code=409,
+            detail="Document download is already in progress.",
+        )
+
+    try:
+        # Check whether the primary document is already downloaded.
+        document = (
+            db.query(TenderDocument)
+            .filter(
+                TenderDocument.tender_jazzid == tender.jazzid,
+                TenderDocument.document_type == "PRIMARY",
+            )
+            .first()
+        )
+
+        if document and document.download_status == "DOWNLOADED":
+            return False
+
+        # Get the source name from the relationship.
+        source_name = tender.source.name
+
+        tender_key = (
+            tender.web_tender_no
+            or str(tender.jazzid)
+        )
+
+        document_name = (
+            document.document_name
+            if document and document.document_name
+            else "tender_document.pdf"
+        )
+
+        download_result = download_document(
+            tender.primary_document_url,
+            source=source_name,
+            tender_key=tender_key,
+            document_name=document_name,
+        )
+
+        if document is None:
+            document = TenderDocument(
+                tender_jazzid=tender.jazzid,
+                document_type="PRIMARY",
+                document_name=document_name,
+                source_url=tender.primary_document_url,
+                download_status=download_result["download_status"],
+                local_path=download_result["local_path"],
+                file_size=download_result["file_size"],
+                downloaded_at=download_result["downloaded_at"],
+            )
+            db.add(document)
+
+        else:
+            document.source_url = tender.primary_document_url
+            document.download_status = (
+                download_result["download_status"]
+            )
+            document.local_path = (
+                download_result["local_path"]
+            )
+            document.file_size = (
+                download_result["file_size"]
+            )
+            document.downloaded_at = (
+                download_result["downloaded_at"]
+            )
+
+        return (
+            download_result["download_status"]
+            == "DOWNLOADED"
+        )
+
+    finally:
+        download_lock.release()
 
 @app.put("/api/tenders/{jazzid}")
 def update_tender(
@@ -1156,10 +1435,18 @@ def update_tender(
                 detail="Tender relevance record not found",
             )
 
-        relevance.keyword_score = (
-            update_data["relevance_score"]
-        )
+        old_score = relevance.keyword_score
+        new_score = update_data["relevance_score"]
 
+        relevance.keyword_score = new_score
+
+        # If admin makes a previously irrelevant tender relevant,
+        # download its primary document if available.
+        if old_score <= 0 and new_score > 0:
+            download_tender_document_if_available(
+                db=db,
+                tender=tender,
+            )
     db.commit()
 
     return {
@@ -1169,9 +1456,8 @@ def update_tender(
     }
 
 
-
-@app.delete("/api/tenders/{jazzid}")
-def delete_tender(
+@app.post("/api/tenders/{jazzid}/document/download")
+def download_tender_document(
     jazzid: int,
     current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
@@ -1188,10 +1474,86 @@ def delete_tender(
             detail="Tender not found",
         )
 
-    # Get document paths before deleting the tender.
+    if not tender.primary_document_url:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not available",
+        )
+
+    document = (
+        db.query(TenderDocument)
+        .filter(
+            TenderDocument.tender_jazzid == jazzid,
+            TenderDocument.document_type == "PRIMARY",
+        )
+        .first()
+    )
+
+    # Prevent downloading an already downloaded document.
+    if document and document.download_status == "DOWNLOADED":
+        raise HTTPException(
+            status_code=409,
+            detail="Document has already been downloaded",
+        )
+
+    downloaded = download_tender_document_if_available(
+        db=db,
+        tender=tender,
+    )
+
+    if not downloaded:
+        raise HTTPException(
+            status_code=409,
+            detail="Document download was not performed.",
+        )
+
+    db.commit()
+
+    return {
+        "message": "Tender document downloaded successfully",
+        "jazzid": jazzid,
+    }
+
+def delete_tender_records(
+    jazzids: list[int],
+    db: Session,
+):
+    """
+    Delete tenders from the database and remove their
+    associated physical document files.
+    """
+
+    tenders = (
+        db.query(Tender)
+        .filter(Tender.jazzid.in_(jazzids))
+        .all()
+    )
+
+    found_ids = {tender.jazzid for tender in tenders}
+    missing_ids = [
+        jazzid
+        for jazzid in jazzids
+        if jazzid not in found_ids
+    ]
+
+    if missing_ids:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "message": "One or more tenders were not found.",
+                "missing_jazzids": missing_ids,
+            },
+        )
+
+    # ---------------------------------------------------------
+    # Get document paths before deleting the tenders.
+    # ---------------------------------------------------------
+
     document_paths = (
         db.query(TenderDocument.local_path)
-        .filter(TenderDocument.tender_jazzid == jazzid)
+        .filter(
+            TenderDocument.tender_jazzid.in_(jazzids)
+        )
         .all()
     )
 
@@ -1201,24 +1563,38 @@ def delete_tender(
         if row[0]
     ]
 
-    # Delete tender.
-    # Related database records are removed through ON DELETE CASCADE.
-    db.delete(tender)
+    # ---------------------------------------------------------
+    # Delete tenders.
+    #
+    # Related database records are removed through
+    # ON DELETE CASCADE.
+    # ---------------------------------------------------------
+
+    for tender in tenders:
+        db.delete(tender)
+
     db.commit()
 
+    # ---------------------------------------------------------
     # Remove physical document files.
-    backend_root = Path(__file__).resolve().parent
-    documents_root = (backend_root / "documents").resolve()
+    # ---------------------------------------------------------
+
+    documents_root = DOCUMENTS_DIR.resolve()
 
     deleted_files = []
     failed_files = []
 
     for local_path in document_paths:
         try:
-            file_path = (backend_root / local_path).resolve()
+            file_path = (
+                DATA_DIR / local_path
+            ).resolve()
 
-            # Safety check: only delete files inside backend/documents.
-            file_path.relative_to(documents_root)
+            # Safety check:
+            # only delete files inside data/documents.
+            file_path.relative_to(
+                documents_root
+            )
 
             if file_path.is_file():
                 file_path.unlink()
@@ -1228,13 +1604,65 @@ def delete_tender(
             failed_files.append(local_path)
 
     return {
-        "message": "Tender deleted successfully",
-        "jazzid": jazzid,
-        "deleted_by": current_user.username,
+        "deleted_count": len(tenders),
+        "deleted_jazzids": [
+            tender.jazzid
+            for tender in tenders
+        ],
         "documents_deleted": deleted_files,
         "documents_failed": failed_files,
     }
 
+
+@app.delete("/api/tenders/{jazzid}")
+def delete_tender(
+    jazzid: int,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    result = delete_tender_records(
+        jazzids=[jazzid],
+        db=db,
+    )
+
+    return {
+        "message": "Tender deleted successfully",
+        "jazzid": jazzid,
+        "deleted_by": current_user.username,
+        **result,
+    }
+
+
+@app.delete("/api/tenders")
+def delete_tenders(
+    request: BulkTenderDeleteRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    # ---------------------------------------------------------
+    # Validate request
+    # ---------------------------------------------------------
+
+    jazzids = list(
+        dict.fromkeys(request.jazzids)
+    )
+
+    if not jazzids:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one tender must be selected.",
+        )
+
+    result = delete_tender_records(
+        jazzids=jazzids,
+        db=db,
+    )
+
+    return {
+        "message": "Tenders deleted successfully",
+        "deleted_by": current_user.username,
+        **result,
+    }
 @app.post("/api/admin/run-scraper")
 def run_scraper_now(
     background_tasks: BackgroundTasks,
@@ -1286,6 +1714,43 @@ def get_scraper_status(
     return {
         "running": scraper_running,
     }
+
+
+@app.get("/api/admin/scraper/checkpoint")
+def get_scraper_checkpoint(
+    current_user: User = Depends(require_admin),
+):
+    checkpoint_file = CHECKPOINT_FILE
+
+    if not checkpoint_file.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Scraper checkpoint file not found.",
+        )
+
+    try:
+        import json
+
+        with checkpoint_file.open(
+            "r",
+            encoding="utf-8",
+        ) as file:
+            checkpoint = json.load(file)
+
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=500,
+            detail="Scraper checkpoint file contains invalid JSON.",
+        )
+
+    except OSError:
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to read scraper checkpoint file.",
+        )
+
+    return checkpoint
+
 
 @app.get("/api/employees")
 def get_employees(
@@ -1354,3 +1819,94 @@ def get_products(
         }
         for product in products
     ]
+
+
+@app.get("/api/tenders/{jazzid}/document")
+def view_tender_document(
+    jazzid: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    tender = (
+        db.query(Tender)
+        .filter(Tender.jazzid == jazzid)
+        .first()
+    )
+
+    if tender is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Tender not found",
+        )
+
+    # Coordinator access control
+    if current_user.role.name == "COORDINATOR":
+        coordinator = (
+            db.query(Coordinator)
+            .filter(Coordinator.user_id == current_user.id)
+            .first()
+        )
+
+        if coordinator is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Coordinator region is not configured",
+            )
+
+        relevance = (
+            db.query(TenderRelevance)
+            .filter(TenderRelevance.tender_jazzid == jazzid)
+            .first()
+        )
+
+        if (
+            tender.region_id != coordinator.region_id
+            or relevance is None
+            or relevance.keyword_score <= 0
+        ):
+            raise HTTPException(
+                status_code=404,
+                detail="Tender not found",
+            )
+
+    document = (
+        db.query(TenderDocument)
+        .filter(
+            TenderDocument.tender_jazzid == jazzid,
+            TenderDocument.document_type == "PRIMARY",
+            TenderDocument.download_status == "DOWNLOADED",
+        )
+        .first()
+    )
+
+    if document is None or not document.local_path:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not available",
+        )
+
+    document_path = (DATA_DIR / document.local_path).resolve()
+    documents_root = DOCUMENTS_DIR.resolve()
+
+    # Prevent path traversal outside data/documents
+    try:
+        document_path.relative_to(documents_root)
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not available",
+        )
+
+    if not document_path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Document file not found",
+        )
+
+    media_type, _ = mimetypes.guess_type(document_path.name)
+
+    return FileResponse(
+        path=document_path,
+        filename=document.document_name or document_path.name,
+        media_type=media_type or "application/octet-stream",
+    )

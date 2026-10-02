@@ -2,15 +2,57 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../auth/AuthContext";
+import "./AllTenders.css";
 import {
   Search,
-  SlidersHorizontal,
   ArrowUpDown,
   X,
   Download,
   RefreshCw,
+  Trash2,
+  Info,
 } from "lucide-react";
-import MultiSelect from "../components/MultiSelect";
+
+const SCRAPER_PORTALS = [
+  "Federal PPRA",
+  "Punjab PPRA",
+  "KP PPRA",
+  "Sindh PPRA",
+  "Balochistan PPRA",
+];
+
+function formatCheckpointDate(value) {
+  if (!value) return "—";
+
+  const datePart = String(value).slice(0, 10);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(datePart)
+    ? new Date(`${datePart}T00:00:00Z`)
+    : new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function formatCheckpointTime(value) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Karachi",
+  }).format(date);
+}
 
 function displayValue(value) {
   if (
@@ -34,6 +76,49 @@ function parseDate(value) {
   }
 
   return date;
+}
+
+function formatDateOnly(value) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+
+  const year = date.getFullYear();
+
+  return `${day}-${month}-${year}`;
+}
+
+function formatDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getNextThreeDayRange() {
+  const from = new Date();
+  from.setHours(0, 0, 0, 0);
+
+  const to = new Date(from);
+  to.setDate(to.getDate() + 3);
+
+  return {
+    from: formatDateInputValue(from),
+    to: formatDateInputValue(to),
+  };
 }
 
 function getEstimatedValue(tender) {
@@ -80,41 +165,92 @@ function AllTenders() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [search, setSearch] = useState("");
-
-  const [selectedSources, setSelectedSources] =
+  const [selectedTenderIds, setSelectedTenderIds] =
     useState([]);
 
-  const [selectedCapabilities, setSelectedCapabilities] =
-    useState([]);
-
-  const [relevanceFilter, setRelevanceFilter] =
-    useState("all");
-
-  const [advertisedFrom, setAdvertisedFrom] =
+  /*
+   * Column filters
+   */
+  const [tenderNoFilter, setTenderNoFilter] =
     useState("");
 
-  const [advertisedTo, setAdvertisedTo] =
+  const [tenderNameFilter, setTenderNameFilter] =
     useState("");
 
-  const [closingFrom, setClosingFrom] =
+  const [cityFilter, setCityFilter] =
     useState("");
 
-  const [closingTo, setClosingTo] =
+  const [organizationFilter, setOrganizationFilter] =
     useState("");
 
+  const [submissionDateFrom, setSubmissionDateFrom] =
+    useState("");
+
+  const [submissionDateTo, setSubmissionDateTo] =
+    useState("");
+
+  const [estimatedValueMin, setEstimatedValueMin] =
+    useState("");
+
+  const [estimatedValueMax, setEstimatedValueMax] =
+    useState("");
+
+  const [participationStatusFilter, setParticipationStatusFilter] =
+    useState("ALL");
+
+  const [productFilter, setProductFilter] = useState("ALL");
+
+  const productOptions = useMemo(() => {
+    const products = new Set();
+    tenders.forEach((tender) => {
+      if (Array.isArray(tender.matched_capabilities)) {
+        tender.matched_capabilities.forEach((capability) => {
+          if (capability) products.add(String(capability));
+        });
+      }
+    });
+    return [...products].sort((a, b) => a.localeCompare(b));
+  }, [tenders]);
+
+  /*
+   * Sorting
+   */
   const [sortBy, setSortBy] =
-    useState("relevance");
+    useState("submissionDate");
 
   const [sortOrder, setSortOrder] =
-    useState("desc");
+    useState("asc");
 
+  /*
+   * Admin scraper
+   */
   const [scraperRunning, setScraperRunning] =
     useState(false);
 
   const [scraperMessage, setScraperMessage] =
     useState("");
 
+  const [checkpointOpen, setCheckpointOpen] =
+    useState(false);
+
+  const [checkpointLoading, setCheckpointLoading] =
+    useState(false);
+
+  const [checkpointError, setCheckpointError] =
+    useState("");
+
+  const [scraperCheckpoint, setScraperCheckpoint] =
+    useState(null);
+
+  /*
+   * Admin bulk delete
+   */
+  const [deleteRunning, setDeleteRunning] =
+    useState(false);
+
+  /*
+   * Fetch tenders
+   */
   useEffect(() => {
     const fetchTenders = async () => {
       try {
@@ -138,10 +274,9 @@ function AllTenders() {
   }, []);
 
   /*
-   * Check the backend scraper status.
+   * Check scraper status.
    *
-   * This is intentionally Admin-only because the
-   * scraper status endpoint is Admin-only.
+   * Admin only.
    */
   useEffect(() => {
     if (!isAdmin) {
@@ -166,277 +301,291 @@ function AllTenders() {
       }
     };
 
-    // Check once when the page loads.
     checkScraperStatus();
 
     return () => {};
   }, [isAdmin]);
 
+  /*
+   * Poll scraper status while running.
+   */
   useEffect(() => {
     if (!isAdmin || !scraperRunning) {
       return;
     }
 
-    const intervalId = setInterval(async () => {
-      try {
-        const response = await api.get(
-          "/api/admin/scraper/status"
-        );
+    const intervalId = setInterval(
+      async () => {
+        try {
+          const response = await api.get(
+            "/api/admin/scraper/status"
+          );
 
-        setScraperRunning(
-          response.data.running === true
-        );
-      } catch (err) {
-        console.error(
-          "Failed to check scraper status:",
-          err
-        );
-      }
-    }, 2000);
+          setScraperRunning(
+            response.data.running === true
+          );
+        } catch (err) {
+          console.error(
+            "Failed to check scraper status:",
+            err
+          );
+        }
+      },
+      2000
+    );
 
     return () => {
       clearInterval(intervalId);
     };
   }, [isAdmin, scraperRunning]);
 
-  const filterOptions = useMemo(() => {
-    const sources = new Set();
-    const capabilities = new Set();
+  /*
+   * Filter + sort tenders.
+   */
+  const filteredTenders = useMemo(() => {
+    const tenderNoTerm =
+      tenderNoFilter
+        .trim()
+        .toLowerCase();
 
-    tenders.forEach((tender) => {
-      if (tender.source) {
-        sources.add(tender.source);
-      }
+    const tenderNameTerm =
+      tenderNameFilter
+        .trim()
+        .toLowerCase();
 
-      (tender.matched_capabilities || []).forEach(
-        (capability) => {
-          if (capability) {
-            capabilities.add(capability);
+    const cityTerm =
+      cityFilter
+        .trim()
+        .toLowerCase();
+
+    const organizationTerm =
+      organizationFilter
+        .trim()
+        .toLowerCase();
+
+    const result = tenders.filter(
+      (tender) => {
+        /*
+         * Tender No filter
+         */
+        if (tenderNoTerm) {
+          const tenderNo =
+            String(
+              tender.web_tender_no ?? ""
+            ).toLowerCase();
+
+          if (
+            !tenderNo.includes(
+              tenderNoTerm
+            )
+          ) {
+            return false;
           }
         }
-      );
-    });
 
-    return {
-      sources: [...sources].sort(),
-      capabilities: [...capabilities].sort(),
-    };
-  }, [tenders]);
+        /*
+         * Tender Name filter
+         */
+        if (tenderNameTerm) {
+          const tenderName =
+            String(
+              tender.tender_name ?? ""
+            ).toLowerCase();
 
-  const filteredTenders = useMemo(() => {
-    const searchTerm = search
-      .trim()
-      .toLowerCase();
-
-    const result = tenders.filter((tender) => {
-      if (searchTerm) {
-        const searchableText = [
-          tender.web_tender_no,
-          tender.tender_reference_no,
-          tender.tender_name,
-          tender.authority,
-          tender.organization,
-          tender.city,
-          tender.source,
-          ...(tender.matched_capabilities || []),
-          ...(tender.keywords_matched || []),
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
-        if (
-          !searchableText.includes(
-            searchTerm
-          )
-        ) {
-          return false;
+          if (
+            !tenderName.includes(
+              tenderNameTerm
+            )
+          ) {
+            return false;
+          }
         }
-      }
 
-      if (selectedSources.length > 0) {
-        if (
-          !selectedSources.includes(
-            tender.source
-          )
-        ) {
-          return false;
+        /*
+         * City filter
+         */
+        if (cityTerm) {
+          const city =
+            String(
+              tender.city ?? ""
+            ).toLowerCase();
+
+          if (
+            !city.includes(cityTerm)
+          ) {
+            return false;
+          }
         }
-      }
 
-      if (
-        selectedCapabilities.length > 0
-      ) {
-        const hasCapability =
-          tender.matched_capabilities?.some(
-            (capability) =>
-              selectedCapabilities.includes(
-                capability
-              )
+        /*
+         * Organization filter
+         */
+        if (organizationTerm) {
+          const organization =
+            String(
+              tender.organization ?? ""
+            ).toLowerCase();
+
+          if (
+            !organization.includes(
+              organizationTerm
+            )
+          ) {
+            return false;
+          }
+        }
+
+        /*
+         * Submission Date range
+         *
+         * Submission Date is currently
+         * backed by tender.closed_date.
+         */
+        const submissionDate =
+          parseDate(
+            tender.closed_date
           );
 
-        if (!hasCapability) {
-          return false;
-        }
-      }
+        if (submissionDateFrom) {
+          const from =
+            new Date(
+              submissionDateFrom
+            );
 
-      const relevance =
-        typeof tender.relevance_score ===
-        "number"
-          ? tender.relevance_score
-          : null;
+          from.setHours(
+            0,
+            0,
+            0,
+            0
+          );
 
-      if (relevanceFilter !== "all") {
-        if (relevance === null) {
-          return false;
-        }
-
-        if (relevanceFilter === "0-20") {
           if (
-            relevance < 0 ||
-            relevance >= 20
+            !submissionDate ||
+            submissionDate < from
           ) {
             return false;
           }
         }
 
-        if (relevanceFilter === "20-40") {
+        if (submissionDateTo) {
+          const to =
+            new Date(
+              submissionDateTo
+            );
+
+          to.setHours(
+            23,
+            59,
+            59,
+            999
+          );
+
           if (
-            relevance < 20 ||
-            relevance >= 40
+            !submissionDate ||
+            submissionDate > to
           ) {
             return false;
           }
         }
 
-        if (relevanceFilter === "40-60") {
-          if (
-            relevance < 40 ||
-            relevance >= 60
-          ) {
-            return false;
-          }
-        }
-
-        if (relevanceFilter === "60-80") {
-          if (
-            relevance < 60 ||
-            relevance >= 80
-          ) {
-            return false;
-          }
-        }
-
-        if (relevanceFilter === "80-100") {
-          if (
-            relevance < 80 ||
-            relevance > 100
-          ) {
-            return false;
-          }
-        }
-      }
-
-      const advertisedDate =
-        parseDate(
-          tender.advertised_date
-        );
-
-      if (advertisedFrom) {
-        const from =
-          new Date(advertisedFrom);
+        /*
+         * Estimated Value range
+         */
+        const estimatedValue =
+          getEstimatedValue(
+            tender
+          );
 
         if (
-          !advertisedDate ||
-          advertisedDate < from
+          estimatedValueMin !== ""
         ) {
-          return false;
+          const min =
+            Number(
+              estimatedValueMin
+            );
+
+          if (
+            Number.isNaN(min) ||
+            estimatedValue === null ||
+            estimatedValue < min
+          ) {
+            return false;
+          }
         }
-      }
-
-      if (advertisedTo) {
-        const to =
-          new Date(advertisedTo);
-
-        to.setHours(
-          23,
-          59,
-          59,
-          999
-        );
 
         if (
-          !advertisedDate ||
-          advertisedDate > to
+          estimatedValueMax !== ""
         ) {
-          return false;
+          const max =
+            Number(
+              estimatedValueMax
+            );
+
+          if (
+            Number.isNaN(max) ||
+            estimatedValue === null ||
+            estimatedValue > max
+          ) {
+            return false;
+          }
         }
-      }
 
-      const closingDate =
-        parseDate(
-          tender.closed_date
-        );
-
-      if (closingFrom) {
-        const from =
-          new Date(closingFrom);
-
+        /*
+         * Participation Status filter
+         */
         if (
-          !closingDate ||
-          closingDate < from
+          participationStatusFilter !==
+          "ALL"
         ) {
-          return false;
+          const participationStatus =
+            tender.participation_status ||
+            "NOT_REVIEWED";
+
+          if (
+            participationStatus !==
+            participationStatusFilter
+          ) {
+            return false;
+          }
         }
-      }
 
-      if (closingTo) {
-        const to =
-          new Date(closingTo);
-
-        to.setHours(
-          23,
-          59,
-          59,
-          999
-        );
-
-        if (
-          !closingDate ||
-          closingDate > to
-        ) {
-          return false;
+        if (productFilter !== "ALL") {
+          const matchedCapabilities = Array.isArray(tender.matched_capabilities)
+            ? tender.matched_capabilities.map(String)
+            : [];
+          if (!matchedCapabilities.includes(productFilter)) return false;
         }
+
+        return true;
       }
+    );
 
-      return true;
-    });
-
+    /*
+     * Sorting
+     */
     result.sort((a, b) => {
       let valueA;
       let valueB;
 
-      if (sortBy === "relevance") {
-        valueA =
-          a.relevance_score ?? -Infinity;
-
-        valueB =
-          b.relevance_score ?? -Infinity;
-      }
-
-      if (sortBy === "closingDate") {
+      if (
+        sortBy === "submissionDate"
+      ) {
         valueA =
           parseDate(
             a.closed_date
-          )?.getTime() ?? Infinity;
+          )?.getTime() ??
+          Infinity;
 
         valueB =
           parseDate(
             b.closed_date
-          )?.getTime() ?? Infinity;
+          )?.getTime() ??
+          Infinity;
       }
 
-      if (sortBy === "estimatedValue") {
+      if (
+        sortBy === "estimatedValue"
+      ) {
         valueA =
           getEstimatedValue(a) ??
           -Infinity;
@@ -446,19 +595,57 @@ function AllTenders() {
           -Infinity;
       }
 
-      if (sortBy === "advertisedDate") {
+      if (sortBy === "tenderName") {
         valueA =
-          parseDate(
-            a.advertised_date
-          )?.getTime() ?? -Infinity;
+          String(
+            a.tender_name ?? ""
+          ).toLowerCase();
 
         valueB =
-          parseDate(
-            b.advertised_date
-          )?.getTime() ?? -Infinity;
+          String(
+            b.tender_name ?? ""
+          ).toLowerCase();
+
+        if (
+          sortOrder === "asc"
+        ) {
+          return valueA.localeCompare(
+            valueB
+          );
+        }
+
+        return valueB.localeCompare(
+          valueA
+        );
       }
 
-      if (sortOrder === "asc") {
+      if (sortBy === "city") {
+        valueA =
+          String(
+            a.city ?? ""
+          ).toLowerCase();
+
+        valueB =
+          String(
+            b.city ?? ""
+          ).toLowerCase();
+
+        if (
+          sortOrder === "asc"
+        ) {
+          return valueA.localeCompare(
+            valueB
+          );
+        }
+
+        return valueB.localeCompare(
+          valueA
+        );
+      }
+
+      if (
+        sortOrder === "asc"
+      ) {
         return valueA - valueB;
       }
 
@@ -468,31 +655,288 @@ function AllTenders() {
     return result;
   }, [
     tenders,
-    search,
-    selectedSources,
-    selectedCapabilities,
-    relevanceFilter,
-    advertisedFrom,
-    advertisedTo,
-    closingFrom,
-    closingTo,
+    tenderNoFilter,
+    tenderNameFilter,
+    cityFilter,
+    organizationFilter,
+    submissionDateFrom,
+    submissionDateTo,
+    estimatedValueMin,
+    estimatedValueMax,
+    participationStatusFilter,
+    productFilter,
     sortBy,
     sortOrder,
   ]);
 
+  /*
+   * Total visible tenders.
+   */
+  const totalTenders =
+    tenders.length;
+
+  /*
+   * Participation summary counts.
+   *
+   * These are calculated from the
+   * participation_status returned
+   * by /api/tenders.
+   *
+   * No participation record means
+   * the backend returns NOT_REVIEWED.
+   */
+  const reviewPendingCount =
+    useMemo(() => {
+      return tenders.filter(
+        (tender) =>
+          tender.participation_status ===
+          "NOT_REVIEWED"
+      ).length;
+    }, [tenders]);
+
+  const participatingCount =
+    useMemo(() => {
+      return tenders.filter(
+        (tender) =>
+          tender.participation_status ===
+          "PARTICIPATING"
+      ).length;
+    }, [tenders]);
+
+  const notParticipatingCount =
+    useMemo(() => {
+      return tenders.filter(
+        (tender) =>
+          tender.participation_status ===
+          "NOT_PARTICIPATING"
+      ).length;
+    }, [tenders]);
+
+  /*
+   * Tenders whose submission date
+   * falls within the next 3 days.
+   *
+   * This is calculated from the full
+   * tender set, not the currently
+   * filtered table.
+   */
+  const submissionNextWeekCount =
+    useMemo(() => {
+      const now = new Date();
+
+      const startOfToday =
+        new Date(now);
+
+      startOfToday.setHours(
+        0,
+        0,
+        0,
+        0
+      );
+
+      const nextWeek =
+        new Date(
+          startOfToday
+        );
+
+      nextWeek.setDate(
+        nextWeek.getDate() + 3
+      );
+
+      nextWeek.setHours(
+        23,
+        59,
+        59,
+        999
+      );
+
+      return tenders.filter(
+        (tender) => {
+          const submissionDate =
+            parseDate(
+              tender.closed_date
+            );
+
+          if (!submissionDate) {
+            return false;
+          }
+
+          return (
+            submissionDate >=
+              startOfToday &&
+            submissionDate <=
+              nextWeek
+          );
+        }
+      ).length;
+    }, [tenders]);
+
+  /*
+   * Selection
+   */
+  function toggleTenderSelection(
+    tenderId
+  ) {
+    setSelectedTenderIds(
+      (current) => {
+        if (
+          current.includes(
+            tenderId
+          )
+        ) {
+          return current.filter(
+            (id) =>
+              id !== tenderId
+          );
+        }
+
+        return [
+          ...current,
+          tenderId,
+        ];
+      }
+    );
+  }
+
+  function toggleSelectAll() {
+    const filteredIds =
+      filteredTenders.map(
+        (tender) =>
+          tender.jazzid
+      );
+
+    const allSelected =
+      filteredIds.length > 0 &&
+      filteredIds.every(
+        (id) =>
+          selectedTenderIds.includes(
+            id
+          )
+      );
+
+    if (allSelected) {
+      setSelectedTenderIds(
+        (current) =>
+          current.filter(
+            (id) =>
+              !filteredIds.includes(
+                id
+              )
+          )
+      );
+    } else {
+      setSelectedTenderIds(
+        (current) => [
+          ...new Set([
+            ...current,
+            ...filteredIds,
+          ]),
+        ]
+      );
+    }
+  }
+
+  const allFilteredSelected =
+    filteredTenders.length > 0 &&
+    filteredTenders.every(
+      (tender) =>
+        selectedTenderIds.includes(
+          tender.jazzid
+        )
+    );
+
+  /*
+   * Bulk delete.
+   *
+   * Admin only.
+   */
+  async function deleteSelectedTenders() {
+    if (
+      selectedTenderIds.length === 0 ||
+      deleteRunning
+    ) {
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `Are you sure you want to delete ${selectedTenderIds.length} selected tender${
+          selectedTenderIds.length ===
+          1
+            ? ""
+            : "s"
+        }?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeleteRunning(true);
+
+      await api.delete(
+        "/api/tenders",
+        {
+          data: {
+            jazzids:
+              selectedTenderIds,
+          },
+        }
+      );
+
+      setTenders(
+        (current) =>
+          current.filter(
+            (tender) =>
+              !selectedTenderIds.includes(
+                tender.jazzid
+              )
+          )
+      );
+
+      setSelectedTenderIds([]);
+    } catch (err) {
+      console.error(
+        "Failed to delete selected tenders:",
+        err
+      );
+
+      const detail =
+        err.response?.data
+          ?.detail;
+
+      if (
+        detail &&
+        typeof detail ===
+          "object"
+      ) {
+        window.alert(
+          detail.message ||
+            "Failed to delete selected tenders."
+        );
+      } else {
+        window.alert(
+          detail ||
+            "Failed to delete selected tenders."
+        );
+      }
+    } finally {
+      setDeleteRunning(false);
+    }
+  }
+
+  /*
+   * Admin scraper.
+   */
   async function runScraper() {
-    if (scraperRunning) return;
+    if (scraperRunning) {
+      return;
+    }
 
     try {
       setScraperMessage("");
 
-      /*
-       * The backend becomes the source of truth.
-       *
-       * We do not set scraperRunning back to false here.
-       * The polling effect will detect when the backend
-       * scraper finishes.
-       */
       setScraperRunning(true);
 
       await api.post(
@@ -508,12 +952,9 @@ function AllTenders() {
         err
       );
 
-      /*
-       * If another Admin started the scraper between
-       * our status check and POST, the backend returns 409.
-       */
       if (
-        err.response?.status === 409
+        err.response?.status ===
+        409
       ) {
         setScraperRunning(true);
 
@@ -532,21 +973,121 @@ function AllTenders() {
     }
   }
 
+  /*
+   * Clear all column filters.
+   */
   function clearFilters() {
-    setSearch("");
-    setSelectedSources([]);
-    setSelectedCapabilities([]);
-    setRelevanceFilter("all");
-    setAdvertisedFrom("");
-    setAdvertisedTo("");
-    setClosingFrom("");
-    setClosingTo("");
-    setSortBy("relevance");
-    setSortOrder("desc");
+    setTenderNoFilter("");
+    setTenderNameFilter("");
+    setCityFilter("");
+    setOrganizationFilter("");
+    setSubmissionDateFrom("");
+    setSubmissionDateTo("");
+    setEstimatedValueMin("");
+    setEstimatedValueMax("");
+    setParticipationStatusFilter("ALL");
+    setProductFilter("ALL");
+    setSortBy("submissionDate");
+    setSortOrder("asc");
   }
 
-  function openTender(tenderId) {
-    if (!tenderId) return;
+  async function toggleCheckpointPanel() {
+    if (checkpointOpen) {
+      setCheckpointOpen(false);
+      return;
+    }
+
+    setCheckpointOpen(true);
+    setCheckpointLoading(true);
+    setCheckpointError("");
+
+    try {
+      const response = await api.get(
+        "/api/admin/scraper/checkpoint"
+      );
+
+      setScraperCheckpoint(response.data);
+    } catch (err) {
+      console.error("Failed to load scraper checkpoint:", err);
+      setCheckpointError(
+        "Could not load scraper checkpoint. Please try again."
+      );
+    } finally {
+      setCheckpointLoading(false);
+    }
+  }
+
+  function applySummaryFilter(filter) {
+    clearFilters();
+
+    if (filter === "NOT_REVIEWED" ||
+        filter === "PARTICIPATING" ||
+        filter === "NOT_PARTICIPATING") {
+      setParticipationStatusFilter(filter);
+      return;
+    }
+
+    if (filter === "closing-soon") {
+      const range = getNextThreeDayRange();
+      setSubmissionDateFrom(range.from);
+      setSubmissionDateTo(range.to);
+    }
+  }
+
+  const hasActiveFilters =
+    tenderNoFilter ||
+    tenderNameFilter ||
+    cityFilter ||
+    organizationFilter ||
+    submissionDateFrom ||
+    submissionDateTo ||
+    estimatedValueMin !== "" ||
+    estimatedValueMax !== "" ||
+    participationStatusFilter !== "ALL" ||
+    productFilter !== "ALL";
+
+  const hasOtherFilters =
+    tenderNoFilter ||
+    tenderNameFilter ||
+    cityFilter ||
+    organizationFilter ||
+    estimatedValueMin !== "" ||
+    estimatedValueMax !== "" ||
+    productFilter !== "ALL";
+
+  function isSummaryFilterActive(filter) {
+    if (filter === "ALL") {
+      return !hasActiveFilters;
+    }
+
+    if (filter === "closing-soon") {
+      const range = getNextThreeDayRange();
+
+      return Boolean(
+        !hasOtherFilters &&
+        participationStatusFilter === "ALL" &&
+        submissionDateFrom === range.from &&
+        submissionDateTo === range.to
+      );
+    }
+
+    return Boolean(
+      !hasOtherFilters &&
+      !submissionDateFrom &&
+      !submissionDateTo &&
+      participationStatusFilter === filter
+    );
+  }
+
+  /*
+   * Open tender detail.
+   */
+  function openTender(
+    tenderId
+  ) {
+    if (!tenderId) {
+      return;
+    }
 
     navigate(
       `/tenders/${encodeURIComponent(
@@ -555,90 +1096,92 @@ function AllTenders() {
     );
   }
 
+  /*
+   * CSV export.
+   *
+   * Matches the current table columns.
+   */
   function downloadCSV() {
     const headers = [
       "Web Tender No",
-      "Tender Reference No",
       "Tender Name",
       "City",
-      "Authority",
       "Organization",
+      "Submission Date",
       "Estimated Value",
-      "Advertised Date",
-      "Closed Date",
-      "Source",
-      "Matched Keywords",
-      "Relevance Score",
-      "Matched Capabilities",
+      "Participation Status",
     ];
 
     const rows =
-      filteredTenders.map((tender) => [
-        tender.web_tender_no,
-        tender.tender_reference_no,
-        tender.tender_name,
-        tender.city,
-        tender.authority,
-        tender.organization,
-        tender.estimated_value,
-        tender.advertised_date,
-        tender.closed_date,
-        tender.source,
-        tender.keywords_matched,
-        tender.relevance_score,
-        tender.matched_capabilities,
-      ]);
+      filteredTenders.map(
+        (tender) => [
+          tender.web_tender_no,
+          tender.tender_name,
+          tender.city,
+          tender.organization,
+          tender.closed_date,
+          tender.estimated_value,
+          tender.participation_status,
+        ]
+      );
 
     const csv = [
       headers
         .map(csvValue)
         .join(","),
-      ...rows.map((row) =>
-        row
-          .map(csvValue)
-          .join(",")
+      ...rows.map(
+        (row) =>
+          row
+            .map(csvValue)
+            .join(",")
       ),
     ].join("\n");
 
-    const blob = new Blob(
-      [csv],
-      {
-        type: "text/csv;charset=utf-8;",
-      }
-    );
+    const blob =
+      new Blob(
+        [csv],
+        {
+          type:
+            "text/csv;charset=utf-8;",
+        }
+      );
 
     const url =
-      URL.createObjectURL(blob);
+      URL.createObjectURL(
+        blob
+      );
 
     const link =
-      document.createElement("a");
+      document.createElement(
+        "a"
+      );
 
     link.href = url;
 
     link.download =
       "jazzworld_tenders.csv";
 
-    document.body.appendChild(link);
+    document.body.appendChild(
+      link
+    );
 
     link.click();
 
-    document.body.removeChild(link);
+    document.body.removeChild(
+      link
+    );
 
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(
+      url
+    );
   }
 
-  const hasActiveFilters =
-    search ||
-    selectedSources.length > 0 ||
-    selectedCapabilities.length > 0 ||
-    relevanceFilter !== "all" ||
-    advertisedFrom ||
-    advertisedTo ||
-    closingFrom ||
-    closingTo;
-
   if (loading) {
-    return <h1>Loading tenders...</h1>;
+    return (
+      <h1>
+        Loading tenders...
+      </h1>
+    );
   }
 
   if (error) {
@@ -648,47 +1191,134 @@ function AllTenders() {
   return (
     <div className="tenders-page">
 
+      {/* =========================
+          PAGE HEADER
+      ========================== */}
+
       <div className="page-header">
 
         <div>
-          <h1>All Tenders</h1>
+          <h1>
+            All Tenders
+          </h1>
 
           <p>
-            Monitor and discover relevant
-            government procurement
-            opportunities for JazzWorld.
+            Monitor and discover
+            relevant government
+            procurement
+            opportunities for
+            JazzWorld.
           </p>
         </div>
 
         <div className="page-header-actions">
 
           {isAdmin && (
-            <button
-              type="button"
-              className="run-scraper-button"
-              onClick={runScraper}
-              disabled={scraperRunning}
-            >
-              <RefreshCw
-                size={16}
-                className={
-                  scraperRunning
-                    ? "scraper-spinning"
-                    : ""
+            <div className="scraper-button-group">
+              <button
+                type="button"
+                className="run-scraper-button"
+                onClick={
+                  runScraper
                 }
-              />
+                disabled={
+                  scraperRunning
+                }
+              >
+                <RefreshCw
+                  size={16}
+                  className={
+                    scraperRunning
+                      ? "scraper-spinning"
+                      : ""
+                  }
+                />
 
-              {scraperRunning
-                ? "Executing..."
-                : "Run Scraper"}
-            </button>
+                {scraperRunning
+                  ? "Executing..."
+                  : "Run Scraper"}
+              </button>
+
+              <button
+                type="button"
+                className="run-scraper-button scraper-info-button"
+                onClick={toggleCheckpointPanel}
+                aria-label={
+                  checkpointOpen
+                    ? "Close scraper checkpoint"
+                    : "Show scraper checkpoint"
+                }
+                aria-expanded={checkpointOpen}
+                aria-controls="scraper-checkpoint-panel"
+                title="Scraper checkpoint"
+              >
+                <Info size={17} />
+              </button>
+
+              {checkpointOpen && (
+                <section
+                  id="scraper-checkpoint-panel"
+                  className="scraper-checkpoint-panel"
+                  aria-label="Scraper checkpoint"
+                >
+                  <div className="scraper-checkpoint-header">
+                    <h2>Scraper Checkpoint</h2>
+                    <button
+                      type="button"
+                      className="scraper-checkpoint-close"
+                      onClick={() => setCheckpointOpen(false)}
+                      aria-label="Close scraper checkpoint"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {checkpointLoading ? (
+                    <p className="scraper-checkpoint-state" role="status">
+                      Loading checkpoint information...
+                    </p>
+                  ) : checkpointError ? (
+                    <p className="scraper-checkpoint-error" role="alert">
+                      {checkpointError}
+                    </p>
+                  ) : (
+                    <div className="scraper-checkpoint-table-wrap">
+                      <table className="scraper-checkpoint-table">
+                        <thead>
+                          <tr>
+                            <th>Portal</th>
+                            <th>Last Scraped Date</th>
+                            <th>Last Run</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {SCRAPER_PORTALS.map((portal) => {
+                            const checkpoint = scraperCheckpoint?.[portal];
+
+                            return (
+                              <tr key={portal}>
+                                <td>{portal}</td>
+                                <td>{formatCheckpointDate(checkpoint?.last_date)}</td>
+                                <td>{formatCheckpointTime(checkpoint?.last_run_at)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              )}
+            </div>
           )}
 
           <div className="total-tenders">
-            <span>Total Tenders</span>
+            <span>
+              Total Tenders
+            </span>
 
             <strong>
-              {tenders.length}
+              {totalTenders}
             </strong>
           </div>
 
@@ -696,289 +1326,102 @@ function AllTenders() {
 
       </div>
 
+      {/* =========================
+          SCRAPER MESSAGE
+      ========================== */}
+
       {scraperMessage && (
         <div className="scraper-message">
           {scraperMessage}
         </div>
       )}
 
-      <div className="search-bar">
+      {/* =========================
+          SUMMARY BOXES
+      ========================== */}
 
-        <Search size={19} />
+      <div className="tender-summary-cards">
 
-        <input
-          type="text"
-          placeholder="Search tender no, reference, name, authority, organization, city..."
-          value={search}
-          onChange={(event) =>
-            setSearch(
-              event.target.value
-            )
-          }
-        />
+        <button
+          type="button"
+          className={`tender-summary-card ${isSummaryFilterActive("ALL") ? "active" : ""}`}
+          onClick={() => applySummaryFilter("ALL")}
+          aria-pressed={isSummaryFilterActive("ALL")}
+        >
+          <span>
+            Total Tenders
+          </span>
 
-        {search && (
-          <button
-            className="clear-search"
-            onClick={() =>
-              setSearch("")
-            }
-            aria-label="Clear search"
-          >
-            <X size={16} />
-          </button>
-        )}
-
-      </div>
-
-      <div className="filter-panel">
-
-        <div className="filter-panel-header">
-
-          <div>
-            <SlidersHorizontal
-              size={17}
-            />
-
-            <span>Filters</span>
-          </div>
-
-          {hasActiveFilters && (
-            <button
-              className="clear-filters"
-              onClick={
-                clearFilters
-              }
-            >
-              Clear filters
-            </button>
-          )}
-
-        </div>
-
-        <div className="filter-grid">
-
-          <MultiSelect
-            label="Source"
-            options={
-              filterOptions.sources
-            }
-            selected={
-              selectedSources
-            }
-            onChange={
-              setSelectedSources
-            }
-            placeholder="Select sources"
-          />
-
-          <MultiSelect
-            label="Capability"
-            options={
-              filterOptions.capabilities
-            }
-            selected={
-              selectedCapabilities
-            }
-            onChange={
-              setSelectedCapabilities
-            }
-            placeholder="Select capabilities"
-          />
-
-          <label className="filter-field">
-            <span>
-              Relevance Score
-            </span>
-
-            <select
-              value={
-                relevanceFilter
-              }
-              onChange={(event) =>
-                setRelevanceFilter(
-                  event.target.value
-                )
-              }
-            >
-              <option value="all">
-                All Scores
-              </option>
-
-              <option value="0-20">
-                0 – 20
-              </option>
-
-              <option value="20-40">
-                20 – 40
-              </option>
-
-              <option value="40-60">
-                40 – 60
-              </option>
-
-              <option value="60-80">
-                60 – 80
-              </option>
-
-              <option value="80-100">
-                80 – 100
-              </option>
-            </select>
-          </label>
-
-          <label className="filter-field">
-            <span>
-              Advertised From
-            </span>
-
-            <input
-              type="date"
-              value={
-                advertisedFrom
-              }
-              onChange={(event) =>
-                setAdvertisedFrom(
-                  event.target.value
-                )
-              }
-            />
-          </label>
-
-          <label className="filter-field">
-            <span>
-              Advertised To
-            </span>
-
-            <input
-              type="date"
-              value={
-                advertisedTo
-              }
-              onChange={(event) =>
-                setAdvertisedTo(
-                  event.target.value
-                )
-              }
-            />
-          </label>
-
-          <label className="filter-field">
-            <span>
-              Closing From
-            </span>
-
-            <input
-              type="date"
-              value={
-                closingFrom
-              }
-              onChange={(event) =>
-                setClosingFrom(
-                  event.target.value
-                )
-              }
-            />
-          </label>
-
-          <label className="filter-field">
-            <span>
-              Closing To
-            </span>
-
-            <input
-              type="date"
-              value={
-                closingTo
-              }
-              onChange={(event) =>
-                setClosingTo(
-                  event.target.value
-                )
-              }
-            />
-          </label>
-
-        </div>
-
-      </div>
-
-      <div className="results-toolbar">
-
-        <div className="results-count">
-          Showing{" "}
           <strong>
-            {filteredTenders.length}
-          </strong>{" "}
-          of{" "}
+            {totalTenders}
+          </strong>
+        </button>
+
+        <button
+          type="button"
+          className={`tender-summary-card ${isSummaryFilterActive("NOT_REVIEWED") ? "active" : ""}`}
+          onClick={() => applySummaryFilter("NOT_REVIEWED")}
+          aria-pressed={isSummaryFilterActive("NOT_REVIEWED")}
+        >
+          <span>
+            Tenders Review Pending
+          </span>
+
           <strong>
-            {tenders.length}
-          </strong>{" "}
-          tenders
-        </div>
+            {reviewPendingCount}
+          </strong>
+        </button>
 
-        <div className="sort-controls">
+        <button
+          type="button"
+          className={`tender-summary-card ${isSummaryFilterActive("PARTICIPATING") ? "active" : ""}`}
+          onClick={() => applySummaryFilter("PARTICIPATING")}
+          aria-pressed={isSummaryFilterActive("PARTICIPATING")}
+        >
+          <span>
+            Participating
+          </span>
 
-          <ArrowUpDown size={16} />
+          <strong>
+            {participatingCount}
+          </strong>
+        </button>
 
-          <span>Sort by</span>
+        <button
+          type="button"
+          className={`tender-summary-card ${isSummaryFilterActive("NOT_PARTICIPATING") ? "active" : ""}`}
+          onClick={() => applySummaryFilter("NOT_PARTICIPATING")}
+          aria-pressed={isSummaryFilterActive("NOT_PARTICIPATING")}
+        >
+          <span>
+            Not Participating
+          </span>
 
-          <select
-            value={sortBy}
-            onChange={(event) =>
-              setSortBy(
-                event.target.value
-              )
-            }
-          >
-            <option value="relevance">
-              Relevance
-            </option>
+          <strong>
+            {notParticipatingCount}
+          </strong>
+        </button>
 
-            <option value="closingDate">
-              Closing Date
-            </option>
+        <button
+          type="button"
+          className={`tender-summary-card ${isSummaryFilterActive("closing-soon") ? "active" : ""}`}
+          onClick={() => applySummaryFilter("closing-soon")}
+          aria-pressed={isSummaryFilterActive("closing-soon")}
+        >
+          <span>
+            Tender Closing in Next 3 Days
+          </span>
 
-            <option value="estimatedValue">
-              Estimated Value
-            </option>
-
-            <option value="advertisedDate">
-              Advertised Date
-            </option>
-          </select>
-
-          <select
-            value={sortOrder}
-            onChange={(event) =>
-              setSortOrder(
-                event.target.value
-              )
-            }
-          >
-            <option value="desc">
-              Descending
-            </option>
-
-            <option value="asc">
-              Ascending
-            </option>
-          </select>
-
-          <button
-            type="button"
-            className="download-csv-button"
-            onClick={
-              downloadCSV
-            }
-          >
-            <Download size={16} />
-            Download CSV
-          </button>
-
-        </div>
+          <strong>
+            {submissionNextWeekCount}
+          </strong>
+        </button>
 
       </div>
+
+      {/* =========================
+          TABLE
+      ========================== */}
 
       <div className="table-section">
 
@@ -990,34 +1433,404 @@ function AllTenders() {
             </h2>
 
             <span>
-              {
-                filteredTenders.length
-              }{" "}
+              {filteredTenders.length}{" "}
               matching opportunities
             </span>
+          </div>
+
+          <div className="table-header-actions">
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="clear-filters"
+                onClick={
+                  clearFilters
+                }
+              >
+                Clear Filters
+              </button>
+            )}
+
+            <label className="product-filter-control">
+              <span>Product</span>
+              <select
+                value={productFilter}
+                onChange={(event) => setProductFilter(event.target.value)}
+                aria-label="Filter by product capability"
+              >
+                <option value="ALL">All products</option>
+                {productOptions.map((product) => (
+                  <option key={product} value={product}>{product}</option>
+                ))}
+              </select>
+            </label>
+
+            <div className="sort-controls">
+
+              <ArrowUpDown
+                size={16}
+              />
+
+              <span>
+                Sort by
+              </span>
+
+              <select
+                value={sortBy}
+                onChange={(
+                  event
+                ) =>
+                  setSortBy(
+                    event.target.value
+                  )
+                }
+              >
+                <option value="submissionDate">
+                  Submission Date
+                </option>
+
+                <option value="estimatedValue">
+                  Estimated Value
+                </option>
+
+                <option value="tenderName">
+                  Tender Name
+                </option>
+
+                <option value="city">
+                  City
+                </option>
+              </select>
+
+              <select
+                value={sortOrder}
+                onChange={(
+                  event
+                ) =>
+                  setSortOrder(
+                    event.target.value
+                  )
+                }
+              >
+                <option value="asc">
+                  Ascending
+                </option>
+
+                <option value="desc">
+                  Descending
+                </option>
+              </select>
+
+            </div>
+
+            <button
+              type="button"
+              className="download-csv-button"
+              onClick={
+                downloadCSV
+              }
+            >
+              <Download
+                size={16}
+              />
+
+              Download CSV
+            </button>
+
+            {isAdmin && (
+              <div className="selection-actions">
+
+                <span>
+                  {
+                    selectedTenderIds.length
+                  }{" "}
+                  selected
+                </span>
+
+                <button
+                  type="button"
+                  onClick={
+                    toggleSelectAll
+                  }
+                  disabled={
+                    filteredTenders.length ===
+                    0
+                  }
+                >
+                  {allFilteredSelected
+                    ? "Deselect All"
+                    : "Select All"}
+                </button>
+
+                {selectedTenderIds.length >
+                  0 && (
+                  <button
+                    type="button"
+                    className="delete-selected-button"
+                    onClick={
+                      deleteSelectedTenders
+                    }
+                    disabled={
+                      deleteRunning
+                    }
+                  >
+                    <Trash2
+                      size={16}
+                    />
+
+                    {deleteRunning
+                      ? "Deleting..."
+                      : "Delete Selected"}
+                  </button>
+                )}
+
+              </div>
+            )}
+
           </div>
 
         </div>
 
         <div className="table-container">
 
-          <table>
+          <table className="tenders-table">
+
+            <colgroup>
+              {isAdmin && <col className="selection-column" />}
+              <col className="web-tender-no-column" />
+              <col className="tender-name-column" />
+              <col className="city-column" />
+              <col className="organization-column" />
+              <col className="submission-date-column" />
+              <col className="estimated-value-column" />
+              <col className="participation-status-column" />
+              <col className="actions-column" />
+            </colgroup>
 
             <thead>
 
+              {/* =========================
+                  TABLE HEADER
+              ========================== */}
+
               <tr>
-                <th>Web Tender No</th>
-                <th>Tender Reference No</th>
-                <th>Tender Name</th>
-                <th>City</th>
-                <th>Authority</th>
-                <th>Organization</th>
-                <th>Estimated Value</th>
-                <th>Advertised Date</th>
-                <th>Closed Date</th>
-                <th>Source</th>
-                <th>Matched Keywords</th>
-                <th>Relevance Score</th>
+
+                {isAdmin && (
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={
+                        allFilteredSelected
+                      }
+                      onChange={
+                        toggleSelectAll
+                      }
+                      disabled={
+                        filteredTenders.length ===
+                        0
+                      }
+                      aria-label="Select all filtered tenders"
+                    />
+                  </th>
+                )}
+
+                <th className="web-tender-no-column">
+                  Web Tender No
+
+                  <input
+                    type="text"
+                    className="column-filter-input"
+                    placeholder="Filter..."
+                    value={
+                      tenderNoFilter
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setTenderNoFilter(
+                        event.target.value
+                      )
+                    }
+                  />
+                </th>
+
+                <th className="tender-name-column">
+                  Tender Name
+
+                  <input
+                    type="text"
+                    className="column-filter-input"
+                    placeholder="Filter..."
+                    value={
+                      tenderNameFilter
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setTenderNameFilter(
+                        event.target.value
+                      )
+                    }
+                  />
+                </th>
+
+                <th>
+                  City
+
+                  <input
+                    type="text"
+                    className="column-filter-input"
+                    placeholder="Filter..."
+                    value={
+                      cityFilter
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setCityFilter(
+                        event.target.value
+                      )
+                    }
+                  />
+                </th>
+
+                <th>
+                  Organization
+
+                  <input
+                    type="text"
+                    className="column-filter-input"
+                    placeholder="Filter..."
+                    value={
+                      organizationFilter
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setOrganizationFilter(
+                        event.target.value
+                      )
+                    }
+                  />
+                </th>
+
+                <th>
+                  Submission Date
+
+                  <div className="column-range-filter">
+
+                    <input
+                      type="date"
+                      value={
+                        submissionDateFrom
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setSubmissionDateFrom(
+                          event.target.value
+                        )
+                      }
+                      aria-label="Submission date from"
+                    />
+
+                    <input
+                      type="date"
+                      value={
+                        submissionDateTo
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setSubmissionDateTo(
+                          event.target.value
+                        )
+                      }
+                      aria-label="Submission date to"
+                    />
+
+                  </div>
+                </th>
+
+                <th>
+                  Estimated Value
+
+                  <div className="column-range-filter">
+
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Min"
+                      value={
+                        estimatedValueMin
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setEstimatedValueMin(
+                          event.target.value
+                        )
+                      }
+                    />
+
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Max"
+                      value={
+                        estimatedValueMax
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setEstimatedValueMax(
+                          event.target.value
+                        )
+                      }
+                    />
+
+                  </div>
+                </th>
+
+                <th>
+                  Participation Status
+
+                  <select
+                    className="column-filter-input"
+                    value={
+                      participationStatusFilter
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setParticipationStatusFilter(
+                        event.target.value
+                      )
+                    }
+                  >
+                    <option value="ALL">
+                      All
+                    </option>
+
+                    <option value="NOT_REVIEWED">
+                      Not Reviewed
+                    </option>
+
+                    <option value="PARTICIPATING">
+                      Participating
+                    </option>
+
+                    <option value="NOT_PARTICIPATING">
+                      Not Participating
+                    </option>
+                  </select>
+                </th>
+
+                <th>
+                  Actions
+                </th>
+
               </tr>
 
             </thead>
@@ -1027,10 +1840,32 @@ function AllTenders() {
               {filteredTenders.map(
                 (tender) => (
                   <tr
-                    key={tender.jazzid}
+                    key={
+                      tender.jazzid
+                    }
                   >
 
-                    <td>
+                    {isAdmin && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedTenderIds.includes(
+                            tender.jazzid
+                          )}
+                          onChange={() =>
+                            toggleTenderSelection(
+                              tender.jazzid
+                            )
+                          }
+                          aria-label={`Select tender ${
+                            tender.web_tender_no ||
+                            tender.jazzid
+                          }`}
+                        />
+                      </td>
+                    )}
+
+                    <td className="web-tender-no-column">
                       <button
                         type="button"
                         className="tender-link"
@@ -1046,13 +1881,8 @@ function AllTenders() {
                       </button>
                     </td>
 
-                    <td className="reference-cell">
-                      {displayValue(
-                        tender.tender_reference_no
-                      )}
-                    </td>
-
                     <td className="tender-name">
+
                       <button
                         type="button"
                         className="tender-link tender-name-link"
@@ -1066,6 +1896,7 @@ function AllTenders() {
                           tender.tender_name
                         )}
                       </button>
+
                     </td>
 
                     <td>
@@ -1076,13 +1907,13 @@ function AllTenders() {
 
                     <td>
                       {displayValue(
-                        tender.authority
+                        tender.organization
                       )}
                     </td>
 
                     <td>
-                      {displayValue(
-                        tender.organization
+                      {formatDateOnly(
+                        tender.closed_date
                       )}
                     </td>
 
@@ -1094,55 +1925,22 @@ function AllTenders() {
 
                     <td>
                       {displayValue(
-                        tender.advertised_date
+                        tender.participation_status
                       )}
                     </td>
 
                     <td>
-                      {displayValue(
-                        tender.closed_date
-                      )}
-                    </td>
-
-                    <td>
-                      <span className="source-badge">
-                        {displayValue(
-                          tender.source
-                        )}
-                      </span>
-                    </td>
-
-                    <td>
-                      <div className="tag-list">
-
-                        {tender
-                          .keywords_matched
-                          ?.length
-                          ? tender.keywords_matched.map(
-                              (keyword) => (
-                                <span
-                                  className="tag keyword-tag"
-                                  key={
-                                    keyword
-                                  }
-                                >
-                                  {
-                                    keyword
-                                  }
-                                </span>
-                              )
-                            )
-                          : "—"}
-
-                      </div>
-                    </td>
-
-                    <td>
-                      <span className="relevance-score">
-                        {displayValue(
-                          tender.relevance_score
-                        )}
-                      </span>
+                      <button
+                        type="button"
+                        className="view-tender-button"
+                        onClick={() =>
+                          openTender(
+                            tender.jazzid
+                          )
+                        }
+                      >
+                        View
+                      </button>
                     </td>
 
                   </tr>
@@ -1163,7 +1961,7 @@ function AllTenders() {
 
               <p>
                 Try changing your
-                search or filters.
+                filters.
               </p>
 
               <button

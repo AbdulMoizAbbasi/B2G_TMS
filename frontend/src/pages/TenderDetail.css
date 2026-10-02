@@ -1,0 +1,1350 @@
+/* Tender Detail page */
+.tag {
+  display: inline-flex;
+
+  align-items: center;
+
+  padding: 4px 7px;
+
+  border-radius: 5px;
+
+  font-size: 11px;
+  font-weight: 500;
+
+  white-space: nowrap;
+}
+
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header p {
+  margin: 7px 0 0;
+
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* =========================================================
+   TENDER DETAIL PAGE
+   ========================================================= */
+
+.tender-detail-page {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  margin-bottom: 20px;
+  padding: 7px 11px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.back-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tender-detail-page .page-header {
+  margin-bottom: 22px;
+}
+
+.tender-detail-page .page-header h1 {
+  max-width: 1000px;
+  line-height: 1.35;
+}
+
+/* Main card */
+
+.detail-card {
+  margin-bottom: 18px;
+  padding: 20px;
+
+  background: var(--bg-secondary);
+
+  border: 1px solid var(--border);
+  border-radius: 10px;
+
+  box-shadow: var(--shadow);
+}
+
+.detail-card h2 {
+  margin: 0 0 18px;
+
+  color: var(--text-primary);
+
+  font-size: 15px;
+  font-weight: 700;
+
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Key/value grid */
+
+.detail-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 0;
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  overflow: hidden;
+}
+
+.detail-item {
+  min-width: 0;
+
+  padding: 14px 16px;
+
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+
+  background: var(--bg-secondary);
+}
+
+.detail-item:nth-child(even) {
+  border-right: none;
+}
+
+.detail-item:last-child,
+.detail-item:nth-last-child(2) {
+  border-bottom: none;
+}
+
+.detail-item > span {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: var(--text-muted);
+
+  font-size: 11px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-item > strong {
+  display: block;
+
+  color: var(--text-primary);
+
+  font-size: 13px;
+  font-weight: 500;
+
+  line-height: 1.55;
+
+  overflow-wrap: anywhere;
+}
+
+/* Links */
+
+.detail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  color: var(--accent);
+
+  font-size: 12px;
+  font-weight: 600;
+
+  text-decoration: none;
+}
+
+.detail-link:hover {
+  text-decoration: underline;
+}
+
+/* Nested objects */
+
+/* Arrays */
+
+.detail-array {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Tags */
+
+/* Responsive */
+
+@media (max-width: 800px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-item {
+    border-right: none;
+  }
+
+  .detail-item:last-child {
+    border-bottom: none;
+  }
+}
+
+@media (max-width: 550px) {
+  .detail-card {
+    padding: 14px;
+  }
+
+  .detail-item {
+    padding: 12px;
+  }
+}
+
+.download-csv-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 8px 12px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.download-csv-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+}
+
+/* ==============================
+   PARTICIPATION
+   ============================== */
+
+.participation-card {
+  margin-bottom: 18px;
+}
+
+.participation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.participation-header h2 {
+  margin-bottom: 6px;
+}
+
+.participation-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.participation-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.participation-status.participating {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.participation-status.not-participating {
+  color: #64748b;
+  background: var(--bg-hover);
+}
+
+.participation-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.participation-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.participation-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.participation-button.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.participation-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 650px) {
+  .participation-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .participation-actions {
+    flex-direction: column;
+  }
+
+  .participation-button {
+    justify-content: center;
+  }
+}
+
+/* =========================================================
+   TENDER DETAIL — ACTION BUTTONS
+   ========================================================= */
+
+/* Common action button */
+
+
+/* -------------------------
+   Edit
+   ------------------------- */
+
+.edit-tender-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 36px;
+  padding: 0 13px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.edit-tender-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+  transform: translateY(-1px);
+}
+
+
+/* -------------------------
+   Delete
+   ------------------------- */
+
+.delete-tender-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 36px;
+  padding: 0 13px;
+
+  border: 1px solid #ef4444;
+  border-radius: 7px;
+
+  background: transparent;
+  color: #dc2626;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.delete-tender-button:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #dc2626;
+  color: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.delete-tender-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* -------------------------
+   Save
+   ------------------------- */
+
+
+/* -------------------------
+   Cancel
+   ------------------------- */
+
+
+/* =========================================================
+   TENDER DETAIL — EDIT FORM
+   ========================================================= */
+
+
+/* Edit action row */
+
+
+/* =========================================================
+   PARTICIPATION
+   ========================================================= */
+
+.participation-card {
+  margin-bottom: 18px;
+}
+
+.participation-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.participation-header h2 {
+  margin-bottom: 5px;
+}
+
+.participation-header p {
+  margin: 0;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+
+/* Status badge */
+
+.participation-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  min-height: 30px;
+  padding: 0 11px;
+
+  border: 1px solid transparent;
+  border-radius: 7px;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+.participation-status.participating {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.participation-status.not-participating {
+  border-color: var(--border);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+
+/* Coordinator action buttons */
+
+.participation-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  margin-top: 18px;
+}
+
+.participation-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 37px;
+  padding: 0 14px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+.participation-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.participation-button.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+
+  box-shadow:
+    0 0 0 2px var(--accent-soft);
+}
+
+.participation-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   JBC / EMPLOYEE ASSIGNMENT
+   ========================================================= */
+
+.delegation-section {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+
+  margin-top: 18px;
+  padding: 15px;
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  background: var(--bg-hover);
+}
+
+.delegation-section label {
+  color: var(--text-muted);
+
+  font-size: 11px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.delegation-section select {
+  width: 100%;
+  max-width: 420px;
+
+  min-height: 38px;
+  padding: 0 11px;
+
+  border: 1px solid var(--border);
+  border-radius: 7px;
+
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+
+  font-size: 12px;
+  font-weight: 500;
+
+  cursor: pointer;
+
+  outline: none;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.delegation-section select:hover:not(:disabled) {
+  border-color: var(--text-muted);
+}
+
+.delegation-section select:focus {
+  border-color: var(--accent);
+
+  box-shadow:
+    0 0 0 3px var(--accent-soft);
+}
+
+.delegation-section select:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+
+/* Read-only JBC information for Admin / Viewer */
+
+
+/* Participation error */
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 800px) {
+
+  .participation-header {
+    flex-direction: column;
+  }
+
+  .participation-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .participation-button {
+    width: 100%;
+  }
+
+  .delegation-section select {
+    max-width: none;
+  }
+}
+
+/* ---------------------------------------------------------
+   Participation Summary
+   --------------------------------------------------------- */
+
+.participation-summary {
+  margin-top: 24px;
+}
+
+.participation-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.participation-summary-item {
+  padding: 18px 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fafafa;
+  min-height: 92px;
+}
+
+.participation-summary-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.participation-summary-value {
+  display: block;
+  font-size: 15px;
+  color: #111827;
+  line-height: 1.5;
+}
+
+.participation-summary-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.participation-summary-status.participating {
+  color: #15803d;
+}
+
+.participation-summary-status.not-participating {
+  color: #dc2626;
+}
+
+.participation-summary-status.not-reviewed {
+  color: #6b7280;
+}
+
+.participation-products-item {
+  min-width: 0;
+}
+
+.participation-product-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.participation-product-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.participation-empty {
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.participation-summary-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.edit-participation-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  background: white;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.edit-participation-button:hover {
+  background: #f9fafb;
+}
+
+.edit-participation-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Mobile */
+
+@media (max-width: 900px) {
+  .participation-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .participation-summary-actions {
+    justify-content: flex-start;
+  }
+}
+
+
+/* ==============================
+   PARTICIPATION
+   ============================== */
+
+.participation-card {
+  margin-bottom: 18px;
+}
+
+.participation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.participation-header h2 {
+  margin-bottom: 6px;
+}
+
+.participation-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.participation-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.participation-status.participating {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.participation-status.not-participating {
+  color: #64748b;
+  background: var(--bg-hover);
+}
+
+.participation-status.not-reviewed {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+/* ---------------------------------------------------------
+   Participation Status Buttons
+   --------------------------------------------------------- */
+
+.participation-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.participation-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.participation-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.participation-button.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.participation-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------
+   Participation Summary
+   --------------------------------------------------------- */
+
+.participation-summary {
+  margin-top: 24px;
+}
+
+.participation-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.participation-summary-item {
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  min-height: 92px;
+}
+
+.participation-summary-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.participation-summary-value {
+  display: block;
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.participation-summary-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.participation-summary-status.participating {
+  color: #15803d;
+}
+
+.participation-summary-status.not-participating {
+  color: #dc2626;
+}
+
+.participation-summary-status.not-reviewed {
+  color: var(--text-secondary);
+}
+
+.participation-products-item {
+  min-width: 0;
+}
+
+.participation-product-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.participation-product-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.participation-empty {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.participation-summary-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.edit-participation-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.edit-participation-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.edit-participation-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------
+   Participation Assignment
+   --------------------------------------------------------- */
+
+.participation-assignment {
+  margin-top: 22px;
+}
+
+.delegation-section {
+  margin-bottom: 18px;
+}
+
+.delegation-section label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.delegation-section select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.delegation-section select:focus {
+  border-color: var(--accent);
+}
+
+.delegation-section select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------
+   Product Multi Select
+   --------------------------------------------------------- */
+
+.product-selection-section {
+  position: relative;
+}
+
+.product-multi-select {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.product-multi-select:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.product-multi-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.product-multi-select.open {
+  border-color: var(--accent);
+}
+
+.product-multi-select-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.product-multi-select-icon {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.product-multi-select-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.product-selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.product-selected-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Dropdown */
+
+.product-multi-select-menu {
+  position: absolute;
+  z-index: 1000;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow);
+}
+
+.product-multi-select-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.product-multi-select-option:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.product-multi-select-option.selected {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.product-multi-select-checkbox {
+  width: 17px;
+  height: 17px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--accent);
+}
+
+.product-multi-select-option.selected
+  .product-multi-select-checkbox {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.product-multi-select-empty {
+  padding: 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: center;
+}
+
+.product-selection-help {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+/* ---------------------------------------------------------
+   Participation Requirements
+   --------------------------------------------------------- */
+
+.participation-requirement {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.requirement-complete {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.requirement-pending {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------
+   Participation Save / Cancel
+   --------------------------------------------------------- */
+
+.participation-save-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* Improve field grouping and keep status colors consistent in both themes. */
+.detail-card {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-raised);
+}
+
+.detail-card h2 {
+  border-bottom-color: var(--border-strong);
+}
+
+.detail-item:nth-child(4n + 3),
+.detail-item:nth-child(4n + 4) {
+  background: var(--surface-inset);
+}
+
+.detail-item > span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.participation-summary-item {
+  border-color: var(--border-strong);
+  background: var(--surface-inset);
+  box-shadow: var(--shadow);
+}
+
+.detail-item > strong {
+  font-size: 14px;
+}
+
+.participation-status.participating {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.participation-summary-status.participating,
+.requirement-complete {
+  color: var(--success-text);
+}
+
+.participation-summary-status.under-review {
+  color: var(--warning-text);
+}
+
+.participation-summary-status.not-participating,
+.requirement-pending {
+  color: var(--danger-text);
+}
+
+.cancel-edit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cancel-edit-button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.save-participation-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save-participation-button:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.save-participation-button:disabled,
+.cancel-edit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------
+   Admin / Viewer Read-only Participation
+   --------------------------------------------------------- */
+
+/* Mobile */
+
+@media (max-width: 900px) {
+  .participation-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .participation-summary-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 650px) {
+  .participation-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .participation-actions {
+    flex-direction: column;
+  }
+
+  .participation-button {
+    justify-content: center;
+  }
+
+  .participation-save-row {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .cancel-edit-button,
+  .save-participation-button {
+    width: 100%;
+  }
+}

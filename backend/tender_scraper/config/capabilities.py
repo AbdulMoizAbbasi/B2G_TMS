@@ -1,103 +1,73 @@
 CAPABILITIES = {
-    "Mobile & Telecom Services": {
+    "GSM": {
         "keywords": [
-            "GSM",
-            "SIM",
-            "CMT",
-            "SMS",
-            "M2M",
-            "4G",
             "5G",
+            "4G",
+            "SIM",
         ],
     },
 
-    "Broadband & Internet Connectivity": {
+    "CMT": {
+        "keywords": [
+            "SMS",
+            "CMT",
+        ],
+    },
+
+    "Fixed Connectivity": {
         "keywords": [
             "Broadband",
             "Internet",
             "Connectivity",
-        ],
-    },
-
-    "Fiber & Network Infrastructure": {
-        "keywords": [
             "Fiber",
-            "Connectivity",
-            "Internet",
         ],
     },
 
-    "CPaaS & Messaging": {
+    "CPaaS": {
         "keywords": [
             "CPaaS",
-            "SMS",
         ],
     },
 
-    "Cloud Computing": {
+    "SI": {
         "keywords": [
             "Cloud",
-            "VDC",
-        ],
-    },
-
-    "Data Center & Storage": {
-        "keywords": [
-            "Datacenter",
-            "Storage",
             "HCI",
+            "Storage",
+            "VDC",
+            "Firewall",
+            "ERP",
+            "Software",
+            "License",
+            "Datacenter",
+            "ICT",
         ],
     },
 
-    "Computing & End-User Devices": {
+    "Devices": {
         "keywords": [
             "Computer",
             "Desktop",
             "Devices",
+            "Tablets",
+            "Mobiles",
+            "Android",
         ],
     },
 
-    "GPU & High-Performance Computing": {
+    "M2M": {
         "keywords": [
-            "GPU",
-            "Computer",
-            "Cloud",
-        ],
-    },
-
-    "Cybersecurity & Network Security": {
-        "keywords": [
-            "Firewall",
-        ],
-    },
-
-    "Enterprise Software & ERP": {
-        "keywords": [
-            "ERP",
-            "Software",
-            "License",
-        ],
-    },
-
-    "Software Licensing": {
-        "keywords": [
-            "Software",
-            "License",
-        ],
-    },
-
-    "IoT, M2M & Tracking": {
-        "keywords": [
+            "SCADA",
+            "Gauging System",
             "M2M",
             "Tracker",
             "Tracking",
-            "Devices",
         ],
     },
 
-    "ICT & Digital Technology Services": {
+    "GPU": {
         "keywords": [
-            "ICT",
+            "GPU",
         ],
     },
 }

@@ -37,5 +37,5 @@ frontend/build/
 .DS_Store
 Thumbs.db
 
-
-backend/data/evaluation_pdfs/
+# Runtime data
+data/
