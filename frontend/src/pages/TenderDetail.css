@@ -713,6 +713,21 @@
   color: #dc2626;
 }
 
+.participation-status.engaging,
+.participation-summary-status.engaging {
+  color: var(--success-text);
+}
+
+.participation-status.participated {
+  border-color: #526fd1;
+  background: #eef1ff;
+  color: #3f56a8;
+}
+
+.participation-summary-status.participated {
+  color: #3f56a8;
+}
+
 .participation-summary-status.not-reviewed {
   color: #6b7280;
 }

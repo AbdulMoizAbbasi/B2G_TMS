@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../auth/AuthContext";
+import formatEstimatedValue from "../utils/formatEstimatedValue";
 import "./AllTenders.css";
 import {
   Search,
@@ -66,16 +67,12 @@ function displayValue(value) {
   return value;
 }
 
-function parseDate(value) {
-  if (!value) return null;
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
+function participationLabel(status) {
+  if (status === "ENGAGING" || status === "PARTICIPATING") return "Engaging";
+  if (status === "PARTICIPATED") return "Participated";
+  if (status === "NOT_PARTICIPATING") return "Not Participating";
+  if (status === "NOT_REVIEWED") return "Not Reviewed";
+  return displayValue(status);
 }
 
 function formatDateOnly(value) {
@@ -121,23 +118,6 @@ function getNextThreeDayRange() {
   };
 }
 
-function getEstimatedValue(tender) {
-  if (
-    tender.estimated_value === null ||
-    tender.estimated_value === undefined
-  ) {
-    return null;
-  }
-
-  const value = String(tender.estimated_value)
-    .replace(/,/g, "")
-    .replace(/[^\d.-]/g, "");
-
-  const number = Number(value);
-
-  return Number.isNaN(number) ? null : number;
-}
-
 function csvValue(value) {
   if (
     value === null ||
@@ -155,13 +135,49 @@ function csvValue(value) {
   return `"${stringValue.replace(/"/g, '""')}"`;
 }
 
+function readTenderStateFromSearch(search) {
+  const params = new URLSearchParams(search);
+  const parsedPage = Number.parseInt(params.get("page"), 10);
+  const requestedSortBy = params.get("sort_by");
+  const requestedSortOrder = params.get("sort_order");
+
+  return {
+    page: Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1,
+    tenderNoFilter: params.get("tender_no") || "",
+    tenderNameFilter: params.get("tender_name") || "",
+    cityFilter: params.get("city") || "",
+    organizationFilter: params.get("organization") || "",
+    submissionDateFrom: params.get("submission_date_from") || "",
+    submissionDateTo: params.get("submission_date_to") || "",
+    estimatedValueMin: params.get("estimated_value_min") || "",
+    estimatedValueMax: params.get("estimated_value_max") || "",
+    participationStatusFilter: params.get("participation") || params.get("participation_status") || "ALL",
+    productFilter: params.get("product") || "ALL",
+    regionFilter: params.get("region") || "",
+    sortBy: ["submissionDate", "estimatedValue", "tenderName", "city"].includes(requestedSortBy)
+      ? requestedSortBy
+      : "submissionDate",
+    sortOrder: ["asc", "desc"].includes(requestedSortOrder)
+      ? requestedSortOrder
+      : "desc",
+  };
+}
+
 function AllTenders() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [initialTenderState] = useState(() =>
+    readTenderStateFromSearch(location.search)
+  );
   const { user } = useAuth();
 
   const isAdmin = user?.role === "ADMIN";
 
   const [tenders, setTenders] = useState([]);
+  const [page, setPage] = useState(initialTenderState.page);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [pagination, setPagination] = useState({ total: 0, total_pages: 1 });
+  const [summary, setSummary] = useState({ total: 0, review_pending: 0, participating: 0, participated: 0, not_participating: 0, closing_soon: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -172,33 +188,34 @@ function AllTenders() {
    * Column filters
    */
   const [tenderNoFilter, setTenderNoFilter] =
-    useState("");
+    useState(initialTenderState.tenderNoFilter);
 
   const [tenderNameFilter, setTenderNameFilter] =
-    useState("");
+    useState(initialTenderState.tenderNameFilter);
 
   const [cityFilter, setCityFilter] =
-    useState("");
+    useState(initialTenderState.cityFilter);
 
   const [organizationFilter, setOrganizationFilter] =
-    useState("");
+    useState(initialTenderState.organizationFilter);
 
   const [submissionDateFrom, setSubmissionDateFrom] =
-    useState("");
+    useState(initialTenderState.submissionDateFrom);
 
   const [submissionDateTo, setSubmissionDateTo] =
-    useState("");
+    useState(initialTenderState.submissionDateTo);
 
   const [estimatedValueMin, setEstimatedValueMin] =
-    useState("");
+    useState(initialTenderState.estimatedValueMin);
 
   const [estimatedValueMax, setEstimatedValueMax] =
-    useState("");
+    useState(initialTenderState.estimatedValueMax);
 
   const [participationStatusFilter, setParticipationStatusFilter] =
-    useState("ALL");
+    useState(initialTenderState.participationStatusFilter);
 
-  const [productFilter, setProductFilter] = useState("ALL");
+  const [productFilter, setProductFilter] = useState(initialTenderState.productFilter);
+  const [regionFilter, setRegionFilter] = useState(initialTenderState.regionFilter);
 
   const productOptions = useMemo(() => {
     const products = new Set();
@@ -216,10 +233,74 @@ function AllTenders() {
    * Sorting
    */
   const [sortBy, setSortBy] =
-    useState("submissionDate");
+    useState(initialTenderState.sortBy);
 
   const [sortOrder, setSortOrder] =
-    useState("asc");
+    useState(initialTenderState.sortOrder);
+
+  const updateQueryState = (setter, value) => {
+    setter(value);
+    setPage(1);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const setOrRemove = (key, value) => {
+      if (value === "" || value === null || value === undefined || value === "ALL") {
+        params.delete(key);
+      } else {
+        params.set(key, String(value));
+      }
+    };
+
+    params.set("page", String(page));
+    setOrRemove("tender_no", tenderNoFilter);
+    setOrRemove("tender_name", tenderNameFilter);
+    setOrRemove("city", cityFilter);
+    setOrRemove("organization", organizationFilter);
+    setOrRemove("submission_date_from", submissionDateFrom);
+    setOrRemove("submission_date_to", submissionDateTo);
+    setOrRemove("estimated_value_min", estimatedValueMin);
+    setOrRemove("estimated_value_max", estimatedValueMax);
+    setOrRemove("participation_status", null);
+    setOrRemove("participation", participationStatusFilter);
+    setOrRemove("product", productFilter);
+    setOrRemove("region", regionFilter);
+    params.set("sort_by", sortBy);
+    params.set("sort_order", sortOrder);
+
+    const search = params.toString();
+    const nextSearch = search ? `?${search}` : "";
+    if (nextSearch !== location.search) {
+      navigate(
+        { pathname: location.pathname, search: nextSearch },
+        { replace: true }
+      );
+    }
+  }, [
+    page, tenderNoFilter, tenderNameFilter, cityFilter, organizationFilter,
+    submissionDateFrom, submissionDateTo, estimatedValueMin, estimatedValueMax,
+    participationStatusFilter, productFilter, regionFilter, sortBy, sortOrder,
+    location.pathname, location.search, navigate,
+  ]);
+
+  useEffect(() => {
+    const restored = readTenderStateFromSearch(location.search);
+    setPage(restored.page);
+    setTenderNoFilter(restored.tenderNoFilter);
+    setTenderNameFilter(restored.tenderNameFilter);
+    setCityFilter(restored.cityFilter);
+    setOrganizationFilter(restored.organizationFilter);
+    setSubmissionDateFrom(restored.submissionDateFrom);
+    setSubmissionDateTo(restored.submissionDateTo);
+    setEstimatedValueMin(restored.estimatedValueMin);
+    setEstimatedValueMax(restored.estimatedValueMax);
+    setParticipationStatusFilter(restored.participationStatusFilter);
+    setProductFilter(restored.productFilter);
+    setRegionFilter(restored.regionFilter);
+    setSortBy(restored.sortBy);
+    setSortOrder(restored.sortOrder);
+  }, [location.search]);
 
   /*
    * Admin scraper
@@ -255,10 +336,28 @@ function AllTenders() {
     const fetchTenders = async () => {
       try {
         const response = await api.get(
-          "/api/tenders"
+          "/api/tenders",
+          { params: {
+            page, page_size: 10,
+            tender_no: tenderNoFilter || undefined,
+            tender_name: tenderNameFilter || undefined,
+            city: cityFilter || undefined,
+            organization: organizationFilter || undefined,
+            submission_date_from: submissionDateFrom || undefined,
+            submission_date_to: submissionDateTo || undefined,
+            estimated_value_min: estimatedValueMin || undefined,
+            estimated_value_max: estimatedValueMax || undefined,
+            participation_status: participationStatusFilter === "ALL" ? undefined : participationStatusFilter,
+            product: productFilter === "ALL" ? undefined : productFilter,
+            region: regionFilter || undefined,
+            sort_by: sortBy,
+            sort_order: sortOrder,
+          } }
         );
 
-        setTenders(response.data);
+        setTenders(response.data.items || []);
+        setPagination(response.data.pagination || { total: 0, total_pages: 1 });
+        setSummary(response.data.summary || { total: 0, review_pending: 0, participating: 0, participated: 0, not_participating: 0, closing_soon: 0 });
       } catch (err) {
         console.error(err);
 
@@ -271,7 +370,7 @@ function AllTenders() {
     };
 
     fetchTenders();
-  }, []);
+  }, [page, tenderNoFilter, tenderNameFilter, cityFilter, organizationFilter, submissionDateFrom, submissionDateTo, estimatedValueMin, estimatedValueMax, participationStatusFilter, productFilter, regionFilter, sortBy, sortOrder, refreshKey]);
 
   /*
    * Check scraper status.
@@ -331,7 +430,7 @@ function AllTenders() {
           );
         }
       },
-      2000
+      120000
     );
 
     return () => {
@@ -339,341 +438,12 @@ function AllTenders() {
     };
   }, [isAdmin, scraperRunning]);
 
-  /*
-   * Filter + sort tenders.
-   */
-  const filteredTenders = useMemo(() => {
-    const tenderNoTerm =
-      tenderNoFilter
-        .trim()
-        .toLowerCase();
-
-    const tenderNameTerm =
-      tenderNameFilter
-        .trim()
-        .toLowerCase();
-
-    const cityTerm =
-      cityFilter
-        .trim()
-        .toLowerCase();
-
-    const organizationTerm =
-      organizationFilter
-        .trim()
-        .toLowerCase();
-
-    const result = tenders.filter(
-      (tender) => {
-        /*
-         * Tender No filter
-         */
-        if (tenderNoTerm) {
-          const tenderNo =
-            String(
-              tender.web_tender_no ?? ""
-            ).toLowerCase();
-
-          if (
-            !tenderNo.includes(
-              tenderNoTerm
-            )
-          ) {
-            return false;
-          }
-        }
-
-        /*
-         * Tender Name filter
-         */
-        if (tenderNameTerm) {
-          const tenderName =
-            String(
-              tender.tender_name ?? ""
-            ).toLowerCase();
-
-          if (
-            !tenderName.includes(
-              tenderNameTerm
-            )
-          ) {
-            return false;
-          }
-        }
-
-        /*
-         * City filter
-         */
-        if (cityTerm) {
-          const city =
-            String(
-              tender.city ?? ""
-            ).toLowerCase();
-
-          if (
-            !city.includes(cityTerm)
-          ) {
-            return false;
-          }
-        }
-
-        /*
-         * Organization filter
-         */
-        if (organizationTerm) {
-          const organization =
-            String(
-              tender.organization ?? ""
-            ).toLowerCase();
-
-          if (
-            !organization.includes(
-              organizationTerm
-            )
-          ) {
-            return false;
-          }
-        }
-
-        /*
-         * Submission Date range
-         *
-         * Submission Date is currently
-         * backed by tender.closed_date.
-         */
-        const submissionDate =
-          parseDate(
-            tender.closed_date
-          );
-
-        if (submissionDateFrom) {
-          const from =
-            new Date(
-              submissionDateFrom
-            );
-
-          from.setHours(
-            0,
-            0,
-            0,
-            0
-          );
-
-          if (
-            !submissionDate ||
-            submissionDate < from
-          ) {
-            return false;
-          }
-        }
-
-        if (submissionDateTo) {
-          const to =
-            new Date(
-              submissionDateTo
-            );
-
-          to.setHours(
-            23,
-            59,
-            59,
-            999
-          );
-
-          if (
-            !submissionDate ||
-            submissionDate > to
-          ) {
-            return false;
-          }
-        }
-
-        /*
-         * Estimated Value range
-         */
-        const estimatedValue =
-          getEstimatedValue(
-            tender
-          );
-
-        if (
-          estimatedValueMin !== ""
-        ) {
-          const min =
-            Number(
-              estimatedValueMin
-            );
-
-          if (
-            Number.isNaN(min) ||
-            estimatedValue === null ||
-            estimatedValue < min
-          ) {
-            return false;
-          }
-        }
-
-        if (
-          estimatedValueMax !== ""
-        ) {
-          const max =
-            Number(
-              estimatedValueMax
-            );
-
-          if (
-            Number.isNaN(max) ||
-            estimatedValue === null ||
-            estimatedValue > max
-          ) {
-            return false;
-          }
-        }
-
-        /*
-         * Participation Status filter
-         */
-        if (
-          participationStatusFilter !==
-          "ALL"
-        ) {
-          const participationStatus =
-            tender.participation_status ||
-            "NOT_REVIEWED";
-
-          if (
-            participationStatus !==
-            participationStatusFilter
-          ) {
-            return false;
-          }
-        }
-
-        if (productFilter !== "ALL") {
-          const matchedCapabilities = Array.isArray(tender.matched_capabilities)
-            ? tender.matched_capabilities.map(String)
-            : [];
-          if (!matchedCapabilities.includes(productFilter)) return false;
-        }
-
-        return true;
-      }
-    );
-
-    /*
-     * Sorting
-     */
-    result.sort((a, b) => {
-      let valueA;
-      let valueB;
-
-      if (
-        sortBy === "submissionDate"
-      ) {
-        valueA =
-          parseDate(
-            a.closed_date
-          )?.getTime() ??
-          Infinity;
-
-        valueB =
-          parseDate(
-            b.closed_date
-          )?.getTime() ??
-          Infinity;
-      }
-
-      if (
-        sortBy === "estimatedValue"
-      ) {
-        valueA =
-          getEstimatedValue(a) ??
-          -Infinity;
-
-        valueB =
-          getEstimatedValue(b) ??
-          -Infinity;
-      }
-
-      if (sortBy === "tenderName") {
-        valueA =
-          String(
-            a.tender_name ?? ""
-          ).toLowerCase();
-
-        valueB =
-          String(
-            b.tender_name ?? ""
-          ).toLowerCase();
-
-        if (
-          sortOrder === "asc"
-        ) {
-          return valueA.localeCompare(
-            valueB
-          );
-        }
-
-        return valueB.localeCompare(
-          valueA
-        );
-      }
-
-      if (sortBy === "city") {
-        valueA =
-          String(
-            a.city ?? ""
-          ).toLowerCase();
-
-        valueB =
-          String(
-            b.city ?? ""
-          ).toLowerCase();
-
-        if (
-          sortOrder === "asc"
-        ) {
-          return valueA.localeCompare(
-            valueB
-          );
-        }
-
-        return valueB.localeCompare(
-          valueA
-        );
-      }
-
-      if (
-        sortOrder === "asc"
-      ) {
-        return valueA - valueB;
-      }
-
-      return valueB - valueA;
-    });
-
-    return result;
-  }, [
-    tenders,
-    tenderNoFilter,
-    tenderNameFilter,
-    cityFilter,
-    organizationFilter,
-    submissionDateFrom,
-    submissionDateTo,
-    estimatedValueMin,
-    estimatedValueMax,
-    participationStatusFilter,
-    productFilter,
-    sortBy,
-    sortOrder,
-  ]);
+  const filteredTenders = tenders;
 
   /*
    * Total visible tenders.
    */
-  const totalTenders =
-    tenders.length;
+  const totalTenders = summary.total ?? pagination.total ?? 0;
 
   /*
    * Participation summary counts.
@@ -685,91 +455,14 @@ function AllTenders() {
    * No participation record means
    * the backend returns NOT_REVIEWED.
    */
-  const reviewPendingCount =
-    useMemo(() => {
-      return tenders.filter(
-        (tender) =>
-          tender.participation_status ===
-          "NOT_REVIEWED"
-      ).length;
-    }, [tenders]);
+  const reviewPendingCount = summary.review_pending ?? 0;
 
-  const participatingCount =
-    useMemo(() => {
-      return tenders.filter(
-        (tender) =>
-          tender.participation_status ===
-          "PARTICIPATING"
-      ).length;
-    }, [tenders]);
+  const participatingCount = summary.engaging ?? summary.participating ?? 0;
+  const participatedCount = summary.participated ?? 0;
 
-  const notParticipatingCount =
-    useMemo(() => {
-      return tenders.filter(
-        (tender) =>
-          tender.participation_status ===
-          "NOT_PARTICIPATING"
-      ).length;
-    }, [tenders]);
+  const notParticipatingCount = summary.not_participating ?? 0;
 
-  /*
-   * Tenders whose submission date
-   * falls within the next 3 days.
-   *
-   * This is calculated from the full
-   * tender set, not the currently
-   * filtered table.
-   */
-  const submissionNextWeekCount =
-    useMemo(() => {
-      const now = new Date();
-
-      const startOfToday =
-        new Date(now);
-
-      startOfToday.setHours(
-        0,
-        0,
-        0,
-        0
-      );
-
-      const nextWeek =
-        new Date(
-          startOfToday
-        );
-
-      nextWeek.setDate(
-        nextWeek.getDate() + 3
-      );
-
-      nextWeek.setHours(
-        23,
-        59,
-        59,
-        999
-      );
-
-      return tenders.filter(
-        (tender) => {
-          const submissionDate =
-            parseDate(
-              tender.closed_date
-            );
-
-          if (!submissionDate) {
-            return false;
-          }
-
-          return (
-            submissionDate >=
-              startOfToday &&
-            submissionDate <=
-              nextWeek
-          );
-        }
-      ).length;
-    }, [tenders]);
+  const submissionNextWeekCount = summary.closing_soon ?? 0;
 
   /*
    * Selection
@@ -885,15 +578,8 @@ function AllTenders() {
         }
       );
 
-      setTenders(
-        (current) =>
-          current.filter(
-            (tender) =>
-              !selectedTenderIds.includes(
-                tender.jazzid
-              )
-          )
-      );
+      setPage(1);
+      setRefreshKey((current) => current + 1);
 
       setSelectedTenderIds([]);
     } catch (err) {
@@ -987,8 +673,10 @@ function AllTenders() {
     setEstimatedValueMax("");
     setParticipationStatusFilter("ALL");
     setProductFilter("ALL");
+    setRegionFilter("");
     setSortBy("submissionDate");
-    setSortOrder("asc");
+    setSortOrder("desc");
+    setPage(1);
   }
 
   async function toggleCheckpointPanel() {
@@ -1021,9 +709,10 @@ function AllTenders() {
     clearFilters();
 
     if (filter === "NOT_REVIEWED" ||
-        filter === "PARTICIPATING" ||
+        filter === "ENGAGING" ||
+        filter === "PARTICIPATED" ||
         filter === "NOT_PARTICIPATING") {
-      setParticipationStatusFilter(filter);
+      updateQueryState(setParticipationStatusFilter, filter);
       return;
     }
 
@@ -1031,6 +720,7 @@ function AllTenders() {
       const range = getNextThreeDayRange();
       setSubmissionDateFrom(range.from);
       setSubmissionDateTo(range.to);
+      setPage(1);
     }
   }
 
@@ -1039,6 +729,7 @@ function AllTenders() {
     tenderNameFilter ||
     cityFilter ||
     organizationFilter ||
+    regionFilter ||
     submissionDateFrom ||
     submissionDateTo ||
     estimatedValueMin !== "" ||
@@ -1051,6 +742,7 @@ function AllTenders() {
     tenderNameFilter ||
     cityFilter ||
     organizationFilter ||
+    regionFilter ||
     estimatedValueMin !== "" ||
     estimatedValueMax !== "" ||
     productFilter !== "ALL";
@@ -1090,9 +782,7 @@ function AllTenders() {
     }
 
     navigate(
-      `/tenders/${encodeURIComponent(
-        tenderId
-      )}`
+      `/tenders/${encodeURIComponent(tenderId)}${location.search}`
     );
   }
 
@@ -1374,17 +1064,27 @@ function AllTenders() {
 
         <button
           type="button"
-          className={`tender-summary-card ${isSummaryFilterActive("PARTICIPATING") ? "active" : ""}`}
-          onClick={() => applySummaryFilter("PARTICIPATING")}
-          aria-pressed={isSummaryFilterActive("PARTICIPATING")}
+          className={`tender-summary-card ${isSummaryFilterActive("ENGAGING") ? "active" : ""}`}
+          onClick={() => applySummaryFilter("ENGAGING")}
+          aria-pressed={isSummaryFilterActive("ENGAGING")}
         >
           <span>
-            Participating
+            Engaging
           </span>
 
           <strong>
             {participatingCount}
           </strong>
+        </button>
+
+        <button
+          type="button"
+          className={`tender-summary-card ${isSummaryFilterActive("PARTICIPATED") ? "active" : ""}`}
+          onClick={() => applySummaryFilter("PARTICIPATED")}
+          aria-pressed={isSummaryFilterActive("PARTICIPATED")}
+        >
+          <span>Participated</span>
+          <strong>{participatedCount}</strong>
         </button>
 
         <button
@@ -1433,7 +1133,7 @@ function AllTenders() {
             </h2>
 
             <span>
-              {filteredTenders.length}{" "}
+              {pagination.total ?? 0}{" "}
               matching opportunities
             </span>
           </div>
@@ -1456,7 +1156,7 @@ function AllTenders() {
               <span>Product</span>
               <select
                 value={productFilter}
-                onChange={(event) => setProductFilter(event.target.value)}
+                onChange={(event) => updateQueryState(setProductFilter, event.target.value)}
                 aria-label="Filter by product capability"
               >
                 <option value="ALL">All products</option>
@@ -1481,7 +1181,7 @@ function AllTenders() {
                 onChange={(
                   event
                 ) =>
-                  setSortBy(
+                  updateQueryState(setSortBy,
                     event.target.value
                   )
                 }
@@ -1508,7 +1208,7 @@ function AllTenders() {
                 onChange={(
                   event
                 ) =>
-                  setSortOrder(
+                  updateQueryState(setSortOrder,
                     event.target.value
                   )
                 }
@@ -1648,7 +1348,7 @@ function AllTenders() {
                     onChange={(
                       event
                     ) =>
-                      setTenderNoFilter(
+                      updateQueryState(setTenderNoFilter,
                         event.target.value
                       )
                     }
@@ -1668,7 +1368,7 @@ function AllTenders() {
                     onChange={(
                       event
                     ) =>
-                      setTenderNameFilter(
+                      updateQueryState(setTenderNameFilter,
                         event.target.value
                       )
                     }
@@ -1688,7 +1388,7 @@ function AllTenders() {
                     onChange={(
                       event
                     ) =>
-                      setCityFilter(
+                      updateQueryState(setCityFilter,
                         event.target.value
                       )
                     }
@@ -1708,7 +1408,7 @@ function AllTenders() {
                     onChange={(
                       event
                     ) =>
-                      setOrganizationFilter(
+                      updateQueryState(setOrganizationFilter,
                         event.target.value
                       )
                     }
@@ -1728,7 +1428,7 @@ function AllTenders() {
                       onChange={(
                         event
                       ) =>
-                        setSubmissionDateFrom(
+                        updateQueryState(setSubmissionDateFrom,
                           event.target.value
                         )
                       }
@@ -1743,7 +1443,7 @@ function AllTenders() {
                       onChange={(
                         event
                       ) =>
-                        setSubmissionDateTo(
+                        updateQueryState(setSubmissionDateTo,
                           event.target.value
                         )
                       }
@@ -1768,7 +1468,7 @@ function AllTenders() {
                       onChange={(
                         event
                       ) =>
-                        setEstimatedValueMin(
+                        updateQueryState(setEstimatedValueMin,
                           event.target.value
                         )
                       }
@@ -1784,7 +1484,7 @@ function AllTenders() {
                       onChange={(
                         event
                       ) =>
-                        setEstimatedValueMax(
+                        updateQueryState(setEstimatedValueMax,
                           event.target.value
                         )
                       }
@@ -1804,7 +1504,7 @@ function AllTenders() {
                     onChange={(
                       event
                     ) =>
-                      setParticipationStatusFilter(
+                      updateQueryState(setParticipationStatusFilter,
                         event.target.value
                       )
                     }
@@ -1817,8 +1517,12 @@ function AllTenders() {
                       Not Reviewed
                     </option>
 
-                    <option value="PARTICIPATING">
-                      Participating
+                    <option value="ENGAGING">
+                      Engaging
+                    </option>
+
+                    <option value="PARTICIPATED">
+                      Participated
                     </option>
 
                     <option value="NOT_PARTICIPATING">
@@ -1918,13 +1622,13 @@ function AllTenders() {
                     </td>
 
                     <td>
-                      {displayValue(
+                      {formatEstimatedValue(
                         tender.estimated_value
                       )}
                     </td>
 
                     <td>
-                      {displayValue(
+                      {participationLabel(
                         tender.participation_status
                       )}
                     </td>
@@ -1975,6 +1679,12 @@ function AllTenders() {
 
             </div>
           )}
+
+          <div className="tenders-pagination" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "12px", padding: "16px" }}>
+            <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page <= 1}>Previous</button>
+            <span>Page {pagination.page ?? page} of {pagination.total_pages ?? 1}</span>
+            <button type="button" onClick={() => setPage((current) => Math.min(pagination.total_pages || 1, current + 1))} disabled={page >= (pagination.total_pages || 1)}>Next</button>
+          </div>
 
         </div>
 

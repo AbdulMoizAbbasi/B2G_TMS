@@ -8,7 +8,8 @@ from fastapi import Header
 from pathlib import Path
 from config.paths import (DATA_DIR, DOCUMENTS_DIR, CHECKPOINT_FILE,)
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session, joinedload
 import mimetypes
 
 import jwt
@@ -28,7 +29,7 @@ from database.models.tender_region_assignment import TenderRegionAssignment
 from database.models.region import Region
 from tender_scraper.storage.document_downloader import download_document
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Literal
 from fastapi import BackgroundTasks
@@ -51,6 +52,7 @@ scraper_running = False
 app = FastAPI(
     title="JazzWorld B2G Tender Portal"
 )
+
 
 
 def get_db():
@@ -226,8 +228,8 @@ class TenderUpdateRequest(BaseModel):
 class TenderParticipationRequest(BaseModel):
     status: Literal[
         "NOT_REVIEWED",
-        "UNDER_REVIEW",
-        "PARTICIPATING",
+        "ENGAGING",
+        "PARTICIPATED",
         "NOT_PARTICIPATING",
     ]
     employee_id: int | None = None
@@ -316,15 +318,92 @@ def get_me(
 
 @app.get("/api/tenders")
 def get_tenders(
+    page: int = 1,
+    page_size: int = 10,
+
+    # ---------------------------------------------------------
+    # FILTERS
+    # ---------------------------------------------------------
+    tender_no: str | None = None,
+    tender_name: str | None = None,
+    city: str | None = None,
+    organization: str | None = None,
+
+    submission_date_from: str | None = None,
+    submission_date_to: str | None = None,
+
+    estimated_value_min: float | None = None,
+    estimated_value_max: float | None = None,
+
+    participation_status: str | None = None,
+    product: str | None = None,
+
+    # Optional source/region filters
+    source: str | None = None,
+    region: str | None = None,
+
+    # ---------------------------------------------------------
+    # SORTING
+    # ---------------------------------------------------------
+    sort_by: str = "submissionDate",
+    sort_order: str = "desc",
+
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # ---------------------------------------------------------
+    # VALIDATE PAGINATION
+    # ---------------------------------------------------------
+
+    if page < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Page must be greater than or equal to 1.",
+        )
+
+    # Keep page size controlled.
+    # The frontend should normally use 10.
+    if page_size < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Page size must be greater than or equal to 1.",
+        )
+
+    if page_size > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Page size cannot exceed 100.",
+        )
+
+    # ---------------------------------------------------------
+    # VALIDATE SORTING
+    # ---------------------------------------------------------
+
+    allowed_sort_fields = {
+        "submissionDate",
+        "estimatedValue",
+        "tenderName",
+        "city",
+    }
+
+    if sort_by not in allowed_sort_fields:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid sort field: {sort_by}",
+        )
+
+    if sort_order not in {"asc", "desc"}:
+        raise HTTPException(
+            status_code=400,
+            detail="sort_order must be either 'asc' or 'desc'.",
+        )
+
+    # ---------------------------------------------------------
+    # BASE QUERY
+    # ---------------------------------------------------------
+
     query = (
         db.query(Tender)
-        .join(
-            TenderSource,
-            Tender.source_id == TenderSource.id,
-        )
         .outerjoin(
             TenderRelevance,
             TenderRelevance.tender_jazzid == Tender.jazzid,
@@ -332,6 +411,18 @@ def get_tenders(
         .outerjoin(
             TenderFieldOverride,
             TenderFieldOverride.tender_jazzid == Tender.jazzid,
+        )
+        .outerjoin(
+            TenderParticipation,
+            TenderParticipation.tender_jazzid == Tender.jazzid,
+        )
+        .join(
+            TenderSource,
+            Tender.source_id == TenderSource.id,
+        )
+        .outerjoin(
+            Region,
+            Tender.region_id == Region.id,
         )
     )
 
@@ -342,10 +433,14 @@ def get_tenders(
     # 1. Tenders assigned to their region
     # 2. Tenders with relevance score > 0
     # ---------------------------------------------------------
+
     if current_user.role.name == "COORDINATOR":
+
         coordinator = (
             db.query(Coordinator)
-            .filter(Coordinator.user_id == current_user.id)
+            .filter(
+                Coordinator.user_id == current_user.id
+            )
             .first()
         )
 
@@ -361,30 +456,308 @@ def get_tenders(
         )
 
     # ---------------------------------------------------------
-    # FETCH TENDERS
+    # HELPER: EFFECTIVE FIELD
     # ---------------------------------------------------------
-    tenders = (
-        query
-        .order_by(Tender.jazzid.desc())
-        .all()
+    # Admin override takes precedence over scraped value.
+    #
+    # Example:
+    # COALESCE(override.tender_name, tender.tender_name)
+    # ---------------------------------------------------------
+
+    effective_tender_no = func.coalesce(
+        TenderFieldOverride.web_tender_no,
+        Tender.web_tender_no,
     )
+
+    effective_tender_name = func.coalesce(
+        TenderFieldOverride.tender_name,
+        Tender.tender_name,
+    )
+
+    effective_city = func.coalesce(
+        TenderFieldOverride.city,
+        Tender.city,
+    )
+
+    effective_organization = func.coalesce(
+        TenderFieldOverride.organization,
+        Tender.organization,
+    )
+
+    effective_estimated_value = func.coalesce(
+        TenderFieldOverride.estimated_value,
+        Tender.estimated_value,
+    )
+
+    effective_closed_date = func.coalesce(
+        TenderFieldOverride.closed_date,
+        Tender.closed_date,
+    )
+
+    # ---------------------------------------------------------
+    # TEXT FILTERS
+    # ---------------------------------------------------------
+
+    if tender_no and tender_no.strip():
+        query = query.filter(
+            effective_tender_no.ilike(
+                f"%{tender_no.strip()}%"
+            )
+        )
+
+    if tender_name and tender_name.strip():
+        query = query.filter(
+            effective_tender_name.ilike(
+                f"%{tender_name.strip()}%"
+            )
+        )
+
+    if city and city.strip():
+        query = query.filter(
+            effective_city.ilike(
+                f"%{city.strip()}%"
+            )
+        )
+
+    if organization and organization.strip():
+        query = query.filter(
+            effective_organization.ilike(
+                f"%{organization.strip()}%"
+            )
+        )
+
+    # ---------------------------------------------------------
+    # SOURCE FILTER
+    # ---------------------------------------------------------
+
+    if source and source.strip():
+        query = query.filter(
+            TenderSource.name == source.strip()
+        )
+
+    # ---------------------------------------------------------
+    # REGION FILTER
+    # ---------------------------------------------------------
+
+    if region and region.strip():
+        query = query.filter(
+            Region.name == region.strip()
+        )
+
+    # ---------------------------------------------------------
+    # SUBMISSION DATE FILTER
+    # ---------------------------------------------------------
+
+    if submission_date_from:
+
+        try:
+            date_from = datetime.strptime(
+                submission_date_from,
+                "%Y-%m-%d",
+            )
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "submission_date_from must be "
+                    "in YYYY-MM-DD format."
+                ),
+            )
+
+        query = query.filter(
+            effective_closed_date >= date_from
+        )
+
+    if submission_date_to:
+
+        try:
+            date_to = datetime.strptime(
+                submission_date_to,
+                "%Y-%m-%d",
+            )
+
+            # Include the entire selected day.
+            date_to = date_to + timedelta(days=1)
+
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "submission_date_to must be "
+                    "in YYYY-MM-DD format."
+                ),
+            )
+
+        query = query.filter(
+            effective_closed_date < date_to
+        )
+
+    # ---------------------------------------------------------
+    # ESTIMATED VALUE FILTER
+    # ---------------------------------------------------------
+
+    if estimated_value_min is not None:
+        query = query.filter(
+            effective_estimated_value
+            >= estimated_value_min
+        )
+
+    if estimated_value_max is not None:
+        query = query.filter(
+            effective_estimated_value
+            <= estimated_value_max
+        )
+
+    # ---------------------------------------------------------
+    # PARTICIPATION FILTER
+    # ---------------------------------------------------------
+    #
+    # No participation record means NOT_REVIEWED.
+    # ---------------------------------------------------------
+
+    valid_participation_statuses = {
+        "NOT_REVIEWED",
+        "ENGAGING",
+        "PARTICIPATED",
+        "NOT_PARTICIPATING",
+    }
+
+    if participation_status:
+        if participation_status not in valid_participation_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid participation status."
+                ),
+            )
+
+        if participation_status == "NOT_REVIEWED":
+
+            query = query.filter(
+                or_(
+                    TenderParticipation.id.is_(None),
+                    TenderParticipation.status
+                    == "NOT_REVIEWED",
+                )
+            )
+
+        else:
+
+            query = query.filter(
+                TenderParticipation.status
+                == participation_status
+            )
+
+    # ---------------------------------------------------------
+    # PRODUCT / CAPABILITY FILTER
+    # ---------------------------------------------------------
+    #
+    # matched_capabilities is stored as a JSON array.
+    #
+    # Example:
+    # ["Cloud", "Connectivity"]
+    # ---------------------------------------------------------
+
+    if product and product.strip():
+
+        query = query.filter(
+            func.json_contains(
+                TenderRelevance.matched_capabilities,
+                func.json_quote(product.strip()),
+            )
+            == 1
+        )
+
+    # ---------------------------------------------------------
+    # COUNT TOTAL MATCHING RECORDS
+    # ---------------------------------------------------------
+    #
+    # This is calculated BEFORE pagination.
+    # ---------------------------------------------------------
+
+    total = query.with_entities(
+        func.count(Tender.jazzid)
+    ).scalar() or 0
+
+    # ---------------------------------------------------------
+    # SORTING
+    # ---------------------------------------------------------
+
+    if sort_by == "submissionDate":
+        sort_column = effective_closed_date
+
+    elif sort_by == "estimatedValue":
+        sort_column = effective_estimated_value
+
+    elif sort_by == "tenderName":
+        sort_column = effective_tender_name
+
+    elif sort_by == "city":
+        sort_column = effective_city
+
+    else:
+        sort_column = Tender.jazzid
+
+    if sort_order == "asc":
+
+        query = query.order_by(
+            sort_column.asc(),
+            Tender.jazzid.desc(),
+        )
+
+    else:
+
+        query = query.order_by(
+            sort_column.desc(),
+            Tender.jazzid.desc(),
+        )
+
+    # ---------------------------------------------------------
+    # PAGINATION
+    # ---------------------------------------------------------
+
+    offset = (page - 1) * page_size
+
+    query = query.offset(offset).limit(page_size)
+
+    # ---------------------------------------------------------
+    # EAGER LOAD RELATIONSHIPS
+    # ---------------------------------------------------------
+    #
+    # Prevent unnecessary additional queries while building
+    # the response.
+    # ---------------------------------------------------------
+
+    query = query.options(
+        joinedload(Tender.source),
+        joinedload(Tender.region),
+        joinedload(Tender.relevance),
+        joinedload(Tender.participation),
+        joinedload(Tender.field_override),
+    )
+
+    tenders = query.all()
+
+    # ---------------------------------------------------------
+    # TOTAL PAGES
+    # ---------------------------------------------------------
+
+    total_pages = (
+        (total + page_size - 1) // page_size
+        if total > 0
+        else 0
+    )
+
+    # ---------------------------------------------------------
+    # BUILD RESULT
+    # ---------------------------------------------------------
 
     result = []
 
-    # ---------------------------------------------------------
-    # BUILD RESPONSE
-    # ---------------------------------------------------------
     for tender in tenders:
 
-        # Admin field overrides
         override = tender.field_override
 
-        # -----------------------------------------------------
-        # PARTICIPATION STATUS
-        # -----------------------------------------------------
-        # If no participation record exists, the tender is
-        # considered NOT_REVIEWED.
-        # -----------------------------------------------------
         participation_status = (
             tender.participation.status
             if tender.participation
@@ -392,9 +765,11 @@ def get_tenders(
         )
 
         result.append({
+
             # -------------------------------------------------
             # BASIC INFORMATION
             # -------------------------------------------------
+
             "jazzid": tender.jazzid,
 
             "source_id": tender.source_id,
@@ -414,51 +789,65 @@ def get_tenders(
             # -------------------------------------------------
             # TENDER INFORMATION
             # -------------------------------------------------
+
             "web_tender_no": (
                 override.web_tender_no
-                if override
-                and override.web_tender_no is not None
+                if (
+                    override
+                    and override.web_tender_no is not None
+                )
                 else tender.web_tender_no
             ),
 
             "tender_reference_no": (
                 override.tender_reference_no
-                if override
-                and override.tender_reference_no is not None
+                if (
+                    override
+                    and override.tender_reference_no is not None
+                )
                 else tender.tender_reference_no
             ),
 
             "tender_name": (
                 override.tender_name
-                if override
-                and override.tender_name is not None
+                if (
+                    override
+                    and override.tender_name is not None
+                )
                 else tender.tender_name
             ),
 
             "city": (
                 override.city
-                if override
-                and override.city is not None
+                if (
+                    override
+                    and override.city is not None
+                )
                 else tender.city
             ),
 
             "authority": (
                 override.authority
-                if override
-                and override.authority is not None
+                if (
+                    override
+                    and override.authority is not None
+                )
                 else tender.authority
             ),
 
             "organization": (
                 override.organization
-                if override
-                and override.organization is not None
+                if (
+                    override
+                    and override.organization is not None
+                )
                 else tender.organization
             ),
 
             # -------------------------------------------------
             # ESTIMATED VALUE
             # -------------------------------------------------
+
             "estimated_value": (
                 float(override.estimated_value)
                 if (
@@ -475,6 +864,7 @@ def get_tenders(
             # -------------------------------------------------
             # DATES
             # -------------------------------------------------
+
             "advertised_date": (
                 override.advertised_date
                 if (
@@ -496,13 +886,19 @@ def get_tenders(
             # -------------------------------------------------
             # DOCUMENT / SOURCE URLS
             # -------------------------------------------------
-            "source_detail_url": tender.source_detail_url,
 
-            "primary_document_url": tender.primary_document_url,
+            "source_detail_url": (
+                tender.source_detail_url
+            ),
+
+            "primary_document_url": (
+                tender.primary_document_url
+            ),
 
             # -------------------------------------------------
             # RELEVANCE
             # -------------------------------------------------
+
             "keywords_matched": (
                 tender.relevance.matched_keywords
                 if tender.relevance
@@ -513,7 +909,8 @@ def get_tenders(
                 float(tender.relevance.keyword_score)
                 if (
                     tender.relevance
-                    and tender.relevance.keyword_score is not None
+                    and tender.relevance.keyword_score
+                    is not None
                 )
                 else 0
             ),
@@ -527,10 +924,175 @@ def get_tenders(
             # -------------------------------------------------
             # PARTICIPATION
             # -------------------------------------------------
-            "participation_status": participation_status,
+
+            "participation_status": (
+                participation_status
+            ),
         })
 
-    return result
+    # =========================================================
+    # SUMMARY COUNTS
+    # =========================================================
+    #
+    # These intentionally use the Coordinator/Admin-visible
+    # tender set WITHOUT the table's current filters.
+    #
+    # This preserves the behavior of the existing frontend,
+    # where summary cards are calculated from the complete
+    # loaded tender set.
+    # =========================================================
+
+    summary_query = (
+        db.query(Tender)
+        .outerjoin(
+            TenderRelevance,
+            TenderRelevance.tender_jazzid
+            == Tender.jazzid,
+        )
+        .outerjoin(
+            TenderParticipation,
+            TenderParticipation.tender_jazzid
+            == Tender.jazzid,
+        )
+    )
+
+    # ---------------------------------------------------------
+    # COORDINATOR SUMMARY ACCESS
+    # ---------------------------------------------------------
+
+    if current_user.role.name == "COORDINATOR":
+
+        coordinator = (
+            db.query(Coordinator)
+            .filter(
+                Coordinator.user_id
+                == current_user.id
+            )
+            .first()
+        )
+
+        # We already validated this above.
+        if coordinator is not None:
+
+            summary_query = summary_query.filter(
+                Tender.region_id
+                == coordinator.region_id,
+
+                TenderRelevance.keyword_score > 0,
+            )
+
+    # ---------------------------------------------------------
+    # SUMMARY TOTAL
+    # ---------------------------------------------------------
+
+    summary_total = (
+        summary_query.with_entities(
+            func.count(Tender.jazzid)
+        ).scalar()
+        or 0
+    )
+
+    # ---------------------------------------------------------
+    # SUMMARY: REVIEW PENDING
+    # ---------------------------------------------------------
+
+    review_pending_count = (
+        summary_query.filter(
+            or_(
+                TenderParticipation.id.is_(None),
+                TenderParticipation.status
+                == "NOT_REVIEWED",
+            )
+        )
+        .with_entities(
+            func.count(Tender.jazzid)
+        )
+        .scalar()
+        or 0
+    )
+
+    # ---------------------------------------------------------
+    # SUMMARY: ENGAGING OR PARTICIPATED
+    # ---------------------------------------------------------
+
+    participating_count = (
+        summary_query.filter(
+            TenderParticipation.status
+            .in_(["ENGAGING", "PARTICIPATED"])
+        )
+        .with_entities(
+            func.count(Tender.jazzid)
+        )
+        .scalar()
+        or 0
+    )
+
+    # ---------------------------------------------------------
+    # SUMMARY: NOT PARTICIPATING
+    # ---------------------------------------------------------
+
+    not_participating_count = (
+        summary_query.filter(
+            TenderParticipation.status
+            == "NOT_PARTICIPATING"
+        )
+        .with_entities(
+            func.count(Tender.jazzid)
+        )
+        .scalar()
+        or 0
+    )
+
+    # ---------------------------------------------------------
+    # SUMMARY: CLOSING WITHIN NEXT 3 DAYS
+    # ---------------------------------------------------------
+
+    now = datetime.now()
+
+    today_start = datetime(
+        now.year,
+        now.month,
+        now.day,
+    )
+
+    next_three_days = today_start + timedelta(
+        days=4
+    )
+
+    closing_soon_count = (
+        summary_query.filter(
+            Tender.closed_date >= today_start,
+            Tender.closed_date < next_three_days,
+        )
+        .with_entities(
+            func.count(Tender.jazzid)
+        )
+        .scalar()
+        or 0
+    )
+
+    # ---------------------------------------------------------
+    # FINAL RESPONSE
+    # ---------------------------------------------------------
+
+    return {
+        "items": result,
+
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "total_pages": total_pages,
+        },
+
+        "summary": {
+            "total": summary_total,
+            "review_pending": review_pending_count,
+            "participating": participating_count,
+            "not_participating": not_participating_count,
+            "closing_soon": closing_soon_count,
+        },
+    }
 
 @app.get("/api/regions")
 def get_regions(
@@ -869,8 +1431,8 @@ def update_tender_participation(
 ):
     allowed_statuses = {
         "NOT_REVIEWED",
-        "UNDER_REVIEW",
-        "PARTICIPATING",
+        "ENGAGING",
+        "PARTICIPATED",
         "NOT_PARTICIPATING",
     }
 
@@ -927,12 +1489,12 @@ def update_tender_participation(
         )
 
     # ---------------------------------------------------------
-    # Validate PARTICIPATING requirements
+    # Validate ENGAGING requirements and PARTICIPATED transition
     # ---------------------------------------------------------
 
     employee = None
 
-    if request.status == "PARTICIPATING":
+    if request.status == "ENGAGING":
 
         # JBC is required
         if request.employee_id is None:
@@ -986,6 +1548,10 @@ def update_tender_participation(
                 detail="One or more selected products are invalid or inactive",
             )
 
+    elif request.status == "PARTICIPATED":
+        # Selection data is retained during the ENGAGING -> PARTICIPATED transition.
+        product_ids = None
+
     else:
         # -----------------------------------------------------
         # NOT_PARTICIPATING / NOT_REVIEWED
@@ -1010,6 +1576,12 @@ def update_tender_participation(
 
     if participation is None:
 
+        if request.status == "PARTICIPATED":
+            raise HTTPException(
+                status_code=400,
+                detail="Only ENGAGING tenders can transition to PARTICIPATED",
+            )
+
         participation = TenderParticipation(
             tender_jazzid=jazzid,
             status=request.status,
@@ -1024,6 +1596,23 @@ def update_tender_participation(
         db.add(participation)
 
     else:
+
+        if request.status == "PARTICIPATED":
+            if participation.status != "ENGAGING":
+                raise HTTPException(
+                    status_code=400,
+                    detail="Only ENGAGING tenders can transition to PARTICIPATED",
+                )
+            if (
+                participation.delegated_employee_id is None
+                or not participation.product_ids
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="ENGAGING tender must have JBC and products before transition",
+                )
+            request.employee_id = participation.delegated_employee_id
+            product_ids = participation.product_ids
 
         participation.status = request.status
         participation.decided_by = current_user.id
@@ -1091,7 +1680,6 @@ def get_pending_participation_alerts(
                     TenderParticipation.status.in_(
                         [
                             "NOT_REVIEWED",
-                            "UNDER_REVIEW",
                         ]
                     )
                 )
@@ -1218,7 +1806,7 @@ def delegate_tender(
             detail="Tender participation has not been decided",
         )
 
-    if participation.status != "PARTICIPATING":
+    if participation.status not in {"ENGAGING", "PARTICIPATED"}:
         raise HTTPException(
             status_code=400,
             detail="Only participating tenders can be delegated",

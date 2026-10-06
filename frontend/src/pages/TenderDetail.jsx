@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import formatEstimatedValue from "../utils/formatEstimatedValue";
 import {
   ArrowLeft,
   ExternalLink,
@@ -88,6 +89,9 @@ function TenderDetail() {
    */
 
   const [participation, setParticipation] =
+    useState("NOT_REVIEWED");
+
+  const [savedParticipation, setSavedParticipation] =
     useState("NOT_REVIEWED");
 
   const [participationLoading, setParticipationLoading] =
@@ -232,6 +236,7 @@ function TenderDetail() {
         setParticipation(
           response.data.status
         );
+        setSavedParticipation(response.data.status);
 
         setDelegatedEmployeeId(
           response.data.delegated_employee_id
@@ -567,6 +572,7 @@ function TenderDetail() {
         setParticipation(
           response.data.status
         );
+        setSavedParticipation(response.data.status);
 
         setDelegatedEmployeeId(
           response.data.delegated_employee_id
@@ -621,9 +627,16 @@ function TenderDetail() {
       return;
     }
 
-    if (newStatus === "PARTICIPATING") {
+    if (
+      newStatus === "PARTICIPATED" &&
+      (participation !== "ENGAGING" || savedParticipation !== "ENGAGING")
+    ) {
+      return;
+    }
+
+    if (newStatus === "ENGAGING") {
       setParticipation(
-        "PARTICIPATING"
+        "ENGAGING"
       );
 
       setParticipationError("");
@@ -645,31 +658,33 @@ function TenderDetail() {
       setParticipation(
         response.data.status
       );
+      setSavedParticipation(response.data.status);
 
-      setDelegatedEmployeeId(
-        response.data.delegated_employee_id
-      );
+      if (newStatus !== "PARTICIPATED") {
+        setDelegatedEmployeeId(
+          response.data.delegated_employee_id
+        );
 
-      setDelegatedEmployeeName(
-        response.data.delegated_employee_name ||
-          null
-      );
+        setDelegatedEmployeeName(
+          response.data.delegated_employee_name ||
+            null
+        );
 
-      const returnedProductIds =
-        Array.isArray(
-          response.data.product_ids
-        )
-          ? response.data.product_ids.map(
-              (id) => Number(id)
-            )
-          : [];
+        const returnedProductIds =
+          Array.isArray(
+            response.data.product_ids
+          )
+            ? response.data.product_ids.map(
+                (id) => Number(id)
+              )
+            : [];
 
-      setSelectedProductIds(
-        returnedProductIds
-      );
+        setSelectedProductIds(returnedProductIds);
+      }
 
       if (
-        newStatus !== "PARTICIPATING"
+        newStatus !== "ENGAGING" &&
+        newStatus !== "PARTICIPATED"
       ) {
         setDelegatedEmployeeId(
           null
@@ -698,7 +713,7 @@ function TenderDetail() {
 
   /*
    * ---------------------------------------------------------
-   * Save PARTICIPATING
+   * Save ENGAGING
    * ---------------------------------------------------------
    */
 
@@ -733,7 +748,7 @@ function TenderDetail() {
       const response = await api.put(
         `/api/tenders/${tenderId}/participation`,
         {
-          status: "PARTICIPATING",
+          status: "ENGAGING",
 
           employee_id:
             Number(
@@ -750,6 +765,7 @@ function TenderDetail() {
       setParticipation(
         response.data.status
       );
+      setSavedParticipation(response.data.status);
 
       setDelegatedEmployeeId(
         response.data.delegated_employee_id
@@ -1005,8 +1021,12 @@ function TenderDetail() {
 
   function getParticipationLabel() {
     switch (participation) {
+      case "ENGAGING":
       case "PARTICIPATING":
-        return "Participating";
+        return "Engaging";
+
+      case "PARTICIPATED":
+        return "Participated";
 
       case "NOT_PARTICIPATING":
         return "Not Participating";
@@ -1017,10 +1037,18 @@ function TenderDetail() {
     }
   }
 
+  function isEngaging(status = participation) {
+    return status === "ENGAGING" || status === "PARTICIPATING";
+  }
+
   function getParticipationStatusClass() {
     switch (participation) {
+      case "ENGAGING":
       case "PARTICIPATING":
-        return "participating";
+        return "engaging";
+
+      case "PARTICIPATED":
+        return "participated";
 
       case "NOT_PARTICIPATING":
         return "not-participating";
@@ -1033,7 +1061,11 @@ function TenderDetail() {
 
   function getParticipationIcon() {
     switch (participation) {
+      case "ENGAGING":
       case "PARTICIPATING":
+        return <CheckCircle2 size={16} />;
+
+      case "PARTICIPATED":
         return <CheckCircle2 size={16} />;
 
       case "NOT_PARTICIPATING":
@@ -1328,7 +1360,7 @@ function TenderDetail() {
               )
             ) : (
               <strong>
-                {displayValue(
+                {formatEstimatedValue(
                   tender.estimated_value
                 )}
               </strong>
@@ -1625,8 +1657,7 @@ function TenderDetail() {
                   </span>
 
                   <strong className="participation-summary-value">
-                    {participation ===
-                      "PARTICIPATING" &&
+                    {(isEngaging() || participation === "PARTICIPATED") &&
                     delegatedEmployeeName
                       ? delegatedEmployeeName
                       : "Not assigned"}
@@ -1642,8 +1673,7 @@ function TenderDetail() {
                     Products
                   </span>
 
-                  {participation ===
-                    "PARTICIPATING" &&
+                  {(isEngaging() || participation === "PARTICIPATED") &&
                   selectedProductIds.length >
                     0 ? (
                     <div className="participation-product-tags">
@@ -1691,6 +1721,18 @@ function TenderDetail() {
                   Edit Participation
                 </button>
 
+                {participation === "ENGAGING" && (
+                  <button
+                    type="button"
+                    className="save-participation-button"
+                    onClick={() => handleParticipationChange("PARTICIPATED")}
+                    disabled={participationLoading}
+                  >
+                    <CheckCircle2 size={16} />
+                    {participationLoading ? "Updating..." : "Mark as Participated"}
+                  </button>
+                )}
+
               </div>
 
             </div>
@@ -1731,13 +1773,12 @@ function TenderDetail() {
                   Not Reviewed
                 </button>
 
-                {/* Participating */}
+                {/* Engaging */}
 
                 <button
                   type="button"
                   className={`participation-button ${
-                    participation ===
-                    "PARTICIPATING"
+                    isEngaging()
                       ? "selected"
                       : ""
                   }`}
@@ -1746,7 +1787,7 @@ function TenderDetail() {
                   }
                   onClick={() =>
                     handleParticipationChange(
-                      "PARTICIPATING"
+                      "ENGAGING"
                     )
                   }
                 >
@@ -1754,7 +1795,7 @@ function TenderDetail() {
                     size={16}
                   />
 
-                  Participating
+                  Engaging
                 </button>
 
                 {/* Not Participating */}
@@ -1781,12 +1822,23 @@ function TenderDetail() {
                   Not Participating
                 </button>
 
+                {savedParticipation === "ENGAGING" && participation === "ENGAGING" && (
+                  <button
+                    type="button"
+                    className="participation-button"
+                    onClick={() => handleParticipationChange("PARTICIPATED")}
+                    disabled={participationLoading}
+                  >
+                    <CheckCircle2 size={16} />
+                    {participationLoading ? "Updating..." : "Mark as Participated"}
+                  </button>
+                )}
+
               </div>
 
-              {/* PARTICIPATING DETAILS */}
+              {/* ENGAGING DETAILS */}
 
-              {participation ===
-                "PARTICIPATING" && (
+              {isEngaging() && (
                 <div className="participation-assignment">
 
                   {/* JBC */}
@@ -1965,7 +2017,7 @@ function TenderDetail() {
                     <div className="participation-requirement">
 
                       <strong>
-                        Participating requires:
+                        Engaging requires:
                       </strong>
 
                       <span
@@ -2037,8 +2089,7 @@ function TenderDetail() {
 
               {/* Cancel editing for non-participating statuses */}
 
-              {participation !==
-                "PARTICIPATING" && (
+              {!isEngaging() && (
                 <div className="participation-save-row">
 
                   <button
@@ -2097,8 +2148,7 @@ function TenderDetail() {
                 </span>
 
                 <strong className="participation-summary-value">
-                  {participation ===
-                    "PARTICIPATING" &&
+                  {(isEngaging() || participation === "PARTICIPATED") &&
                   delegatedEmployeeName
                     ? delegatedEmployeeName
                     : "Not assigned"}
@@ -2114,8 +2164,7 @@ function TenderDetail() {
                   Products
                 </span>
 
-                {participation ===
-                  "PARTICIPATING" &&
+                {(isEngaging() || participation === "PARTICIPATED") &&
                 selectedProductIds.length >
                   0 ? (
                   <div className="participation-product-tags">
