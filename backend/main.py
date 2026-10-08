@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -8,7 +8,7 @@ from fastapi import Header
 from pathlib import Path
 from config.paths import (DATA_DIR, DOCUMENTS_DIR, CHECKPOINT_FILE,)
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, case
 from sqlalchemy.orm import Session, joinedload
 import mimetypes
 
@@ -31,9 +31,16 @@ from tender_scraper.storage.document_downloader import download_document
 
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Dict, List, Optional, Literal
 from fastapi import BackgroundTasks
 from tender_scraper.orchestrator_tenderfetch import main as run_tender_scraper
+
+
+
+from tender_scraper.local_import_processor import (
+    process_local_punjab_tenders,
+    process_local_balochistan_tenders,
+)
 
 from auth import (
     verify_password,
@@ -52,6 +59,8 @@ scraper_running = False
 app = FastAPI(
     title="JazzWorld B2G Tender Portal"
 )
+
+
 
 
 
@@ -244,6 +253,12 @@ class TenderRegionUpdateRequest(BaseModel):
 
 class BulkTenderDeleteRequest(BaseModel):
     jazzids: list[int]
+
+
+class ScraperImportRequest(BaseModel):
+    portal: str
+    tenders: List[Dict[str, Any]]
+
 
 @app.get("/")
 def root():
@@ -2305,9 +2320,7 @@ def get_scraper_status(
 
 
 @app.get("/api/admin/scraper/checkpoint")
-def get_scraper_checkpoint(
-    current_user: User = Depends(require_admin),
-):
+def get_scraper_checkpoint():
     checkpoint_file = CHECKPOINT_FILE
 
     if not checkpoint_file.exists():
@@ -2497,4 +2510,1168 @@ def view_tender_document(
         path=document_path,
         filename=document.document_name or document_path.name,
         media_type=media_type or "application/octet-stream",
+    )
+
+
+# ============================================================
+# OVERVIEW FILTER HELPER
+# ============================================================
+
+def apply_overview_filters(
+    query,
+    *,
+    region: str | None = None,
+    status: str | None = None,
+    advertised_date_from: str | None = None,
+    advertised_date_to: str | None = None,
+    closing_date_from: str | None = None,
+    closing_date_to: str | None = None,
+    score_min: float | None = None,
+    score_max: float | None = None,
+    product_id: int | None = None,
+):
+    """
+    Apply common Overview filters to a SQLAlchemy query.
+
+    Supported filters:
+        - region
+        - participation status
+        - advertised date range
+        - closing date range
+        - relevance score range
+        - product
+
+    The filtered query is reused for:
+        - KPI summary
+        - closing-soon count
+        - monthly activity
+        - monthly regional participation
+        - leadership metrics
+        - portal breakdown
+    """
+
+    # --------------------------------------------------------
+    # Region
+    # --------------------------------------------------------
+
+    if region:
+        query = query.filter(
+            Region.name == region
+        )
+
+    # --------------------------------------------------------
+    # Participation Status
+    #
+    # No participation record means NOT_REVIEWED.
+    # --------------------------------------------------------
+
+    if status:
+
+        if status == "NOT_REVIEWED":
+
+            query = query.filter(
+                or_(
+                    TenderParticipation.id.is_(None),
+                    TenderParticipation.status == "NOT_REVIEWED",
+                )
+            )
+
+        elif status == "ENGAGING":
+
+            query = query.filter(
+                TenderParticipation.status == "ENGAGING"
+            )
+
+        elif status == "PARTICIPATED":
+
+            query = query.filter(
+                TenderParticipation.status == "PARTICIPATED"
+            )
+
+        elif status == "NOT_PARTICIPATING":
+
+            query = query.filter(
+                TenderParticipation.status == "NOT_PARTICIPATING"
+            )
+
+    # --------------------------------------------------------
+    # Advertised Date
+    # --------------------------------------------------------
+
+    if advertised_date_from:
+        query = query.filter(
+            Tender.advertised_date >= advertised_date_from
+        )
+
+    if advertised_date_to:
+        query = query.filter(
+            Tender.advertised_date <= advertised_date_to
+        )
+
+    # --------------------------------------------------------
+    # Closing Date
+    # --------------------------------------------------------
+
+    if closing_date_from:
+        query = query.filter(
+            Tender.closed_date >= closing_date_from
+        )
+
+    if closing_date_to:
+        query = query.filter(
+            Tender.closed_date <= closing_date_to
+        )
+
+    # --------------------------------------------------------
+    # Relevance Score
+    # --------------------------------------------------------
+
+    if score_min is not None:
+        query = query.filter(
+            TenderRelevance.keyword_score >= score_min
+        )
+
+    if score_max is not None:
+        query = query.filter(
+            TenderRelevance.keyword_score <= score_max
+        )
+
+    # --------------------------------------------------------
+    # Product
+    #
+    # tender_participation.product_ids is stored as JSON.
+    #
+    # Example:
+    #     [1, 4, 7]
+    #
+    # JSON_CONTAINS checks whether product_id exists
+    # inside that JSON array.
+    #
+    # No participation record means the tender cannot match
+    # a product filter.
+    # --------------------------------------------------------
+
+    if product_id is not None:
+
+        query = query.filter(
+            func.JSON_CONTAINS(
+                TenderParticipation.product_ids,
+                func.JSON_ARRAY(product_id),
+            ) == 1
+        )
+
+    return query
+
+
+# ============================================================
+# OVERVIEW ENDPOINT
+# ============================================================
+
+@app.get("/api/overview")
+def get_overview(
+    region: str | None = Query(
+        default=None
+    ),
+    status: str | None = Query(
+        default=None
+    ),
+    advertised_date_from: str | None = Query(
+        default=None
+    ),
+    advertised_date_to: str | None = Query(
+        default=None
+    ),
+    closing_date_from: str | None = Query(
+        default=None
+    ),
+    closing_date_to: str | None = Query(
+        default=None
+    ),
+    score_min: float | None = Query(
+        default=None
+    ),
+    score_max: float | None = Query(
+        default=None
+    ),
+    product_id: int | None = Query(
+        default=None
+    ),
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(
+        get_db
+    ),
+):
+    """
+    Return all aggregated data required by the Overview page.
+
+    The endpoint does not return individual tender records.
+
+    Global filters:
+        - region
+        - participation status
+        - advertised date
+        - closing date
+        - relevance score
+        - product
+
+    Returned sections:
+        - summary
+        - monthly_activity
+        - monthly_regional
+        - leadership
+    """
+
+    # ========================================================
+    # VALIDATION
+    # ========================================================
+
+    allowed_statuses = {
+        "NOT_REVIEWED",
+        "ENGAGING",
+        "PARTICIPATED",
+        "NOT_PARTICIPATING",
+    }
+
+    if status and status not in allowed_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid participation status",
+        )
+
+    allowed_regions = {
+        "North1",
+        "North2",
+        "Central",
+        "South",
+    }
+
+    if region and region not in allowed_regions:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid region",
+        )
+
+    if score_min is not None and score_min < 0:
+        raise HTTPException(
+            status_code=400,
+            detail="score_min cannot be negative",
+        )
+
+    if score_max is not None and score_max < 0:
+        raise HTTPException(
+            status_code=400,
+            detail="score_max cannot be negative",
+        )
+
+    if (
+        score_min is not None
+        and score_max is not None
+        and score_min > score_max
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="score_min cannot be greater than score_max",
+        )
+
+    if product_id is not None and product_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="product_id must be greater than zero",
+        )
+
+    # ========================================================
+    # COORDINATOR ACCESS
+    #
+    # Coordinator:
+    #   - Own region only
+    #   - Relevance score > 0
+    #
+    # Viewer:
+    #   - All regions
+    #
+    # Admin:
+    #   - All regions
+    # ========================================================
+
+    coordinator_region_id = None
+
+    if current_user.role.name == "COORDINATOR":
+
+        coordinator = (
+            db.query(Coordinator)
+            .filter(
+                Coordinator.user_id
+                == current_user.id
+            )
+            .first()
+        )
+
+        if coordinator is None:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Coordinator region "
+                    "is not configured"
+                ),
+            )
+
+        coordinator_region_id = (
+            coordinator.region_id
+        )
+
+    # ========================================================
+    # BASE QUERY
+    # ========================================================
+
+    base_query = (
+        db.query(Tender)
+
+        # Participation
+        .outerjoin(
+            TenderParticipation,
+            TenderParticipation.tender_jazzid
+            == Tender.jazzid,
+        )
+
+        # Relevance
+        .outerjoin(
+            TenderRelevance,
+            TenderRelevance.tender_jazzid
+            == Tender.jazzid,
+        )
+
+        # Effective tender region
+        .outerjoin(
+            Region,
+            Region.id
+            == Tender.region_id,
+        )
+
+        # Source
+        .join(
+            TenderSource,
+            TenderSource.id
+            == Tender.source_id,
+        )
+    )
+
+    # ========================================================
+    # COORDINATOR RESTRICTION
+    # ========================================================
+
+    if coordinator_region_id is not None:
+
+        base_query = base_query.filter(
+            Tender.region_id
+            == coordinator_region_id,
+
+            # Coordinator only sees relevant tenders
+            TenderRelevance.keyword_score > 0,
+        )
+
+    # ========================================================
+    # APPLY OVERVIEW FILTERS
+    # ========================================================
+
+    base_query = apply_overview_filters(
+        base_query,
+
+        region=region,
+
+        status=status,
+
+        advertised_date_from=(
+            advertised_date_from
+        ),
+
+        advertised_date_to=(
+            advertised_date_to
+        ),
+
+        closing_date_from=(
+            closing_date_from
+        ),
+
+        closing_date_to=(
+            closing_date_to
+        ),
+
+        score_min=score_min,
+
+        score_max=score_max,
+
+        product_id=product_id,
+    )
+
+    # ========================================================
+    # EFFECTIVE PARTICIPATION STATUS
+    #
+    # Database status:
+    #
+    # NULL participation
+    #       -> NOT_REVIEWED
+    #
+    # NOT_REVIEWED
+    #       -> NOT_REVIEWED
+    #
+    # ENGAGING
+    #       -> ENGAGING
+    #
+    # PARTICIPATED
+    #       -> PARTICIPATED
+    #
+    # NOT_PARTICIPATING
+    #       -> NOT_PARTICIPATING
+    #
+    # Legacy PARTICIPATING is treated as ENGAGING.
+    # ========================================================
+
+    effective_status = case(
+
+        (
+            or_(
+                TenderParticipation.id.is_(None),
+
+                TenderParticipation.status
+                == "NOT_REVIEWED",
+            ),
+
+            "NOT_REVIEWED",
+        ),
+
+        (
+            TenderParticipation.status
+            == "PARTICIPATING",
+
+            "ENGAGING",
+        ),
+
+        else_=TenderParticipation.status,
+    )
+
+    # ========================================================
+    # SUMMARY / KPI
+    #
+    # One aggregation query for:
+    #   total
+    #   pending
+    #   engaging
+    #   participated
+    #   not participating
+    # ========================================================
+
+    summary_row = (
+        base_query
+
+        .with_entities(
+
+            func.count(
+                Tender.jazzid
+            ).label(
+                "total"
+            ),
+
+            func.sum(
+                case(
+                    (
+                        effective_status
+                        == "NOT_REVIEWED",
+
+                        1,
+                    ),
+
+                    else_=0,
+                )
+            ).label(
+                "pending"
+            ),
+
+            func.sum(
+                case(
+                    (
+                        effective_status
+                        == "ENGAGING",
+
+                        1,
+                    ),
+
+                    else_=0,
+                )
+            ).label(
+                "engaging"
+            ),
+
+            func.sum(
+                case(
+                    (
+                        effective_status
+                        == "PARTICIPATED",
+
+                        1,
+                    ),
+
+                    else_=0,
+                )
+            ).label(
+                "participated"
+            ),
+
+            func.sum(
+                case(
+                    (
+                        effective_status
+                        == "NOT_PARTICIPATING",
+
+                        1,
+                    ),
+
+                    else_=0,
+                )
+            ).label(
+                "not_participating"
+            ),
+        )
+
+        .first()
+    )
+
+    total = int(
+        summary_row.total or 0
+    )
+
+    pending = int(
+        summary_row.pending or 0
+    )
+
+    engaging = int(
+        summary_row.engaging or 0
+    )
+
+    participated = int(
+        summary_row.participated or 0
+    )
+
+    not_participating = int(
+        summary_row.not_participating or 0
+    )
+
+    # ========================================================
+    # DATE DEFINITIONS
+    # ========================================================
+
+    today = datetime.now().replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+    closing_limit = (
+        today
+        + timedelta(days=3)
+    )
+
+    # ========================================================
+    # CLOSING NEXT 3 DAYS
+    #
+    # Matches current Overview KPI.
+    # ========================================================
+
+    closing_soon = (
+        base_query
+
+        .filter(
+            Tender.closed_date.isnot(None),
+
+            Tender.closed_date >= today,
+
+            Tender.closed_date
+            <= closing_limit,
+        )
+
+        .with_entities(
+            func.count(
+                Tender.jazzid
+            )
+        )
+
+        .scalar()
+
+        or 0
+    )
+
+    # ========================================================
+    # ACTIVITY DATE
+    #
+    # Existing Overview logic:
+    #
+    # advertised_date first
+    # closed_date if advertised_date is unavailable
+    # ========================================================
+
+    activity_date = func.coalesce(
+        Tender.advertised_date,
+        Tender.closed_date,
+    )
+
+    # ========================================================
+    # MONTHLY ACTIVITY
+    # ========================================================
+
+    monthly_rows = (
+        base_query
+
+        .with_entities(
+
+            func.year(
+                activity_date
+            ).label(
+                "year"
+            ),
+
+            func.month(
+                activity_date
+            ).label(
+                "month"
+            ),
+
+            func.sum(
+                case(
+                    (
+                        effective_status
+                        == "ENGAGING",
+
+                        1,
+                    ),
+
+                    else_=0,
+                )
+            ).label(
+                "engaging"
+            ),
+
+            func.sum(
+                case(
+                    (
+                        effective_status
+                        == "PARTICIPATED",
+
+                        1,
+                    ),
+
+                    else_=0,
+                )
+            ).label(
+                "participated"
+            ),
+
+            func.sum(
+                case(
+                    (
+                        effective_status
+                        == "NOT_PARTICIPATING",
+
+                        1,
+                    ),
+
+                    else_=0,
+                )
+            ).label(
+                "not_participating"
+            ),
+
+            func.sum(
+                case(
+                    (
+                        effective_status
+                        == "NOT_REVIEWED",
+
+                        1,
+                    ),
+
+                    else_=0,
+                )
+            ).label(
+                "not_reviewed"
+            ),
+
+            func.count(
+                Tender.jazzid
+            ).label(
+                "total"
+            ),
+        )
+
+        .filter(
+            activity_date.isnot(None)
+        )
+
+        .group_by(
+            func.year(
+                activity_date
+            ),
+
+            func.month(
+                activity_date
+            ),
+        )
+
+        .order_by(
+            func.year(
+                activity_date
+            ),
+
+            func.month(
+                activity_date
+            ),
+        )
+
+        .all()
+    )
+
+    # Keep latest 12 months.
+    monthly_rows = (
+        monthly_rows[-12:]
+    )
+
+    monthly_activity = []
+
+    for row in monthly_rows:
+
+        monthly_activity.append(
+            {
+                "year": int(
+                    row.year
+                ),
+
+                "month": int(
+                    row.month
+                ),
+
+                "engaging": int(
+                    row.engaging or 0
+                ),
+
+                "participated": int(
+                    row.participated or 0
+                ),
+
+                "not_participating": int(
+                    row.not_participating or 0
+                ),
+
+                "not_reviewed": int(
+                    row.not_reviewed or 0
+                ),
+
+                "total": int(
+                    row.total or 0
+                ),
+            }
+        )
+
+    # ========================================================
+    # MONTHLY REGIONAL PARTICIPATION
+    #
+    # Structure:
+    #
+    # 2026-09
+    #   North1
+    #       NOT_REVIEWED
+    #       ENGAGING
+    #       PARTICIPATED
+    #       NOT_PARTICIPATING
+    #
+    #   North2
+    #   Central
+    #   South
+    # ========================================================
+
+    regional_rows = (
+        base_query
+
+        .with_entities(
+
+            func.year(
+                activity_date
+            ).label(
+                "year"
+            ),
+
+            func.month(
+                activity_date
+            ).label(
+                "month"
+            ),
+
+            Region.name.label(
+                "region"
+            ),
+
+            effective_status.label(
+                "status"
+            ),
+
+            func.count(
+                Tender.jazzid
+            ).label(
+                "count"
+            ),
+        )
+
+        .filter(
+            activity_date.isnot(None),
+
+            Tender.region_id.isnot(None),
+        )
+
+        .group_by(
+            func.year(
+                activity_date
+            ),
+
+            func.month(
+                activity_date
+            ),
+
+            Region.name,
+
+            effective_status,
+        )
+
+        .order_by(
+            func.year(
+                activity_date
+            ),
+
+            func.month(
+                activity_date
+            ),
+
+            Region.name,
+        )
+
+        .all()
+    )
+
+    # ========================================================
+    # BUILD COMPLETE REGIONAL STRUCTURE
+    # ========================================================
+
+    monthly_regional_map = {}
+
+    region_names = [
+        "North1",
+        "North2",
+        "Central",
+        "South",
+    ]
+
+    status_names = [
+        "NOT_REVIEWED",
+        "ENGAGING",
+        "PARTICIPATED",
+        "NOT_PARTICIPATING",
+    ]
+
+    for row in regional_rows:
+
+        key = (
+            f"{int(row.year):04d}-"
+            f"{int(row.month):02d}"
+        )
+
+        if key not in monthly_regional_map:
+
+            monthly_regional_map[key] = {
+                "year": int(
+                    row.year
+                ),
+
+                "month": int(
+                    row.month
+                ),
+
+                "regions": {},
+            }
+
+            for region_name in region_names:
+
+                monthly_regional_map[
+                    key
+                ]["regions"][
+                    region_name
+                ] = {
+                    status_name: 0
+                    for status_name
+                    in status_names
+                }
+
+        if (
+            row.region
+            in region_names
+            and row.status
+            in status_names
+        ):
+
+            monthly_regional_map[
+                key
+            ]["regions"][
+                row.region
+            ][
+                row.status
+            ] = int(
+                row.count or 0
+            )
+
+    monthly_regional = sorted(
+        monthly_regional_map.values(),
+
+        key=lambda item: (
+            item["year"],
+            item["month"],
+        ),
+    )
+
+    # Keep latest 12 months.
+    monthly_regional = (
+        monthly_regional[-12:]
+    )
+
+    # ========================================================
+    # LEADERSHIP METRICS
+    # ========================================================
+
+    reviewed = (
+        total - pending
+    )
+
+    review_rate = (
+        round(
+            reviewed
+            / total
+            * 100
+        )
+
+        if total
+
+        else 0
+    )
+
+    participation_rate = (
+        round(
+            participated
+            / reviewed
+            * 100
+        )
+
+        if reviewed
+
+        else 0
+    )
+
+    # ========================================================
+    # HIGH-SCORE PENDING
+    #
+    # Current Overview:
+    # relevance >= 70
+    # and still NOT_REVIEWED
+    # ========================================================
+
+    high_score_pending = (
+        base_query
+
+        .filter(
+            effective_status
+            == "NOT_REVIEWED",
+
+            TenderRelevance.keyword_score
+            >= 70,
+        )
+
+        .with_entities(
+            func.count(
+                Tender.jazzid
+            )
+        )
+
+        .scalar()
+
+        or 0
+    )
+
+    # ========================================================
+    # URGENT PENDING
+    #
+    # Pending tenders closing within 7 days.
+    # ========================================================
+
+    urgent_pending = (
+        base_query
+
+        .filter(
+            effective_status
+            == "NOT_REVIEWED",
+
+            Tender.closed_date.isnot(None),
+
+            Tender.closed_date >= today,
+
+            Tender.closed_date
+            <= today + timedelta(
+                days=7
+            ),
+        )
+
+        .with_entities(
+            func.count(
+                Tender.jazzid
+            )
+        )
+
+        .scalar()
+
+        or 0
+    )
+
+    # ========================================================
+    # TOP 5 PORTALS
+    # ========================================================
+
+    portal_rows = (
+        base_query
+
+        .with_entities(
+
+            TenderSource.name.label(
+                "source"
+            ),
+
+            func.count(
+                Tender.jazzid
+            ).label(
+                "count"
+            ),
+        )
+
+        .group_by(
+            TenderSource.name
+        )
+
+        .order_by(
+            func.count(
+                Tender.jazzid
+            ).desc()
+        )
+
+        .limit(5)
+
+        .all()
+    )
+
+    portals = [
+        {
+            "source": row.source,
+
+            "count": int(
+                row.count or 0
+            ),
+        }
+
+        for row in portal_rows
+    ]
+
+    # ========================================================
+    # FINAL RESPONSE
+    # ========================================================
+
+    return {
+        "summary": {
+            "total": total,
+
+            "pending": pending,
+
+            "engaging": engaging,
+
+            "participated": participated,
+
+            "not_participating": (
+                not_participating
+            ),
+
+            "closing": int(
+                closing_soon
+            ),
+        },
+
+        "monthly_activity": (
+            monthly_activity
+        ),
+
+        "monthly_regional": (
+            monthly_regional
+        ),
+
+        "leadership": {
+            "reviewed": reviewed,
+
+            "review_rate": (
+                review_rate
+            ),
+
+            "participation_rate": (
+                participation_rate
+            ),
+
+            "high_score_pending": int(
+                high_score_pending
+            ),
+
+            "urgent_pending": int(
+                urgent_pending
+            ),
+
+            "portals": portals,
+        },
+    }
+
+
+
+
+@app.post("/api/scraper/import")
+def import_scraped_tenders(
+    payload: ScraperImportRequest,
+):
+    """
+    Receive raw tender data from locally running
+    Punjab/Balochistan scrapers and process it on ECS.
+    """
+
+    portal = payload.portal.strip()
+
+    if portal == "Punjab PPRA":
+
+        result = process_local_punjab_tenders(
+            tenders=payload.tenders,
+        )
+
+        return result
+
+    if portal == "Balochistan PPRA":
+
+        result = process_local_balochistan_tenders(
+            tenders=payload.tenders,
+        )
+
+        return result
+
+    raise HTTPException(
+        status_code=400,
+        detail=(
+            "Unsupported portal. "
+            "Only Punjab PPRA and Balochistan PPRA "
+            "are supported for local scraper import."
+        ),
     )
