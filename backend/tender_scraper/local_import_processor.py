@@ -1,18 +1,31 @@
+from datetime import datetime
+
+
 from database.connection import SessionLocal
+
 
 from tender_scraper.relevance.engine import analyze_tender
 
+
 from tender_scraper.storage.normalizer import normalize_tender
+
 
 from tender_scraper.storage.db_mapper import (
     map_punjab_tender,
     map_balochistan_tender,
 )
 
+
 from tender_scraper.storage.mysql_storage import persist_tender
+
 
 from tender_scraper.storage.document_downloader import (
     download_document,
+)
+
+
+from tender_scraper.storage.checkpoint import (
+    update_checkpoint,
 )
 
 
@@ -20,20 +33,211 @@ PUNJAB_PORTAL = "Punjab PPRA"
 BALOCHISTAN_PORTAL = "Balochistan PPRA"
 
 
+# ============================================================
+# CHECKPOINT HELPERS
+# ============================================================
+
+
+def get_latest_punjab_date(tenders):
+    """
+    Get the latest advertised_date from the raw
+    Punjab tenders.
+
+    Returns:
+        YYYY-MM-DD string or None
+    """
+
+    dates = []
+
+    for tender in tenders:
+
+        value = tender.get(
+            "advertised_date"
+        )
+
+        if not value:
+            continue
+
+        if isinstance(value, datetime):
+            dates.append(
+                value.strftime("%Y-%m-%d")
+            )
+            continue
+
+        value = str(value).strip()
+
+        if not value:
+            continue
+
+        try:
+            parsed = datetime.fromisoformat(
+                value.replace(
+                    "Z",
+                    "+00:00",
+                )
+            )
+
+            dates.append(
+                parsed.strftime("%Y-%m-%d")
+            )
+
+        except ValueError:
+
+            # Fallback for strings that already
+            # start with YYYY-MM-DD.
+            if len(value) >= 10:
+                candidate = value[:10]
+
+                try:
+                    datetime.strptime(
+                        candidate,
+                        "%Y-%m-%d",
+                    )
+
+                    dates.append(candidate)
+
+                except ValueError:
+                    continue
+
+    if not dates:
+        return None
+
+    return max(dates)
+
+
+def get_latest_balochistan_date(tenders):
+    """
+    Get the latest PublishedDate from the raw
+    Balochistan tenders.
+
+    Balochistan returns UTC timestamps.
+
+    The checkpoint stores the same date/timestamp
+    representation used by the scraper.
+
+    Returns:
+        ISO timestamp string or None
+    """
+
+    latest_datetime = None
+    latest_value = None
+
+    for tender in tenders:
+
+        value = tender.get(
+            "PublishedDate"
+        )
+
+        if not value:
+            continue
+
+        value = str(value).strip()
+
+        if not value:
+            continue
+
+        try:
+
+            parsed = datetime.fromisoformat(
+                value.replace(
+                    "Z",
+                    "+00:00",
+                )
+            )
+
+        except ValueError:
+            continue
+
+        if (
+            latest_datetime is None
+            or parsed > latest_datetime
+        ):
+
+            latest_datetime = parsed
+            latest_value = value
+
+    return latest_value
+
+
+def update_punjab_checkpoint(tenders):
+    """
+    Update ECS Punjab checkpoint after
+    successful processing.
+    """
+
+    latest_date = get_latest_punjab_date(
+        tenders
+    )
+
+    if not latest_date:
+
+        print(
+            "[Punjab PPRA] No valid checkpoint date found."
+        )
+
+        return False, None
+
+    update_checkpoint(
+        portal=PUNJAB_PORTAL,
+        last_date=latest_date,
+    )
+
+    print(
+        f"[Punjab PPRA] Checkpoint updated: {latest_date}"
+    )
+
+    return True, latest_date
+
+
+def update_balochistan_checkpoint(tenders):
+    """
+    Update ECS Balochistan checkpoint after
+    successful processing.
+    """
+
+    latest_date = get_latest_balochistan_date(
+        tenders
+    )
+
+    if not latest_date:
+
+        print(
+            "[Balochistan PPRA] No valid checkpoint date found."
+        )
+
+        return False, None
+
+    update_checkpoint(
+        portal=BALOCHISTAN_PORTAL,
+        last_date=latest_date,
+    )
+
+    print(
+        f"[Balochistan PPRA] Checkpoint updated: {latest_date}"
+    )
+
+    return True, latest_date
+
+
+# ============================================================
+# PUNJAB
+# ============================================================
+
+
 def process_local_punjab_tenders(tenders):
     """
     Process raw Punjab tenders received from the
     local scraper.
 
-    This function is completely separate from the
-    existing backend Punjab orchestrator.
+    The local scraper does NOT control the checkpoint.
 
-    Checkpoint management is handled outside this
-    processor. The local scraper must not control
-    the ECS checkpoint.
+    ECS processes and stores the tenders first.
+    Only after successful processing is the ECS
+    checkpoint updated.
     """
 
     if not isinstance(tenders, list):
+
         raise ValueError(
             "Punjab tenders must be a list."
         )
@@ -48,6 +252,7 @@ def process_local_punjab_tenders(tenders):
     )
 
     if not tenders:
+
         return {
             "success": True,
             "portal": PUNJAB_PORTAL,
@@ -57,6 +262,8 @@ def process_local_punjab_tenders(tenders):
             "updated": 0,
             "relevant": 0,
             "irrelevant": 0,
+            "checkpoint_updated": False,
+            "checkpoint_date": None,
         }
 
     processed_tenders = []
@@ -193,6 +400,9 @@ def process_local_punjab_tenders(tenders):
     except Exception:
 
         db.rollback()
+
+        # IMPORTANT:
+        # No checkpoint update occurs here.
         raise
 
     finally:
@@ -201,6 +411,17 @@ def process_local_punjab_tenders(tenders):
 
     irrelevant_count = (
         len(tenders) - relevant_count
+    )
+
+    # --------------------------------------------------------
+    # 3. Update ECS checkpoint ONLY AFTER successful DB
+    #    processing
+    # --------------------------------------------------------
+
+    checkpoint_updated, checkpoint_date = (
+        update_punjab_checkpoint(
+            tenders
+        )
     )
 
     print()
@@ -232,6 +453,15 @@ def process_local_punjab_tenders(tenders):
         f"Irrelevant:          {irrelevant_count}"
     )
 
+    print(
+        f"Checkpoint updated:  {checkpoint_updated}"
+    )
+
+    if checkpoint_date:
+        print(
+            f"Checkpoint date:     {checkpoint_date}"
+        )
+
     return {
         "success": True,
         "portal": PUNJAB_PORTAL,
@@ -241,7 +471,14 @@ def process_local_punjab_tenders(tenders):
         "updated": updated_count,
         "relevant": relevant_count,
         "irrelevant": irrelevant_count,
+        "checkpoint_updated": checkpoint_updated,
+        "checkpoint_date": checkpoint_date,
     }
+
+
+# ============================================================
+# BALOCHISTAN
+# ============================================================
 
 
 def process_local_balochistan_tenders(tenders):
@@ -249,15 +486,15 @@ def process_local_balochistan_tenders(tenders):
     Process raw Balochistan tenders received from
     the local scraper.
 
-    This function is completely separate from the
-    existing backend Balochistan orchestrator.
+    The local scraper does NOT control the checkpoint.
 
-    Checkpoint management is handled outside this
-    processor. The local scraper must not control
-    the ECS checkpoint.
+    ECS processes and stores the tenders first.
+    Only after successful processing is the ECS
+    checkpoint updated.
     """
 
     if not isinstance(tenders, list):
+
         raise ValueError(
             "Balochistan tenders must be a list."
         )
@@ -272,6 +509,7 @@ def process_local_balochistan_tenders(tenders):
     )
 
     if not tenders:
+
         return {
             "success": True,
             "portal": BALOCHISTAN_PORTAL,
@@ -281,6 +519,8 @@ def process_local_balochistan_tenders(tenders):
             "updated": 0,
             "relevant": 0,
             "irrelevant": 0,
+            "checkpoint_updated": False,
+            "checkpoint_date": None,
         }
 
     relevant_count = 0
@@ -339,7 +579,6 @@ def process_local_balochistan_tenders(tenders):
 
             # ------------------------------------------------
             # 4. Download primary document only for relevant
-            # tenders
             # ------------------------------------------------
 
             if keyword_score > 0:
@@ -405,6 +644,9 @@ def process_local_balochistan_tenders(tenders):
     except Exception:
 
         db.rollback()
+
+        # IMPORTANT:
+        # No checkpoint update occurs here.
         raise
 
     finally:
@@ -413,6 +655,17 @@ def process_local_balochistan_tenders(tenders):
 
     irrelevant_count = (
         len(tenders) - relevant_count
+    )
+
+    # --------------------------------------------------------
+    # 6. Update ECS checkpoint ONLY AFTER successful DB
+    #    processing
+    # --------------------------------------------------------
+
+    checkpoint_updated, checkpoint_date = (
+        update_balochistan_checkpoint(
+            tenders
+        )
     )
 
     print()
@@ -444,6 +697,15 @@ def process_local_balochistan_tenders(tenders):
         f"Irrelevant:          {irrelevant_count}"
     )
 
+    print(
+        f"Checkpoint updated:  {checkpoint_updated}"
+    )
+
+    if checkpoint_date:
+        print(
+            f"Checkpoint date:     {checkpoint_date}"
+        )
+
     return {
         "success": True,
         "portal": BALOCHISTAN_PORTAL,
@@ -453,4 +715,6 @@ def process_local_balochistan_tenders(tenders):
         "updated": updated_count,
         "relevant": relevant_count,
         "irrelevant": irrelevant_count,
+        "checkpoint_updated": checkpoint_updated,
+        "checkpoint_date": checkpoint_date,
     }
