@@ -43,11 +43,14 @@ def get_latest_punjab_date(tenders):
     Get the latest advertised_date from the raw
     Punjab tenders.
 
+    Punjab format:
+        "06 Oct 2026"
+
     Returns:
         YYYY-MM-DD string or None
     """
 
-    dates = []
+    latest_date = None
 
     for tender in tenders:
 
@@ -59,50 +62,41 @@ def get_latest_punjab_date(tenders):
             continue
 
         if isinstance(value, datetime):
-            dates.append(
-                value.strftime("%Y-%m-%d")
-            )
-            continue
+            parsed_date = value.date()
 
-        value = str(value).strip()
+        else:
+            value = str(value).strip()
 
-        if not value:
-            continue
+            if not value:
+                continue
 
-        try:
-            parsed = datetime.fromisoformat(
-                value.replace(
-                    "Z",
-                    "+00:00",
-                )
-            )
+            try:
+                parsed_date = datetime.strptime(
+                    value,
+                    "%d %b %Y",
+                ).date()
 
-            dates.append(
-                parsed.strftime("%Y-%m-%d")
-            )
-
-        except ValueError:
-
-            # Fallback for strings that already
-            # start with YYYY-MM-DD.
-            if len(value) >= 10:
-                candidate = value[:10]
-
+            except ValueError:
+                # Fallback for YYYY-MM-DD values
                 try:
-                    datetime.strptime(
-                        candidate,
+                    parsed_date = datetime.strptime(
+                        value[:10],
                         "%Y-%m-%d",
-                    )
-
-                    dates.append(candidate)
+                    ).date()
 
                 except ValueError:
                     continue
 
-    if not dates:
+        if (
+            latest_date is None
+            or parsed_date > latest_date
+        ):
+            latest_date = parsed_date
+
+    if latest_date is None:
         return None
 
-    return max(dates)
+    return latest_date.strftime("%Y-%m-%d")
 
 
 def get_latest_balochistan_date(tenders):
@@ -112,15 +106,20 @@ def get_latest_balochistan_date(tenders):
 
     Balochistan returns UTC timestamps.
 
-    The checkpoint stores the same date/timestamp
-    representation used by the scraper.
+    The checkpoint is stored as a date-only value
+    because the local runner expects:
+
+        YYYY-MM-DD
+
+    and constructs:
+
+        YYYY-MM-DDT00:00:00
 
     Returns:
-        ISO timestamp string or None
+        YYYY-MM-DD string or None
     """
 
-    latest_datetime = None
-    latest_value = None
+    latest_date = None
 
     for tender in tenders:
 
@@ -148,15 +147,18 @@ def get_latest_balochistan_date(tenders):
         except ValueError:
             continue
 
+        parsed_date = parsed.date()
+
         if (
-            latest_datetime is None
-            or parsed > latest_datetime
+            latest_date is None
+            or parsed_date > latest_date
         ):
+            latest_date = parsed_date
 
-            latest_datetime = parsed
-            latest_value = value
+    if latest_date is None:
+        return None
 
-    return latest_value
+    return latest_date.strftime("%Y-%m-%d")
 
 
 def update_punjab_checkpoint(tenders):
@@ -458,6 +460,7 @@ def process_local_punjab_tenders(tenders):
     )
 
     if checkpoint_date:
+
         print(
             f"Checkpoint date:     {checkpoint_date}"
         )
@@ -702,6 +705,7 @@ def process_local_balochistan_tenders(tenders):
     )
 
     if checkpoint_date:
+
         print(
             f"Checkpoint date:     {checkpoint_date}"
         )
