@@ -14,14 +14,13 @@ const SCORE_BANDS = [
   { id: "zero", label: "No score", min: 0, max: 0 },
 ];
 
-function MultiSelect({ title, icon: Icon, options, selected, onChange, placeholder, disabled = false, single = false }) {
-  const [open, setOpen] = useState(false);
+function MultiSelect({ title, icon: Icon, options, selected, onChange, placeholder, disabled = false, single = false, open, setOpen }) {
   const toggle = (value) => onChange(single
     ? (selected[0] === value ? [] : [value])
     : (selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value]));
   return <div className="overview-filter-group">
-    <div className="overview-filter-label"><Icon size={15} />{title}</div>
-    <button className="overview-select-trigger" type="button" onClick={() => setOpen((value) => !value)} disabled={disabled} aria-expanded={open}>
+    <div className="overview-filter-label"><span><Icon size={15} />{title}</span><button className="overview-filter-clear" type="button" onClick={() => onChange([])} disabled={!selected.length}>Clear</button></div>
+    <button className="overview-select-trigger" type="button" onClick={() => setOpen(!open)} disabled={disabled} aria-expanded={open}>
       <span>{selected.length ? `${selected.length} selected` : placeholder}</span><span className="overview-select-chevron">{open ? "−" : "+"}</span>
     </button>
     {open && <div className="overview-select-options">{options.length ? options.map((option) => <label className="overview-check-option" key={option.value}>
@@ -41,6 +40,8 @@ function Overview() {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [selectedScores, setSelectedScores] = useState([]);
   const [selectedStatuses, setSelectedStatuses] = useState([]);
+  const [selectedRegions, setSelectedRegions] = useState([]);
+  const [openFilter, setOpenFilter] = useState(null);
   const [regionalParticipationStatus, setRegionalParticipationStatus] = useState("ALL");
   const [regionalRegion, setRegionalRegion] = useState("ALL");
 
@@ -55,27 +56,28 @@ function Overview() {
   }, []);
 
   const query = useMemo(() => {
-    const params = {};
-    if (closingRange.from) params.closing_date_from = closingRange.from;
-    if (closingRange.to) params.closing_date_to = closingRange.to;
-    if (advertisedRange.from) params.advertised_date_from = advertisedRange.from;
-    if (advertisedRange.to) params.advertised_date_to = advertisedRange.to;
-    if (selectedProducts[0]) params.product_id = selectedProducts[0];
-    if (selectedStatuses[0]) params.status = selectedStatuses[0];
+    const params = new URLSearchParams();
+    if (closingRange.from) params.append("closing_date_from", closingRange.from);
+    if (closingRange.to) params.append("closing_date_to", closingRange.to);
+    if (advertisedRange.from) params.append("advertised_date_from", advertisedRange.from);
+    if (advertisedRange.to) params.append("advertised_date_to", advertisedRange.to);
+    selectedProducts.forEach((value) => params.append("product_id", value));
+    selectedStatuses.forEach((value) => params.append("status", value));
+    selectedRegions.forEach((value) => params.append("region", value));
     const bands = selectedScores.map((id) => SCORE_BANDS.find((band) => band.id === id)).filter(Boolean);
     if (bands.length) {
-      params.score_min = Math.min(...bands.map((band) => band.min));
-      params.score_max = Math.max(...bands.map((band) => band.max));
+      params.append("score_min", Math.min(...bands.map((band) => band.min)));
+      params.append("score_max", Math.max(...bands.map((band) => band.max)));
     }
     return params;
-  }, [closingRange, advertisedRange, selectedProducts, selectedStatuses, selectedScores]);
+  }, [closingRange, advertisedRange, selectedProducts, selectedStatuses, selectedRegions, selectedScores]);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
     setOverview(null);
-    api.get("/api/overview", { params: query }).then((response) => {
+    api.get(`/api/overview?${query}`).then((response) => {
       if (active) setOverview(response.data);
     }).catch((err) => {
       if (active) setError(err.response?.data?.detail || "Unable to load overview data.");
@@ -112,7 +114,7 @@ function Overview() {
   const chartMax = Math.max(1, ...monthly.map((item) => item.total ?? (item.engaging + item.participated + item.notParticipating + item.notReviewed)));
   const clearFilters = () => {
     setClosingRange({ from: "", to: "" }); setAdvertisedRange({ from: "", to: "" });
-    setSelectedProducts([]); setSelectedScores([]); setSelectedStatuses([]);
+    setSelectedProducts([]); setSelectedScores([]); setSelectedStatuses([]); setSelectedRegions([]);
   };
 
   return <div className="overview-page">
@@ -129,11 +131,12 @@ function Overview() {
     <div className="overview-workspace">
       <aside className="overview-filters overview-panel">
         <div className="overview-filter-header"><div><span className="overview-panel-icon"><Filter size={17} /></span><h2>Filters</h2></div><button type="button" onClick={clearFilters}>Clear all</button></div>
-        <div className="overview-date-filter"><span>Closing date</span><label>From<input type="date" value={closingRange.from} onChange={(event) => setClosingRange((value) => ({ ...value, from: event.target.value }))} /></label><label>To<input type="date" value={closingRange.to} onChange={(event) => setClosingRange((value) => ({ ...value, to: event.target.value }))} /></label></div>
-        <div className="overview-date-filter"><span>Advertised date</span><label>From<input type="date" value={advertisedRange.from} onChange={(event) => setAdvertisedRange((value) => ({ ...value, from: event.target.value }))} /></label><label>To<input type="date" value={advertisedRange.to} onChange={(event) => setAdvertisedRange((value) => ({ ...value, to: event.target.value }))} /></label></div>
-        <MultiSelect title="Products" icon={Package} placeholder={productsLoading ? "Loading products…" : "Select products"} disabled={productsLoading} options={products.map((product) => ({ value: String(product.id), label: product.name }))} selected={selectedProducts} onChange={setSelectedProducts} single />
-        <MultiSelect title="Relevance score" icon={Target} placeholder="Select score range" options={SCORE_BANDS.map(({ id, label }) => ({ value: id, label }))} selected={selectedScores} onChange={setSelectedScores} single />
-        <MultiSelect title="Participation status" icon={ClipboardList} placeholder="Select status" options={STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))} selected={selectedStatuses} onChange={setSelectedStatuses} single />
+        <div className="overview-date-filter"><div className="overview-date-heading"><span>Closing date</span><button className="overview-filter-clear" type="button" onClick={() => setClosingRange({ from: "", to: "" })} disabled={!closingRange.from && !closingRange.to}>Clear</button></div><label>From<input type="date" value={closingRange.from} onChange={(event) => setClosingRange((value) => ({ ...value, from: event.target.value }))} /></label><label>To<input type="date" value={closingRange.to} onChange={(event) => setClosingRange((value) => ({ ...value, to: event.target.value }))} /></label></div>
+        <div className="overview-date-filter"><div className="overview-date-heading"><span>Advertised date</span><button className="overview-filter-clear" type="button" onClick={() => setAdvertisedRange({ from: "", to: "" })} disabled={!advertisedRange.from && !advertisedRange.to}>Clear</button></div><label>From<input type="date" value={advertisedRange.from} onChange={(event) => setAdvertisedRange((value) => ({ ...value, from: event.target.value }))} /></label><label>To<input type="date" value={advertisedRange.to} onChange={(event) => setAdvertisedRange((value) => ({ ...value, to: event.target.value }))} /></label></div>
+        <MultiSelect title="Region" icon={Filter} placeholder="Select regions" options={REGIONS.map((value) => ({ value, label: value }))} selected={selectedRegions} onChange={setSelectedRegions} open={openFilter === "region"} setOpen={(open) => setOpenFilter(open ? "region" : null)} />
+        <MultiSelect title="Products" icon={Package} placeholder={productsLoading ? "Loading products…" : "Select products"} disabled={productsLoading} options={products.map((product) => ({ value: String(product.id), label: product.name }))} selected={selectedProducts} onChange={setSelectedProducts} open={openFilter === "products"} setOpen={(open) => setOpenFilter(open ? "products" : null)} />
+        <MultiSelect title="Relevance score" icon={Target} placeholder="Select score range" options={SCORE_BANDS.map(({ id, label }) => ({ value: id, label }))} selected={selectedScores} onChange={setSelectedScores} open={openFilter === "score"} setOpen={(open) => setOpenFilter(open ? "score" : null)} />
+        <MultiSelect title="Participation status" icon={ClipboardList} placeholder="Select status" options={STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))} selected={selectedStatuses} onChange={setSelectedStatuses} open={openFilter === "status"} setOpen={(open) => setOpenFilter(open ? "status" : null)} />
         {loading && <div className="overview-filter-note">Loading overview data…</div>}
       </aside>
       <main className="overview-main">

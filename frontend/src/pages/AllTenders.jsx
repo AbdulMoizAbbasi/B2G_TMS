@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api";
 import { useAuth } from "../auth/AuthContext";
@@ -21,6 +22,57 @@ const SCRAPER_PORTALS = [
   "Sindh PPRA",
   "Balochistan PPRA",
 ];
+
+const PARTICIPATION_OPTIONS = [
+  { value: "NOT_REVIEWED", label: "Not Reviewed" },
+  { value: "ENGAGING", label: "Engaging" },
+  { value: "PARTICIPATED", label: "Participated" },
+  { value: "NOT_PARTICIPATING", label: "Not Participating" },
+];
+
+function MultiSelectFilter({ label, placeholder, options, selected, onChange, compact = false }) {
+  const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState(null);
+  const triggerRef = useRef(null);
+  const toggle = (value) => onChange(selected.includes(value)
+    ? selected.filter((item) => item !== value)
+    : [...selected, value]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const updatePosition = () => {
+      if (!triggerRef.current) return;
+      const rect = triggerRef.current.getBoundingClientRect();
+      const width = Math.min(Math.max(rect.width, 190), window.innerWidth - 16);
+      const top = window.innerHeight - rect.bottom < 240 ? Math.max(8, rect.top - 234) : rect.bottom + 4;
+      setMenuPosition({ left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)), top, width });
+    };
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open]);
+
+  return (
+    <div className={`tender-multi-filter${compact ? " tender-multi-filter-compact" : ""}`}>
+      <button ref={triggerRef} type="button" className="tender-multi-filter-trigger column-filter-input" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={`Filter by ${label.toLowerCase()}`}>
+        {selected.length === 1 ? (options.find((option) => option.value === selected[0])?.label ?? selected[0]) : selected.length ? `${selected.length} selected` : placeholder}
+      </button>
+      {open && menuPosition && createPortal(<div className="tender-multi-filter-options" style={{ position: "fixed", left: menuPosition.left, top: menuPosition.top, width: menuPosition.width }}>
+        <div className="tender-multi-filter-heading"><span>{label}</span><button type="button" onClick={() => onChange([])} disabled={!selected.length}>Clear</button></div>
+        {options.length ? options.map((option) => (
+          <label key={option.value}>
+            <input type="checkbox" checked={selected.includes(option.value)} onChange={() => toggle(option.value)} />
+            <span>{option.label}</span>
+          </label>
+        )) : <span className="tender-multi-filter-empty">No options available</span>}
+      </div>, document.body)}
+    </div>
+  );
+}
 
 function formatCheckpointDate(value) {
   if (!value) return "—";
@@ -140,6 +192,11 @@ function readTenderStateFromSearch(search) {
   const parsedPage = Number.parseInt(params.get("page"), 10);
   const requestedSortBy = params.get("sort_by");
   const requestedSortOrder = params.get("sort_order");
+  const getValues = (key, legacyKey) => {
+    const values = params.getAll(key);
+    const legacy = legacyKey ? params.get(legacyKey) : null;
+    return (values.length ? values : legacy ? [legacy] : []).filter((value) => value && value !== "ALL");
+  };
 
   return {
     page: Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1,
@@ -151,9 +208,14 @@ function readTenderStateFromSearch(search) {
     submissionDateTo: params.get("submission_date_to") || "",
     estimatedValueMin: params.get("estimated_value_min") || "",
     estimatedValueMax: params.get("estimated_value_max") || "",
-    participationStatusFilter: params.get("participation") || params.get("participation_status") || "ALL",
-    productFilter: params.get("product") || "ALL",
-    regionFilter: params.get("region") || "",
+    participationStatusFilter: getValues("participation_status", "participation"),
+    productFilter: getValues("product"),
+    sourceFilter: getValues("source"),
+    regionFilter: getValues("region"),
+    scoreMin: params.get("score_min") || "",
+    scoreMax: params.get("score_max") || "",
+    advertisedDateFrom: params.get("advertised_date_from") || "",
+    advertisedDateTo: params.get("advertised_date_to") || "",
     sortBy: ["submissionDate", "estimatedValue", "tenderName", "city"].includes(requestedSortBy)
       ? requestedSortBy
       : "submissionDate",
@@ -161,6 +223,12 @@ function readTenderStateFromSearch(search) {
       ? requestedSortOrder
       : "desc",
   };
+}
+
+function setArrayIfChanged(setter, nextValues) {
+  setter((current) => current.length === nextValues.length && current.every((value, index) => value === nextValues[index])
+    ? current
+    : nextValues);
 }
 
 function AllTenders() {
@@ -215,10 +283,18 @@ function AllTenders() {
     useState(initialTenderState.participationStatusFilter);
 
   const [productFilter, setProductFilter] = useState(initialTenderState.productFilter);
+  const [sourceFilter, setSourceFilter] = useState(initialTenderState.sourceFilter);
   const [regionFilter, setRegionFilter] = useState(initialTenderState.regionFilter);
+  const [scoreMin, setScoreMin] = useState(initialTenderState.scoreMin);
+  const [scoreMax, setScoreMax] = useState(initialTenderState.scoreMax);
+  const [advertisedDateFrom, setAdvertisedDateFrom] = useState(initialTenderState.advertisedDateFrom);
+  const [advertisedDateTo, setAdvertisedDateTo] = useState(initialTenderState.advertisedDateTo);
+  const [sourceOptions, setSourceOptions] = useState([]);
+  const [allProductOptions, setAllProductOptions] = useState([]);
+  const [regionOptions, setRegionOptions] = useState([]);
 
   const productOptions = useMemo(() => {
-    const products = new Set();
+    const products = new Set(allProductOptions);
     tenders.forEach((tender) => {
       if (Array.isArray(tender.matched_capabilities)) {
         tender.matched_capabilities.forEach((capability) => {
@@ -227,7 +303,16 @@ function AllTenders() {
       }
     });
     return [...products].sort((a, b) => a.localeCompare(b));
-  }, [tenders]);
+  }, [allProductOptions, tenders]);
+
+  const availableSourceOptions = useMemo(() => {
+    const sources = new Set(sourceOptions);
+    tenders.forEach((tender) => {
+      if (tender.source) sources.add(String(tender.source));
+    });
+    sourceFilter.forEach((source) => sources.add(source));
+    return [...sources].sort((a, b) => a.localeCompare(b));
+  }, [sourceOptions, sourceFilter, tenders]);
 
   /*
    * Sorting
@@ -252,6 +337,10 @@ function AllTenders() {
         params.set(key, String(value));
       }
     };
+    const setRepeated = (key, values, enabled = true) => {
+      params.delete(key);
+      if (enabled) values.forEach((value) => params.append(key, value));
+    };
 
     params.set("page", String(page));
     setOrRemove("tender_no", tenderNoFilter);
@@ -262,10 +351,15 @@ function AllTenders() {
     setOrRemove("submission_date_to", submissionDateTo);
     setOrRemove("estimated_value_min", estimatedValueMin);
     setOrRemove("estimated_value_max", estimatedValueMax);
-    setOrRemove("participation_status", null);
-    setOrRemove("participation", participationStatusFilter);
-    setOrRemove("product", productFilter);
-    setOrRemove("region", regionFilter);
+    params.delete("participation");
+    setRepeated("participation_status", participationStatusFilter);
+    setRepeated("product", productFilter);
+    setRepeated("source", sourceFilter, isAdmin);
+    setRepeated("region", regionFilter);
+    setOrRemove("score_min", isAdmin ? scoreMin : "");
+    setOrRemove("score_max", isAdmin ? scoreMax : "");
+    setOrRemove("advertised_date_from", isAdmin ? advertisedDateFrom : "");
+    setOrRemove("advertised_date_to", isAdmin ? advertisedDateTo : "");
     params.set("sort_by", sortBy);
     params.set("sort_order", sortOrder);
 
@@ -280,7 +374,8 @@ function AllTenders() {
   }, [
     page, tenderNoFilter, tenderNameFilter, cityFilter, organizationFilter,
     submissionDateFrom, submissionDateTo, estimatedValueMin, estimatedValueMax,
-    participationStatusFilter, productFilter, regionFilter, sortBy, sortOrder,
+    participationStatusFilter, productFilter, sourceFilter, regionFilter, scoreMin, scoreMax,
+    advertisedDateFrom, advertisedDateTo, sortBy, sortOrder,
     location.pathname, location.search, navigate,
   ]);
 
@@ -295,12 +390,62 @@ function AllTenders() {
     setSubmissionDateTo(restored.submissionDateTo);
     setEstimatedValueMin(restored.estimatedValueMin);
     setEstimatedValueMax(restored.estimatedValueMax);
-    setParticipationStatusFilter(restored.participationStatusFilter);
-    setProductFilter(restored.productFilter);
-    setRegionFilter(restored.regionFilter);
+    setArrayIfChanged(setParticipationStatusFilter, restored.participationStatusFilter);
+    setArrayIfChanged(setProductFilter, restored.productFilter);
+    setArrayIfChanged(setSourceFilter, restored.sourceFilter);
+    setArrayIfChanged(setRegionFilter, restored.regionFilter);
+    setScoreMin(restored.scoreMin);
+    setScoreMax(restored.scoreMax);
+    setAdvertisedDateFrom(restored.advertisedDateFrom);
+    setAdvertisedDateTo(restored.advertisedDateTo);
     setSortBy(restored.sortBy);
     setSortOrder(restored.sortOrder);
   }, [location.search]);
+
+  useEffect(() => {
+    let active = true;
+    const loadFilterOptions = async () => {
+      try {
+        const firstPage = await api.get("/api/tenders", {
+          params: { page: 1, page_size: 100 },
+        });
+        const totalPages = firstPage.data.pagination?.total_pages || 1;
+        const sources = [];
+        const products = [];
+        const regions = [];
+        const collectOptions = (items = []) => items.forEach((tender) => {
+          if (tender.source) sources.push(tender.source);
+          if (tender.region) regions.push(tender.region);
+          if (Array.isArray(tender.matched_capabilities)) {
+            products.push(...tender.matched_capabilities.filter(Boolean).map(String));
+          }
+        });
+        collectOptions(firstPage.data.items);
+
+        for (let start = 2; start <= totalPages; start += 5) {
+          const pages = Array.from(
+            { length: Math.min(5, totalPages - start + 1) },
+            (_, index) => start + index,
+          );
+          const responses = await Promise.all(pages.map((page) => api.get("/api/tenders", {
+            params: { page, page_size: 100 },
+          })));
+          responses.forEach(({ data }) => collectOptions(data.items));
+        }
+
+        if (active) {
+          setAllProductOptions([...new Set(products)].sort((a, b) => a.localeCompare(b)));
+          setSourceOptions(isAdmin ? [...new Set(sources)].sort((a, b) => a.localeCompare(b)) : []);
+          setRegionOptions([...new Set(regions)].sort((a, b) => a.localeCompare(b)));
+        }
+      } catch (err) {
+        console.error("Failed to load tender filter options:", err);
+      }
+    };
+
+    loadFilterOptions();
+    return () => { active = false; };
+  }, [isAdmin]);
 
   /*
    * Admin scraper
@@ -335,25 +480,26 @@ function AllTenders() {
   useEffect(() => {
     const fetchTenders = async () => {
       try {
-        const response = await api.get(
-          "/api/tenders",
-          { params: {
-            page, page_size: 10,
-            tender_no: tenderNoFilter || undefined,
-            tender_name: tenderNameFilter || undefined,
-            city: cityFilter || undefined,
-            organization: organizationFilter || undefined,
-            submission_date_from: submissionDateFrom || undefined,
-            submission_date_to: submissionDateTo || undefined,
-            estimated_value_min: estimatedValueMin || undefined,
-            estimated_value_max: estimatedValueMax || undefined,
-            participation_status: participationStatusFilter === "ALL" ? undefined : participationStatusFilter,
-            product: productFilter === "ALL" ? undefined : productFilter,
-            region: regionFilter || undefined,
-            sort_by: sortBy,
-            sort_order: sortOrder,
-          } }
-        );
+        const params = new URLSearchParams();
+        const scalarParams = {
+          page, page_size: 10, tender_no: tenderNoFilter, tender_name: tenderNameFilter,
+          city: cityFilter, organization: organizationFilter,
+          submission_date_from: submissionDateFrom, submission_date_to: submissionDateTo,
+          estimated_value_min: estimatedValueMin, estimated_value_max: estimatedValueMax,
+          sort_by: sortBy, sort_order: sortOrder,
+          score_min: isAdmin ? scoreMin : "", score_max: isAdmin ? scoreMax : "",
+          advertised_date_from: isAdmin ? advertisedDateFrom : "",
+          advertised_date_to: isAdmin ? advertisedDateTo : "",
+        };
+        Object.entries(scalarParams).forEach(([key, value]) => {
+          if (value !== "" && value !== undefined && value !== null) params.append(key, String(value));
+        });
+        participationStatusFilter.forEach((value) => params.append("participation_status", value));
+        productFilter.forEach((value) => params.append("product", value));
+        if (isAdmin) sourceFilter.forEach((value) => params.append("source", value));
+        regionFilter.forEach((value) => params.append("region", value));
+
+        const response = await api.get(`/api/tenders?${params.toString()}`);
 
         setTenders(response.data.items || []);
         setPagination(response.data.pagination || { total: 0, total_pages: 1 });
@@ -370,7 +516,7 @@ function AllTenders() {
     };
 
     fetchTenders();
-  }, [page, tenderNoFilter, tenderNameFilter, cityFilter, organizationFilter, submissionDateFrom, submissionDateTo, estimatedValueMin, estimatedValueMax, participationStatusFilter, productFilter, regionFilter, sortBy, sortOrder, refreshKey]);
+  }, [page, tenderNoFilter, tenderNameFilter, cityFilter, organizationFilter, submissionDateFrom, submissionDateTo, estimatedValueMin, estimatedValueMax, participationStatusFilter, productFilter, sourceFilter, regionFilter, scoreMin, scoreMax, advertisedDateFrom, advertisedDateTo, sortBy, sortOrder, refreshKey, isAdmin]);
 
   /*
    * Check scraper status.
@@ -671,9 +817,14 @@ function AllTenders() {
     setSubmissionDateTo("");
     setEstimatedValueMin("");
     setEstimatedValueMax("");
-    setParticipationStatusFilter("ALL");
-    setProductFilter("ALL");
-    setRegionFilter("");
+    setParticipationStatusFilter([]);
+    setProductFilter([]);
+    if (isAdmin) setSourceFilter([]);
+    setRegionFilter([]);
+    setScoreMin("");
+    setScoreMax("");
+    setAdvertisedDateFrom("");
+    setAdvertisedDateTo("");
     setSortBy("submissionDate");
     setSortOrder("desc");
     setPage(1);
@@ -712,7 +863,7 @@ function AllTenders() {
         filter === "ENGAGING" ||
         filter === "PARTICIPATED" ||
         filter === "NOT_PARTICIPATING") {
-      updateQueryState(setParticipationStatusFilter, filter);
+      updateQueryState(setParticipationStatusFilter, [filter]);
       return;
     }
 
@@ -729,23 +880,25 @@ function AllTenders() {
     tenderNameFilter ||
     cityFilter ||
     organizationFilter ||
-    regionFilter ||
+    regionFilter.length > 0 ||
     submissionDateFrom ||
     submissionDateTo ||
     estimatedValueMin !== "" ||
     estimatedValueMax !== "" ||
-    participationStatusFilter !== "ALL" ||
-    productFilter !== "ALL";
+    participationStatusFilter.length > 0 ||
+    productFilter.length > 0 ||
+    (isAdmin && (sourceFilter.length > 0 || scoreMin !== "" || scoreMax !== "" || advertisedDateFrom || advertisedDateTo));
 
   const hasOtherFilters =
     tenderNoFilter ||
     tenderNameFilter ||
     cityFilter ||
     organizationFilter ||
-    regionFilter ||
+    regionFilter.length > 0 ||
     estimatedValueMin !== "" ||
     estimatedValueMax !== "" ||
-    productFilter !== "ALL";
+    productFilter.length > 0 ||
+    (isAdmin && (sourceFilter.length > 0 || scoreMin !== "" || scoreMax !== "" || advertisedDateFrom || advertisedDateTo));
 
   function isSummaryFilterActive(filter) {
     if (filter === "ALL") {
@@ -757,7 +910,7 @@ function AllTenders() {
 
       return Boolean(
         !hasOtherFilters &&
-        participationStatusFilter === "ALL" &&
+        participationStatusFilter.length === 0 &&
         submissionDateFrom === range.from &&
         submissionDateTo === range.to
       );
@@ -767,7 +920,7 @@ function AllTenders() {
       !hasOtherFilters &&
       !submissionDateFrom &&
       !submissionDateTo &&
-      participationStatusFilter === filter
+      participationStatusFilter.length === 1 && participationStatusFilter[0] === filter
     );
   }
 
@@ -797,6 +950,9 @@ function AllTenders() {
       "Tender Name",
       "City",
       "Organization",
+      ...(isAdmin ? ["Source"] : []),
+      "Product",
+      ...(isAdmin ? ["Advertised Date"] : []),
       "Submission Date",
       "Estimated Value",
       "Participation Status",
@@ -809,6 +965,9 @@ function AllTenders() {
           tender.tender_name,
           tender.city,
           tender.organization,
+          ...(isAdmin ? [tender.source] : []),
+          Array.isArray(tender.matched_capabilities) ? tender.matched_capabilities.join(", ") : "",
+          ...(isAdmin ? [tender.advertised_date] : []),
           tender.closed_date,
           tender.estimated_value,
           tender.participation_status,
@@ -849,7 +1008,7 @@ function AllTenders() {
     link.href = url;
 
     link.download =
-      "jazzworld_tenders.csv";
+      "jazz_radar_tenders.csv";
 
     document.body.appendChild(
       link
@@ -897,7 +1056,7 @@ function AllTenders() {
             relevant government
             procurement
             opportunities for
-            JazzWorld.
+            Jazz Radar.
           </p>
         </div>
 
@@ -1152,19 +1311,15 @@ function AllTenders() {
               </button>
             )}
 
-            <label className="product-filter-control">
-              <span>Product</span>
-              <select
-                value={productFilter}
-                onChange={(event) => updateQueryState(setProductFilter, event.target.value)}
-                aria-label="Filter by product capability"
-              >
-                <option value="ALL">All products</option>
-                {productOptions.map((product) => (
-                  <option key={product} value={product}>{product}</option>
-                ))}
-              </select>
-            </label>
+            {isAdmin && (
+              <div className="admin-score-filter">
+                <span>Relevance score</span>
+                <input type="number" min="0" value={scoreMin} onChange={(event) => updateQueryState(setScoreMin, event.target.value)} aria-label="Relevance score minimum" placeholder="Min" />
+                <input type="number" min="0" value={scoreMax} onChange={(event) => updateQueryState(setScoreMax, event.target.value)} aria-label="Relevance score maximum" placeholder="Max" />
+              </div>
+            )}
+
+            <MultiSelectFilter label="Region" placeholder="All regions" options={regionOptions.map((value) => ({ value, label: value }))} selected={regionFilter} onChange={(value) => updateQueryState(setRegionFilter, value)} compact />
 
             <div className="sort-controls">
 
@@ -1294,7 +1449,7 @@ function AllTenders() {
 
         <div className="table-container">
 
-          <table className="tenders-table">
+          <table className={`tenders-table ${isAdmin ? "admin-table" : "coordinator-table"}`}>
 
             <colgroup>
               {isAdmin && <col className="selection-column" />}
@@ -1302,6 +1457,9 @@ function AllTenders() {
               <col className="tender-name-column" />
               <col className="city-column" />
               <col className="organization-column" />
+              {isAdmin && <col className="source-column" />}
+              <col className="product-column" />
+              {isAdmin && <col className="advertised-date-column" />}
               <col className="submission-date-column" />
               <col className="estimated-value-column" />
               <col className="participation-status-column" />
@@ -1415,6 +1573,24 @@ function AllTenders() {
                   />
                 </th>
 
+                {isAdmin && <th className="source-column">
+                  Source
+                  <MultiSelectFilter label="Source" placeholder="All sources" options={availableSourceOptions.map((value) => ({ value, label: value }))} selected={sourceFilter} onChange={(value) => updateQueryState(setSourceFilter, value)} />
+                </th>}
+
+                <th className="product-column">
+                  Product
+                  <MultiSelectFilter label="Product" placeholder="All products" options={productOptions.map((value) => ({ value, label: value }))} selected={productFilter} onChange={(value) => updateQueryState(setProductFilter, value)} />
+                </th>
+
+                {isAdmin && <th className="advertised-date-column">
+                  Advertised Date
+                  <div className="column-range-filter">
+                    <input type="date" value={advertisedDateFrom} onChange={(event) => updateQueryState(setAdvertisedDateFrom, event.target.value)} aria-label="Advertised date from" />
+                    <input type="date" value={advertisedDateTo} onChange={(event) => updateQueryState(setAdvertisedDateTo, event.target.value)} aria-label="Advertised date to" />
+                  </div>
+                </th>}
+
                 <th>
                   Submission Date
 
@@ -1495,40 +1671,7 @@ function AllTenders() {
 
                 <th>
                   Participation Status
-
-                  <select
-                    className="column-filter-input"
-                    value={
-                      participationStatusFilter
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      updateQueryState(setParticipationStatusFilter,
-                        event.target.value
-                      )
-                    }
-                  >
-                    <option value="ALL">
-                      All
-                    </option>
-
-                    <option value="NOT_REVIEWED">
-                      Not Reviewed
-                    </option>
-
-                    <option value="ENGAGING">
-                      Engaging
-                    </option>
-
-                    <option value="PARTICIPATED">
-                      Participated
-                    </option>
-
-                    <option value="NOT_PARTICIPATING">
-                      Not Participating
-                    </option>
-                  </select>
+                  <MultiSelectFilter label="Status" placeholder="All statuses" options={PARTICIPATION_OPTIONS} selected={participationStatusFilter} onChange={(value) => updateQueryState(setParticipationStatusFilter, value)} />
                 </th>
 
                 <th>
@@ -1614,6 +1757,18 @@ function AllTenders() {
                         tender.organization
                       )}
                     </td>
+
+                    {isAdmin && <td className="source-column">{displayValue(tender.source)}</td>}
+
+                    <td className="product-column">
+                      {displayValue(
+                        Array.isArray(tender.matched_capabilities)
+                          ? tender.matched_capabilities.join(", ")
+                          : tender.matched_capabilities
+                      )}
+                    </td>
+
+                    {isAdmin && <td className="advertised-date-column">{formatDateOnly(tender.advertised_date)}</td>}
 
                     <td>
                       {formatDateOnly(

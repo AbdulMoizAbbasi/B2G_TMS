@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Sun, Moon } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import jazzRadarLogo from "../assets/logo.png";
 import "./Login.css";
 
 function Login() {
@@ -56,7 +57,8 @@ function Login() {
       </button>
       <div className="login-card">
         <div className="login-header">
-          <h1>JazzWorld</h1>
+          <img className="login-brand-logo" src={jazzRadarLogo} alt="Jazz Radar logo" />
+          <h1>Jazz Radar</h1>
           <p>B2G Tender Portal</p>
         </div>
 

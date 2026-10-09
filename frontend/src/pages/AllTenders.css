@@ -1042,45 +1042,60 @@
 
 .tenders-page table.tenders-table {
   width: 100%;
-  min-width: 1280px;
+  min-width: 1750px;
   table-layout: fixed;
 }
 
 .tenders-page .tenders-table col.selection-column {
-  width: 38px;
+  width: 32px;
 }
 
 .tenders-page .tenders-table col.web-tender-no-column {
-  width: 132px;
+  width: 120px;
 }
 
 .tenders-page .tenders-table col.tender-name-column {
-  width: 305px;
+  width: 230px;
 }
 
 .tenders-page .tenders-table col.city-column {
-  width: 105px;
+  width: 80px;
 }
 
 .tenders-page .tenders-table col.organization-column {
-  width: 190px;
-}
-
-.tenders-page .tenders-table col.submission-date-column {
-  width: 130px;
-}
-
-.tenders-page .tenders-table col.estimated-value-column {
   width: 140px;
 }
 
+.tenders-page .tenders-table col.source-column {
+  width: 120px;
+}
+
+.tenders-page .tenders-table col.product-column {
+  width: 140px;
+}
+
+.tenders-page .tenders-table col.advertised-date-column {
+  width: 125px;
+}
+
+.tenders-page .tenders-table col.submission-date-column {
+  width: 115px;
+}
+
+.tenders-page .tenders-table col.estimated-value-column {
+  width: 120px;
+}
+
 .tenders-page .tenders-table col.participation-status-column {
-  width: 165px;
+  width: 130px;
 }
 
 .tenders-page .tenders-table col.actions-column {
-  width: 78px;
+  width: 65px;
 }
+
+.tenders-page .tenders-table.admin-table { min-width: 1415px; }
+.tenders-page .tenders-table.coordinator-table { min-width: 1140px; }
 
 .tenders-page .tenders-table th {
   white-space: normal;
@@ -1096,16 +1111,16 @@
 
 .tenders-page .tenders-table th.web-tender-no-column,
 .tenders-page .tenders-table td.web-tender-no-column {
-  width: 132px;
+  width: 120px;
   min-width: 0;
-  max-width: 132px;
+  max-width: 120px;
 }
 
 .tenders-page .tenders-table th.tender-name-column,
 .tenders-page .tenders-table td.tender-name {
-  width: 305px;
+  width: 230px;
   min-width: 0;
-  max-width: 305px;
+  max-width: 230px;
 }
 
 .tenders-page .tenders-table .tender-name-link {
@@ -1167,6 +1182,124 @@
 
 .tenders-page .product-filter-control select:focus {
   border-color: var(--accent);
+}
+
+.tenders-page .tender-multi-filter {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.tenders-page .tender-multi-filter-compact {
+  display: inline-flex;
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.tenders-page .tender-multi-filter-trigger {
+  min-height: 34px;
+  max-width: 100%;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tenders-page .tender-multi-filter-compact .tender-multi-filter-trigger {
+  width: 142px;
+  min-width: 0;
+  height: 34px;
+  margin-top: 0;
+  font-size: 11px;
+}
+
+.tender-multi-filter-options {
+  z-index: 30;
+  display: grid;
+  min-width: 190px;
+  max-height: 230px;
+  gap: 2px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-raised);
+}
+
+.tender-multi-filter-options label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tender-multi-filter-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 5px 6px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tender-multi-filter-heading button {
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.tender-multi-filter-heading button:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.tender-multi-filter-options label:hover {
+  background: var(--bg-hover);
+}
+
+.tender-multi-filter-options input {
+  accent-color: var(--accent);
+}
+
+.tender-multi-filter-empty {
+  padding: 5px;
+  color: var(--text-muted);
+}
+
+.tenders-page .admin-score-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.tenders-page .admin-score-filter input {
+  width: 82px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 11px;
 }
 
 /* Clearer surface contrast across the tender dashboard. */

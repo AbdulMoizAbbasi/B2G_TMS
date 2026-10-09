@@ -32,6 +32,11 @@
 .overview-date-filter input { width: 100%; min-width: 0; padding: 8px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-primary); color: var(--text-primary); font-size: 11px; }
 .overview-filter-group { position: relative; margin: 0 0 16px; }
 .overview-filter-label { margin-bottom: 7px; }
+.overview-filter-label { justify-content: space-between; }
+.overview-filter-label > span { display: inline-flex; align-items: center; gap: 6px; }
+.overview-date-heading { display: flex; align-items: center; justify-content: space-between; color: var(--text-primary); font-size: 11px; font-weight: 700; }
+.overview-filter-clear { padding: 2px 0; border: 0; background: transparent; color: var(--accent); font-size: 10px; font-weight: 700; cursor: pointer; }
+.overview-filter-clear:disabled { color: var(--text-muted); cursor: default; }
 .overview-select-trigger { display: flex; width: 100%; align-items: center; justify-content: space-between; padding: 9px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-primary); color: var(--text-secondary); text-align: left; font-size: 11px; }
 .overview-select-trigger:disabled { opacity: .6; cursor: wait; }
 .overview-select-chevron { color: var(--accent); font-size: 16px; line-height: 10px; }

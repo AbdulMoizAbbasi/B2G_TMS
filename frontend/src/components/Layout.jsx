@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { LogOut, Menu, X } from "lucide-react";
 import { ClipboardList, LayoutDashboard, Sun, Moon } from "lucide-react";
+import jazzRadarLogo from "../assets/logo.png";
 
 function Layout() {
   const { user, logout } = useAuth();
@@ -40,7 +41,8 @@ function Layout() {
     <div className={`app-layout ${sidebarOpen ? "" : "sidebar-is-hidden"}`}>
       <aside className="sidebar" aria-hidden={!sidebarOpen} inert={!sidebarOpen}>
         <div className="sidebar-header">
-          <h1>JazzWorld</h1>
+          <img className="sidebar-brand-logo" src={jazzRadarLogo} alt="Jazz Radar logo" />
+          <h1>Jazz Radar</h1>
           <span>B2G Tender Portal</span>
         </div>
 
