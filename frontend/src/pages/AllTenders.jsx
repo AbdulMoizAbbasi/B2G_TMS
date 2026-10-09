@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api";
@@ -30,8 +30,20 @@ const PARTICIPATION_OPTIONS = [
   { value: "NOT_PARTICIPATING", label: "Not Participating" },
 ];
 
-function MultiSelectFilter({ label, placeholder, options, selected, onChange, compact = false }) {
-  const [open, setOpen] = useState(false);
+const SOURCE_OPTIONS = [
+  { value: "Federal PPRA", label: "Federal" },
+  { value: "Punjab PPRA", label: "Punjab" },
+  { value: "KP PPRA", label: "KP" },
+  { value: "Balochistan PPRA", label: "Balochistan" },
+  { value: "Sindh PPRA", label: "Sindh" },
+];
+
+const REGION_OPTIONS = ["North1", "North2", "Central", "South"].map((value) => ({ value, label: value }));
+const PRODUCT_OPTIONS = ["GSM", "CMT", "Fixed Connectivity", "CPaaS", "SI", "Devices", "M2M", "GPU"]
+  .map((value) => ({ value, label: value }));
+
+function MultiSelectFilter({ id, label, placeholder, options, selected, onChange, compact = false, openedFilter, setOpenedFilter }) {
+  const open = openedFilter === id;
   const [menuPosition, setMenuPosition] = useState(null);
   const triggerRef = useRef(null);
   const toggle = (value) => onChange(selected.includes(value)
@@ -58,7 +70,7 @@ function MultiSelectFilter({ label, placeholder, options, selected, onChange, co
 
   return (
     <div className={`tender-multi-filter${compact ? " tender-multi-filter-compact" : ""}`}>
-      <button ref={triggerRef} type="button" className="tender-multi-filter-trigger column-filter-input" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label={`Filter by ${label.toLowerCase()}`}>
+      <button ref={triggerRef} type="button" className="tender-multi-filter-trigger column-filter-input" onClick={() => setOpenedFilter(open ? null : id)} aria-expanded={open} aria-label={`Filter by ${label.toLowerCase()}`}>
         {selected.length === 1 ? (options.find((option) => option.value === selected[0])?.label ?? selected[0]) : selected.length ? `${selected.length} selected` : placeholder}
       </button>
       {open && menuPosition && createPortal(<div className="tender-multi-filter-options" style={{ position: "fixed", left: menuPosition.left, top: menuPosition.top, width: menuPosition.width }}>
@@ -251,6 +263,7 @@ function AllTenders() {
 
   const [selectedTenderIds, setSelectedTenderIds] =
     useState([]);
+  const [openedFilter, setOpenedFilter] = useState(null);
 
   /*
    * Column filters
@@ -289,31 +302,6 @@ function AllTenders() {
   const [scoreMax, setScoreMax] = useState(initialTenderState.scoreMax);
   const [advertisedDateFrom, setAdvertisedDateFrom] = useState(initialTenderState.advertisedDateFrom);
   const [advertisedDateTo, setAdvertisedDateTo] = useState(initialTenderState.advertisedDateTo);
-  const [sourceOptions, setSourceOptions] = useState([]);
-  const [allProductOptions, setAllProductOptions] = useState([]);
-  const [regionOptions, setRegionOptions] = useState([]);
-
-  const productOptions = useMemo(() => {
-    const products = new Set(allProductOptions);
-    tenders.forEach((tender) => {
-      if (Array.isArray(tender.matched_capabilities)) {
-        tender.matched_capabilities.forEach((capability) => {
-          if (capability) products.add(String(capability));
-        });
-      }
-    });
-    return [...products].sort((a, b) => a.localeCompare(b));
-  }, [allProductOptions, tenders]);
-
-  const availableSourceOptions = useMemo(() => {
-    const sources = new Set(sourceOptions);
-    tenders.forEach((tender) => {
-      if (tender.source) sources.add(String(tender.source));
-    });
-    sourceFilter.forEach((source) => sources.add(source));
-    return [...sources].sort((a, b) => a.localeCompare(b));
-  }, [sourceOptions, sourceFilter, tenders]);
-
   /*
    * Sorting
    */
@@ -355,7 +343,7 @@ function AllTenders() {
     setRepeated("participation_status", participationStatusFilter);
     setRepeated("product", productFilter);
     setRepeated("source", sourceFilter, isAdmin);
-    setRepeated("region", regionFilter);
+    setRepeated("region", regionFilter, isAdmin);
     setOrRemove("score_min", isAdmin ? scoreMin : "");
     setOrRemove("score_max", isAdmin ? scoreMax : "");
     setOrRemove("advertised_date_from", isAdmin ? advertisedDateFrom : "");
@@ -401,51 +389,6 @@ function AllTenders() {
     setSortBy(restored.sortBy);
     setSortOrder(restored.sortOrder);
   }, [location.search]);
-
-  useEffect(() => {
-    let active = true;
-    const loadFilterOptions = async () => {
-      try {
-        const firstPage = await api.get("/api/tenders", {
-          params: { page: 1, page_size: 100 },
-        });
-        const totalPages = firstPage.data.pagination?.total_pages || 1;
-        const sources = [];
-        const products = [];
-        const regions = [];
-        const collectOptions = (items = []) => items.forEach((tender) => {
-          if (tender.source) sources.push(tender.source);
-          if (tender.region) regions.push(tender.region);
-          if (Array.isArray(tender.matched_capabilities)) {
-            products.push(...tender.matched_capabilities.filter(Boolean).map(String));
-          }
-        });
-        collectOptions(firstPage.data.items);
-
-        for (let start = 2; start <= totalPages; start += 5) {
-          const pages = Array.from(
-            { length: Math.min(5, totalPages - start + 1) },
-            (_, index) => start + index,
-          );
-          const responses = await Promise.all(pages.map((page) => api.get("/api/tenders", {
-            params: { page, page_size: 100 },
-          })));
-          responses.forEach(({ data }) => collectOptions(data.items));
-        }
-
-        if (active) {
-          setAllProductOptions([...new Set(products)].sort((a, b) => a.localeCompare(b)));
-          setSourceOptions(isAdmin ? [...new Set(sources)].sort((a, b) => a.localeCompare(b)) : []);
-          setRegionOptions([...new Set(regions)].sort((a, b) => a.localeCompare(b)));
-        }
-      } catch (err) {
-        console.error("Failed to load tender filter options:", err);
-      }
-    };
-
-    loadFilterOptions();
-    return () => { active = false; };
-  }, [isAdmin]);
 
   /*
    * Admin scraper
@@ -497,7 +440,7 @@ function AllTenders() {
         participationStatusFilter.forEach((value) => params.append("participation_status", value));
         productFilter.forEach((value) => params.append("product", value));
         if (isAdmin) sourceFilter.forEach((value) => params.append("source", value));
-        regionFilter.forEach((value) => params.append("region", value));
+    if (isAdmin) regionFilter.forEach((value) => params.append("region", value));
 
         const response = await api.get(`/api/tenders?${params.toString()}`);
 
@@ -880,7 +823,7 @@ function AllTenders() {
     tenderNameFilter ||
     cityFilter ||
     organizationFilter ||
-    regionFilter.length > 0 ||
+    (isAdmin && regionFilter.length > 0) ||
     submissionDateFrom ||
     submissionDateTo ||
     estimatedValueMin !== "" ||
@@ -894,7 +837,7 @@ function AllTenders() {
     tenderNameFilter ||
     cityFilter ||
     organizationFilter ||
-    regionFilter.length > 0 ||
+    (isAdmin && regionFilter.length > 0) ||
     estimatedValueMin !== "" ||
     estimatedValueMax !== "" ||
     productFilter.length > 0 ||
@@ -1319,7 +1262,7 @@ function AllTenders() {
               </div>
             )}
 
-            <MultiSelectFilter label="Region" placeholder="All regions" options={regionOptions.map((value) => ({ value, label: value }))} selected={regionFilter} onChange={(value) => updateQueryState(setRegionFilter, value)} compact />
+            {isAdmin && <MultiSelectFilter id="region" label="Region" placeholder="All regions" options={REGION_OPTIONS} selected={regionFilter} onChange={(value) => updateQueryState(setRegionFilter, value)} compact openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />}
 
             <div className="sort-controls">
 
@@ -1575,12 +1518,12 @@ function AllTenders() {
 
                 {isAdmin && <th className="source-column">
                   Source
-                  <MultiSelectFilter label="Source" placeholder="All sources" options={availableSourceOptions.map((value) => ({ value, label: value }))} selected={sourceFilter} onChange={(value) => updateQueryState(setSourceFilter, value)} />
+                  <MultiSelectFilter id="source" label="Source" placeholder="All sources" options={SOURCE_OPTIONS} selected={sourceFilter} onChange={(value) => updateQueryState(setSourceFilter, value)} openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />
                 </th>}
 
                 <th className="product-column">
                   Product
-                  <MultiSelectFilter label="Product" placeholder="All products" options={productOptions.map((value) => ({ value, label: value }))} selected={productFilter} onChange={(value) => updateQueryState(setProductFilter, value)} />
+                  <MultiSelectFilter id="product" label="Product" placeholder="All products" options={PRODUCT_OPTIONS} selected={productFilter} onChange={(value) => updateQueryState(setProductFilter, value)} openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />
                 </th>
 
                 {isAdmin && <th className="advertised-date-column">
@@ -1671,7 +1614,7 @@ function AllTenders() {
 
                 <th>
                   Participation Status
-                  <MultiSelectFilter label="Status" placeholder="All statuses" options={PARTICIPATION_OPTIONS} selected={participationStatusFilter} onChange={(value) => updateQueryState(setParticipationStatusFilter, value)} />
+                  <MultiSelectFilter id="status" label="Status" placeholder="All statuses" options={PARTICIPATION_OPTIONS} selected={participationStatusFilter} onChange={(value) => updateQueryState(setParticipationStatusFilter, value)} openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />
                 </th>
 
                 <th>

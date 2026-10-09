@@ -20,6 +20,9 @@ CAPABILITIES = {
             "Internet",
             "Connectivity",
             "Fiber",
+            "Network",
+            "Router",
+            "Switch",
         ],
     },
 
@@ -46,6 +49,9 @@ CAPABILITIES = {
             "LICENSES",
             "Datacenter",
             "ICT",
+            "Technology",
+            "Tech",
+            "IT",
         ],
     },
 
