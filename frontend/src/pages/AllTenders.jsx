@@ -38,7 +38,6 @@ const SOURCE_OPTIONS = [
   { value: "Sindh PPRA", label: "Sindh" },
 ];
 
-const REGION_OPTIONS = ["North1", "North2", "Central", "South"].map((value) => ({ value, label: value }));
 const PRODUCT_OPTIONS = ["GSM", "CMT", "Fixed Connectivity", "CPaaS", "SI", "Devices", "M2M", "GPU"]
   .map((value) => ({ value, label: value }));
 
@@ -46,9 +45,21 @@ function MultiSelectFilter({ id, label, placeholder, options, selected, onChange
   const open = openedFilter === id;
   const [menuPosition, setMenuPosition] = useState(null);
   const triggerRef = useRef(null);
+  const menuRef = useRef(null);
   const toggle = (value) => onChange(selected.includes(value)
     ? selected.filter((item) => item !== value)
     : [...selected, value]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnOutsideClick = (event) => {
+      if (!triggerRef.current?.contains(event.target) && !menuRef.current?.contains(event.target)) {
+        setOpenedFilter(null);
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, [open, setOpenedFilter]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -73,7 +84,7 @@ function MultiSelectFilter({ id, label, placeholder, options, selected, onChange
       <button ref={triggerRef} type="button" className="tender-multi-filter-trigger column-filter-input" onClick={() => setOpenedFilter(open ? null : id)} aria-expanded={open} aria-label={`Filter by ${label.toLowerCase()}`}>
         {selected.length === 1 ? (options.find((option) => option.value === selected[0])?.label ?? selected[0]) : selected.length ? `${selected.length} selected` : placeholder}
       </button>
-      {open && menuPosition && createPortal(<div className="tender-multi-filter-options" style={{ position: "fixed", left: menuPosition.left, top: menuPosition.top, width: menuPosition.width }}>
+      {open && menuPosition && createPortal(<div ref={menuRef} className="tender-multi-filter-options" style={{ position: "fixed", left: menuPosition.left, top: menuPosition.top, width: menuPosition.width }}>
         <div className="tender-multi-filter-heading"><span>{label}</span><button type="button" onClick={() => onChange([])} disabled={!selected.length}>Clear</button></div>
         {options.length ? options.map((option) => (
           <label key={option.value}>
@@ -254,6 +265,7 @@ function AllTenders() {
   const isAdmin = user?.role === "ADMIN";
 
   const [tenders, setTenders] = useState([]);
+  const [regions, setRegions] = useState([]);
   const [page, setPage] = useState(initialTenderState.page);
   const [refreshKey, setRefreshKey] = useState(0);
   const [pagination, setPagination] = useState({ total: 0, total_pages: 1 });
@@ -310,6 +322,20 @@ function AllTenders() {
 
   const [sortOrder, setSortOrder] =
     useState(initialTenderState.sortOrder);
+
+  useEffect(() => {
+    let active = true;
+    api.get("/api/regions").then((response) => {
+      if (active) {
+        const regionList = Array.isArray(response.data) ? response.data : [];
+        setRegions(regionList.map((region) => ({ value: region.name, label: region.name })));
+      }
+    }).catch((err) => {
+      console.error("Failed to load regions:", err);
+      if (active) setRegions([]);
+    });
+    return () => { active = false; };
+  }, []);
 
   const updateQueryState = (setter, value) => {
     setter(value);
@@ -1262,7 +1288,7 @@ function AllTenders() {
               </div>
             )}
 
-            {isAdmin && <MultiSelectFilter id="region" label="Region" placeholder="All regions" options={REGION_OPTIONS} selected={regionFilter} onChange={(value) => updateQueryState(setRegionFilter, value)} compact openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />}
+            {isAdmin && <MultiSelectFilter id="region" label="Region" placeholder="All regions" options={regions} selected={regionFilter} onChange={(value) => updateQueryState(setRegionFilter, value)} compact openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />}
 
             <div className="sort-controls">
 

@@ -382,7 +382,7 @@ def get_tenders(
 
     # Validate multi-select filters
     allowed_statuses = {"NOT_REVIEWED", "ENGAGING", "PARTICIPATED", "NOT_PARTICIPATING"}
-    allowed_regions = {"North1", "North2", "Central", "South"}
+    allowed_regions = {"North1", "North2", "Central", "South", "Defense Vertical"}
 
     if participation_status:
         invalid = set(participation_status) - allowed_statuses
@@ -2085,7 +2085,7 @@ def get_overview(
     """Return all aggregated data required by the Overview page."""
 
     allowed_statuses = {"NOT_REVIEWED", "ENGAGING", "PARTICIPATED", "NOT_PARTICIPATING"}
-    allowed_regions = {"North1", "North2", "Central", "South"}
+    allowed_regions = {"North1", "North2", "Central", "South", "Defense Vertical"}
 
     if status:
         invalid_statuses = set(status) - allowed_statuses
@@ -2218,7 +2218,7 @@ def get_overview(
         func.year(activity_date), func.month(activity_date), Region.name
     ).all()
 
-    region_names = ["North1", "North2", "Central", "South"]
+    region_names = ["North1", "North2", "Central", "South", "Defense Vertical"]
     status_names = ["NOT_REVIEWED", "ENGAGING", "PARTICIPATED", "NOT_PARTICIPATING"]
     monthly_regional_map = {}
 

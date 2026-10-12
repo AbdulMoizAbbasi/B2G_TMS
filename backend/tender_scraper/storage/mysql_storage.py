@@ -211,6 +211,7 @@ def persist_tender(
         region_name = get_region_name(
             source_name=source_name,
             city=city,
+            organization=mapped_tender.get("organization"),
         )
 
         automatic_region = None

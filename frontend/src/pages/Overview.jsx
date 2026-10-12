@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, Building2, CalendarClock, CircleCheck, ClipboardList, Clock3, Filter, Gauge, Package, RotateCcw, Target } from "lucide-react";
 import api from "../api";
 import "./Overview.css";
 
 const STATUSES = ["ENGAGING", "PARTICIPATED", "NOT_PARTICIPATING", "NOT_REVIEWED"];
 const CHART_STATUSES = ["NOT_REVIEWED", "ENGAGING", "PARTICIPATED", "NOT_PARTICIPATING"];
-const REGIONS = ["North1", "North2", "Central", "South"];
 const STATUS_LABELS = { ENGAGING: "Engaging", PARTICIPATED: "Participated", NOT_PARTICIPATING: "Not Participating", NOT_REVIEWED: "Review Pending" };
 const SCORE_BANDS = [
   { id: "high", label: "High · 70–100", min: 70, max: 100 },
@@ -15,10 +14,19 @@ const SCORE_BANDS = [
 ];
 
 function MultiSelect({ title, icon: Icon, options, selected, onChange, placeholder, disabled = false, single = false, open, setOpen }) {
+  const filterRef = useRef(null);
   const toggle = (value) => onChange(single
     ? (selected[0] === value ? [] : [value])
     : (selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value]));
-  return <div className="overview-filter-group">
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnOutsideClick = (event) => {
+      if (!filterRef.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, [open, setOpen]);
+  return <div ref={filterRef} className="overview-filter-group">
     <div className="overview-filter-label"><span><Icon size={15} />{title}</span><button className="overview-filter-clear" type="button" onClick={() => onChange([])} disabled={!selected.length}>Clear</button></div>
     <button className="overview-select-trigger" type="button" onClick={() => setOpen(!open)} disabled={disabled} aria-expanded={open}>
       <span>{selected.length ? `${selected.length} selected` : placeholder}</span><span className="overview-select-chevron">{open ? "−" : "+"}</span>
@@ -32,6 +40,7 @@ function MultiSelect({ title, icon: Icon, options, selected, onChange, placehold
 function Overview() {
   const [overview, setOverview] = useState(null);
   const [products, setProducts] = useState([]);
+  const [regions, setRegions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -52,6 +61,17 @@ function Overview() {
     }).catch(() => {
       if (active) setProducts([]);
     }).finally(() => { if (active) setProductsLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    api.get("/api/regions").then((response) => {
+      if (active) setRegions(Array.isArray(response.data) ? response.data.map((region) => region.name) : []);
+    }).catch((err) => {
+      console.error("Failed to load regions:", err);
+      if (active) setRegions([]);
+    });
     return () => { active = false; };
   }, []);
 
@@ -107,7 +127,7 @@ function Overview() {
     label: new Intl.DateTimeFormat("en", { month: "short", year: "2-digit" }).format(new Date(item.year, item.month - 1, 1)),
     regions: item.regions || {},
   })), [overview]);
-  const visibleRegions = regionalRegion === "ALL" ? REGIONS : [regionalRegion];
+  const visibleRegions = regionalRegion === "ALL" ? regions : [regionalRegion];
   const visibleStatuses = CHART_STATUSES.filter((status) => regionalParticipationStatus === "ALL" || status === regionalParticipationStatus);
   const regionalChartMax = Math.max(1, ...regionalMonthly.flatMap((month) => visibleRegions.map((region) =>
     visibleStatuses.reduce((total, status) => total + (month.regions[region]?.[status] || 0), 0))));
@@ -133,7 +153,7 @@ function Overview() {
         <div className="overview-filter-header"><div><span className="overview-panel-icon"><Filter size={17} /></span><h2>Filters</h2></div><button type="button" onClick={clearFilters}>Clear all</button></div>
         <div className="overview-date-filter"><div className="overview-date-heading"><span>Closing date</span><button className="overview-filter-clear" type="button" onClick={() => setClosingRange({ from: "", to: "" })} disabled={!closingRange.from && !closingRange.to}>Clear</button></div><label>From<input type="date" value={closingRange.from} onChange={(event) => setClosingRange((value) => ({ ...value, from: event.target.value }))} /></label><label>To<input type="date" value={closingRange.to} onChange={(event) => setClosingRange((value) => ({ ...value, to: event.target.value }))} /></label></div>
         <div className="overview-date-filter"><div className="overview-date-heading"><span>Advertised date</span><button className="overview-filter-clear" type="button" onClick={() => setAdvertisedRange({ from: "", to: "" })} disabled={!advertisedRange.from && !advertisedRange.to}>Clear</button></div><label>From<input type="date" value={advertisedRange.from} onChange={(event) => setAdvertisedRange((value) => ({ ...value, from: event.target.value }))} /></label><label>To<input type="date" value={advertisedRange.to} onChange={(event) => setAdvertisedRange((value) => ({ ...value, to: event.target.value }))} /></label></div>
-        <MultiSelect title="Region" icon={Filter} placeholder="Select regions" options={REGIONS.map((value) => ({ value, label: value }))} selected={selectedRegions} onChange={setSelectedRegions} open={openFilter === "region"} setOpen={(open) => setOpenFilter(open ? "region" : null)} />
+        <MultiSelect title="Region" icon={Filter} placeholder="Select regions" options={regions.map((value) => ({ value, label: value }))} selected={selectedRegions} onChange={setSelectedRegions} open={openFilter === "region"} setOpen={(open) => setOpenFilter(open ? "region" : null)} />
         <MultiSelect title="Products" icon={Package} placeholder={productsLoading ? "Loading products…" : "Select products"} disabled={productsLoading} options={products.map((product) => ({ value: String(product.id), label: product.name }))} selected={selectedProducts} onChange={setSelectedProducts} open={openFilter === "products"} setOpen={(open) => setOpenFilter(open ? "products" : null)} />
         <MultiSelect title="Relevance score" icon={Target} placeholder="Select score range" options={SCORE_BANDS.map(({ id, label }) => ({ value: id, label }))} selected={selectedScores} onChange={setSelectedScores} open={openFilter === "score"} setOpen={(open) => setOpenFilter(open ? "score" : null)} />
         <MultiSelect title="Participation status" icon={ClipboardList} placeholder="Select status" options={STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))} selected={selectedStatuses} onChange={setSelectedStatuses} open={openFilter === "status"} setOpen={(open) => setOpenFilter(open ? "status" : null)} />
@@ -146,7 +166,7 @@ function Overview() {
           {loading ? <div className="overview-chart-empty">Loading overview data…</div> : error ? <div className="overview-chart-empty">Overview data could not be loaded.</div> : monthly.length ? <div className="overview-chart-scroll"><div className="overview-chart" role="img" aria-label="Monthly tender counts by participation status"><div className="overview-y-label">Tender count</div><div className="overview-chart-body"><div className="overview-y-ticks">{[chartMax, Math.ceil(chartMax / 2), 0].map((tick, index) => <span key={`${tick}-${index}`}>{tick}</span>)}</div><div className="overview-plot">{monthly.map((item) => <div className="overview-month" key={item.key}><div className="overview-bar-stack" title={`${item.label}: ${item.engaging} engaging, ${item.participated} participated, ${item.notReviewed} not reviewed, ${item.notParticipating} not participating`}><div className="overview-bar-participating" style={{ height: `${item.engaging / chartMax * 100}%` }} /><div className="overview-bar-participated" style={{ height: `${item.participated / chartMax * 100}%` }} /><div className="overview-bar-not-participating" style={{ height: `${item.notParticipating / chartMax * 100}%` }} /><div className="overview-bar-not-reviewed" style={{ height: `${item.notReviewed / chartMax * 100}%` }} /></div><span>{item.label}</span></div>)}</div></div></div></div> : <div className="overview-chart-empty">No monthly activity for the selected filters.</div>}
         </section>
         <section className="overview-panel overview-chart-panel regional-participation-panel">
-          <div className="overview-panel-heading"><div className="overview-panel-title"><span className="overview-panel-icon"><CalendarClock size={17} /></span><div><h2>Monthly Regional Participation</h2><p>Grouped by advertised month, with closing month as a fallback</p></div></div><div className="regional-chart-filters"><label className="regional-status-filter">Region<select value={regionalRegion} onChange={(event) => setRegionalRegion(event.target.value)}><option value="ALL">All Regions</option>{REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}</select></label><label className="regional-status-filter">Participation Status<select value={regionalParticipationStatus} onChange={(event) => setRegionalParticipationStatus(event.target.value)}><option value="ALL">All</option>{CHART_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></label></div></div>
+          <div className="overview-panel-heading"><div className="overview-panel-title"><span className="overview-panel-icon"><CalendarClock size={17} /></span><div><h2>Monthly Regional Participation</h2><p>Grouped by advertised month, with closing month as a fallback</p></div></div><div className="regional-chart-filters"><label className="regional-status-filter">Region<select value={regionalRegion} onChange={(event) => setRegionalRegion(event.target.value)}><option value="ALL">All Regions</option>{regions.map((region) => <option key={region} value={region}>{region}</option>)}</select></label><label className="regional-status-filter">Participation Status<select value={regionalParticipationStatus} onChange={(event) => setRegionalParticipationStatus(event.target.value)}><option value="ALL">All</option>{CHART_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}</select></label></div></div>
           <div className="overview-chart-legend regional-chart-legend">{CHART_STATUSES.map((status) => <span key={status}><i className={`regional-legend-${status.toLowerCase()}`} />{status.replaceAll("_", " ")}</span>)}</div>
           {loading ? <div className="overview-chart-empty">Loading overview data…</div> : error ? <div className="overview-chart-empty">Overview data could not be loaded.</div> : regionalMonthly.length ? <div className="regional-chart"><div className="overview-y-label">Number of tenders</div><div className="regional-chart-body"><div className="regional-y-ticks">{[regionalChartMax, Math.ceil(regionalChartMax / 2), 0].map((tick, index) => <span key={`${tick}-${index}`}>{tick}</span>)}</div><div className="regional-chart-scroll" tabIndex="0" aria-label="Scroll monthly regional participation chart horizontally"><div className="regional-months">{regionalMonthly.map((month) => <div className="regional-month" key={month.key}><div className="regional-month-bars">{visibleRegions.map((region) => <div className="regional-bar-column" key={region}><div className="regional-bar-stack">{visibleStatuses.map((status) => { const count = month.regions[region]?.[status] || 0; return <div key={status} className={`regional-bar-segment regional-segment-${status.toLowerCase()}`} style={{ height: `${count / regionalChartMax * 100}%` }} title={`${month.label} · ${region} · ${status} · ${count} tenders`} />; })}</div><span>{region}</span></div>)}</div><span className="regional-month-label">{month.label}</span></div>)}</div></div></div></div> : <div className="overview-chart-empty">No regional activity for the selected filters.</div>}
         </section>
