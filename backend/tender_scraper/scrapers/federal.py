@@ -76,10 +76,10 @@ def make_absolute_url(url):
 def extract_web_tender_no(row):
     cells = row.find_all("td")
 
-    if len(cells) < 2:
+    if len(cells) < 3:
         return ""
 
-    value = clean_text(cells[1])
+    value = clean_text(cells[2])
 
     if not value:
         return ""
