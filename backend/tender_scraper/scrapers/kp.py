@@ -328,18 +328,14 @@ def extract_tenders(soup):
     Action is intentionally ignored.
     """
 
-    if soup is None:
-        return []
-
-    table = soup.find(
-        "table"
-    )
+    table = soup.find("table")
 
     if not table:
-        print(
-            "[KP PPRA] Tender table not found."
-        )
-
+        print("[KP PPRA] Tender table not found.")
+        print(f"[KP PPRA] Page title: {soup.title.get_text(strip=True) if soup.title else 'No title'}")
+        print(f"[KP PPRA] HTML size: {len(str(soup))} characters")
+        print(f"[KP PPRA] Tables found: {len(soup.find_all('table'))}")
+        print(f"[KP PPRA] Page preview: {soup.get_text(' ', strip=True)[:500]}")
         return []
 
     tbody = table.find(

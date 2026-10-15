@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { LogOut, Menu, X } from "lucide-react";
-import { ClipboardList, LayoutDashboard, Sun, Moon } from "lucide-react";
+import { ClipboardList, LayoutDashboard, Sun, Moon, Users } from "lucide-react";
 import jazzRadarLogo from "../assets/logo.png";
 
 function Layout() {
@@ -35,6 +35,7 @@ function Layout() {
       path: "/",
       icon: ClipboardList,
     },
+    ...(user?.role === "ADMIN" ? [{ label: "User Management", path: "/admin/users", icon: Users }] : []),
   ];
 
   return (

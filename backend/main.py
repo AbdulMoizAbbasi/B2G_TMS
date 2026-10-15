@@ -7,7 +7,12 @@ import threading
 from fastapi import Header
 from pathlib import Path
 from config.paths import (DATA_DIR, DOCUMENTS_DIR, CHECKPOINT_FILE,)
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
+from pydantic import Field
 
+from database.models.role import Role
+from auth import hash_password
 from sqlalchemy import func, or_, case
 from sqlalchemy.orm import Session, joinedload
 import mimetypes
@@ -216,6 +221,34 @@ def get_coordinator_region(
         )
 
     return coordinator.region_id
+
+
+
+
+class AdminUserCreateRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1, max_length=255)
+    email: str | None = Field(default=None, max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+    role: Literal["ADMIN", "COORDINATOR", "VIEWER"]
+    region_id: int | None = None
+
+
+class AdminUserUpdateRequest(BaseModel):
+    username: str | None = Field(default=None, min_length=1, max_length=100)
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    email: str | None = Field(default=None, max_length=255)
+    role: Literal["ADMIN", "COORDINATOR", "VIEWER"] | None = None
+    region_id: int | None = None
+
+
+class AdminUserStatusRequest(BaseModel):
+    is_active: bool
+
+
+class AdminUserPasswordResetRequest(BaseModel):
+    password: str = Field(min_length=8, max_length=128)
+
 
 
 class LoginRequest(BaseModel):
@@ -2757,3 +2790,410 @@ def send_assignment_email(
         "jbc_name": employee.name,
         "jbc_email": employee.email,
     }
+
+
+
+# ============================================================
+# ADMIN USER MANAGEMENT
+# ============================================================
+
+def serialize_admin_user(user: User) -> dict:
+    coordinator = user.coordinator
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role.name,
+        "is_active": user.is_active,
+        "region_id": coordinator.region_id if coordinator else None,
+        "region_name": (
+            coordinator.region.name
+            if coordinator and coordinator.region
+            else None
+        ),
+        "created_at": user.created_at,
+        "updated_at": user.updated_at,
+    }
+
+
+def get_admin_user_query(db: Session):
+    return db.query(User).options(
+        joinedload(User.role),
+        joinedload(User.coordinator).joinedload(Coordinator.region),
+    )
+
+
+@app.get("/api/admin/users")
+def list_admin_users(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    users = (
+        get_admin_user_query(db)
+        .order_by(User.id.asc())
+        .all()
+    )
+
+    return [serialize_admin_user(user) for user in users]
+
+
+@app.post("/api/admin/users", status_code=201)
+def create_admin_user(
+    request: AdminUserCreateRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    username = request.username.strip()
+    name = request.name.strip()
+    email = request.email.strip() if request.email else None
+
+    if not username or not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Username and name cannot be blank.",
+        )
+
+    if db.query(User).filter(User.username == username).first():
+        raise HTTPException(
+            status_code=409,
+            detail="Username already exists.",
+        )
+
+    role = db.query(Role).filter(Role.name == request.role).first()
+
+    if role is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid role.",
+        )
+
+    region = None
+
+    if request.role == "COORDINATOR":
+        if request.region_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="A region is required for a coordinator.",
+            )
+
+        region = (
+            db.query(Region)
+            .filter(Region.id == request.region_id)
+            .first()
+        )
+
+        if region is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Selected region does not exist.",
+            )
+
+        assigned = (
+            db.query(Coordinator)
+            .filter(Coordinator.region_id == request.region_id)
+            .first()
+        )
+
+        if assigned is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="This region already has a coordinator.",
+            )
+
+    elif request.region_id is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Only coordinators can be assigned a region.",
+        )
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    user = User(
+        username=username,
+        name=name,
+        email=email,
+        password_hash=hash_password(request.password),
+        role_id=role.id,
+        is_active=True,
+        created_at=now,
+        updated_at=now,
+    )
+
+    try:
+        db.add(user)
+        db.flush()
+
+        if request.role == "COORDINATOR":
+            db.add(
+                Coordinator(
+                    user_id=user.id,
+                    region_id=region.id,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+
+        db.commit()
+
+        return_user_id = user.id
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="User or coordinator assignment conflicts with an existing record.",
+        )
+
+    created_user = get_admin_user_query(db).filter(
+        User.id == return_user_id
+    ).first()
+
+    return serialize_admin_user(created_user)
+
+
+@app.patch("/api/admin/users/{user_id}")
+def update_admin_user(
+    user_id: int,
+    request: AdminUserUpdateRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found.",
+        )
+
+    changes = request.dict(exclude_unset=True)
+
+    if not changes:
+        raise HTTPException(
+            status_code=400,
+            detail="No changes provided.",
+        )
+
+    if "username" in changes:
+        if changes["username"] is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Username cannot be null.",
+            )
+
+        username = changes["username"].strip()
+
+        if not username:
+            raise HTTPException(
+                status_code=400,
+                detail="Username cannot be blank.",
+            )
+
+        duplicate = (
+            db.query(User)
+            .filter(
+                User.username == username,
+                User.id != user_id,
+            )
+            .first()
+        )
+
+        if duplicate:
+            raise HTTPException(
+                status_code=409,
+                detail="Username already exists.",
+            )
+
+        user.username = username
+
+    if "name" in changes:
+        if changes["name"] is None or not changes["name"].strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Name cannot be blank.",
+            )
+
+        user.name = changes["name"].strip()
+
+    if "email" in changes:
+        email = changes["email"]
+        user.email = email.strip() if email else None
+
+    if "role" in changes and changes["role"] is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Role cannot be null.",
+        )
+
+    target_role_name = changes.get("role", user.role.name)
+
+    if user.id == current_user.id and target_role_name != "ADMIN":
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot remove your own Admin role.",
+        )
+
+    target_role = (
+        db.query(Role)
+        .filter(Role.name == target_role_name)
+        .first()
+    )
+
+    if target_role is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid role.",
+        )
+
+    coordinator = (
+        db.query(Coordinator)
+        .filter(Coordinator.user_id == user.id)
+        .first()
+    )
+
+    if "region_id" in changes:
+        target_region_id = changes["region_id"]
+    else:
+        target_region_id = (
+            coordinator.region_id if coordinator else None
+        )
+
+    if target_role_name == "COORDINATOR":
+        if target_region_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="A region is required for a coordinator.",
+            )
+
+        region = (
+            db.query(Region)
+            .filter(Region.id == target_region_id)
+            .first()
+        )
+
+        if region is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Selected region does not exist.",
+            )
+
+        assigned = (
+            db.query(Coordinator)
+            .filter(
+                Coordinator.region_id == target_region_id,
+                Coordinator.user_id != user.id,
+            )
+            .first()
+        )
+
+        if assigned:
+            raise HTTPException(
+                status_code=409,
+                detail="This region already has a coordinator.",
+            )
+
+    elif (
+        "region_id" in changes
+        and changes["region_id"] is not None
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Only coordinators can be assigned a region.",
+        )
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    user.role_id = target_role.id
+    user.updated_at = now
+
+    try:
+        if target_role_name == "COORDINATOR":
+            if coordinator is None:
+                db.add(
+                    Coordinator(
+                        user_id=user.id,
+                        region_id=target_region_id,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+            else:
+                coordinator.region_id = target_region_id
+                coordinator.updated_at = now
+
+        elif coordinator is not None:
+            db.delete(coordinator)
+
+        db.commit()
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="User or coordinator assignment conflicts with an existing record.",
+        )
+
+    updated_user = get_admin_user_query(db).filter(
+        User.id == user_id
+    ).first()
+
+    return serialize_admin_user(updated_user)
+
+
+@app.patch("/api/admin/users/{user_id}/status")
+def update_admin_user_status(
+    user_id: int,
+    request: AdminUserStatusRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found.",
+        )
+
+    if user.id == current_user.id and not request.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail="You cannot deactivate your own account.",
+        )
+
+    user.is_active = request.is_active
+    user.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "is_active": user.is_active,
+    }
+
+
+@app.post("/api/admin/users/{user_id}/reset-password")
+def reset_admin_user_password(
+    user_id: int,
+    request: AdminUserPasswordResetRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if user is None:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found.",
+        )
+
+    user.password_hash = hash_password(request.password)
+    user.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    db.commit()
+
+    return {"message": "Password reset successfully."}

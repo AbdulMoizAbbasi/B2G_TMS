@@ -516,8 +516,8 @@ function AllTenders() {
     setRepeated("product", productFilter);
     setRepeated("source", sourceFilter, isAdmin);
     setRepeated("region", regionFilter, isAdmin);
-    setOrRemove("score_min", isAdmin ? scoreMin : "");
-    setOrRemove("score_max", isAdmin ? scoreMax : "");
+    setOrRemove("score_min", scoreMin);
+    setOrRemove("score_max", scoreMax);
     setOrRemove("advertised_date_from", isAdmin ? advertisedDateFrom : "");
     setOrRemove("advertised_date_to", isAdmin ? advertisedDateTo : "");
     params.set("sort_by", sortBy);
@@ -602,7 +602,7 @@ function AllTenders() {
           submission_date_from: submissionDateFrom, submission_date_to: submissionDateTo,
           estimated_value_min: estimatedValueMin, estimated_value_max: estimatedValueMax,
           sort_by: sortBy, sort_order: sortOrder,
-          score_min: isAdmin ? scoreMin : "", score_max: isAdmin ? scoreMax : "",
+          score_min: scoreMin, score_max: scoreMax,
           advertised_date_from: isAdmin ? advertisedDateFrom : "",
           advertised_date_to: isAdmin ? advertisedDateTo : "",
         };
@@ -1002,7 +1002,8 @@ function AllTenders() {
     estimatedValueMax !== "" ||
     participationStatusFilter.length > 0 ||
     productFilter.length > 0 ||
-    (isAdmin && (sourceFilter.length > 0 || scoreMin !== "" || scoreMax !== "" || advertisedDateFrom || advertisedDateTo));
+    scoreMin !== "" || scoreMax !== "" ||
+    (isAdmin && (sourceFilter.length > 0 || advertisedDateFrom || advertisedDateTo));
 
   const hasOtherFilters =
     tenderNoFilter ||
@@ -1013,7 +1014,8 @@ function AllTenders() {
     estimatedValueMin !== "" ||
     estimatedValueMax !== "" ||
     productFilter.length > 0 ||
-    (isAdmin && (sourceFilter.length > 0 || scoreMin !== "" || scoreMax !== "" || advertisedDateFrom || advertisedDateTo));
+    scoreMin !== "" || scoreMax !== "" ||
+    (isAdmin && (sourceFilter.length > 0 || advertisedDateFrom || advertisedDateTo));
 
   function isSummaryFilterActive(filter) {
     if (filter === "ALL") {
@@ -1612,7 +1614,7 @@ function AllTenders() {
               <col className="tender-name-column" />
               <col className="city-column" />
               <col className="organization-column" />
-              <col className="region-column" />
+              {isAdmin && <col className="region-column" />}
               {isAdmin && <col className="source-column" />}
               <col className="product-column" />
               <col className="relevance-score-column" />
@@ -1730,10 +1732,10 @@ function AllTenders() {
                   />
                 </th>
 
-                <th className="region-column">
+                {isAdmin && <th className="region-column">
                   Region
-                  {isAdmin && <MultiSelectFilter id="region" label="Region" placeholder="All regions" options={regions.map((region) => ({ value: region.name, label: region.name }))} selected={regionFilter} onChange={(value) => updateQueryState(setRegionFilter, value)} compact openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />}
-                </th>
+                  <MultiSelectFilter id="region" label="Region" placeholder="All regions" options={regions.map((region) => ({ value: region.name, label: region.name }))} selected={regionFilter} onChange={(value) => updateQueryState(setRegionFilter, value)} compact openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />
+                </th>}
 
                 {isAdmin && <th className="source-column">
                   Source
@@ -1747,10 +1749,10 @@ function AllTenders() {
 
                 <th className="relevance-score-column">
                   Relevance Score
-                  {isAdmin && <div className="column-range-filter">
+                  <div className="column-range-filter">
                     <input type="number" min="0" value={scoreMin} onChange={(event) => updateQueryState(setScoreMin, event.target.value)} aria-label="Relevance score minimum" placeholder="Min" />
                     <input type="number" min="0" value={scoreMax} onChange={(event) => updateQueryState(setScoreMax, event.target.value)} aria-label="Relevance score maximum" placeholder="Max" />
-                  </div>}
+                  </div>
                 </th>
 
                 {isAdmin && <th className="advertised-date-column">
@@ -1926,7 +1928,7 @@ function AllTenders() {
                       )}
                     </td>
 
-                    <td className="region-column">{displayValue(tender.region)}</td>
+                    {isAdmin && <td className="region-column">{displayValue(tender.region)}</td>}
 
                     {isAdmin && <td className="source-column">{displayValue(tender.source)}</td>}
 

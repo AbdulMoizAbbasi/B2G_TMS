@@ -8,6 +8,7 @@ import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AllTenders from "./pages/AllTenders";
 import Overview from "./pages/Overview";
+import UserManagement from "./pages/UserManagement";
 
 function App() {
   return (
@@ -21,6 +22,9 @@ function App() {
               <Route index element={<AllTenders />} />
               <Route path="overview" element={<Overview />} />
               <Route path="tenders/:tenderId" element={<TenderDetail />} />
+              <Route path="admin/users" element={<ProtectedRoute adminOnly />}>
+                <Route index element={<UserManagement />} />
+              </Route>
             </Route>
           </Route>
         </Routes>
