@@ -11,7 +11,7 @@ from config.paths import (DATA_DIR, DOCUMENTS_DIR, CHECKPOINT_FILE,)
 from sqlalchemy import func, or_, case
 from sqlalchemy.orm import Session, joinedload
 import mimetypes
-
+import httpx
 import jwt
 import os
 from database.connection import SessionLocal
@@ -251,6 +251,28 @@ class TenderDelegationRequest(BaseModel):
 class TenderRegionUpdateRequest(BaseModel):
     region_id: int
 
+
+class ManualTenderCreateRequest(BaseModel):
+    source_id: int | None = None
+    new_source_name: str | None = None
+    region_id: int
+
+    tender_name: str
+    organization: str
+    city: str
+    closed_date: datetime
+
+    web_tender_no: str | None = None
+    tender_reference_no: str | None = None
+    authority: str | None = None
+
+    estimated_value: Decimal | None = None
+    advertised_date: datetime | None = None
+
+    source_detail_url: str | None = None
+    primary_document_url: str | None = None
+
+
 class BulkTenderDeleteRequest(BaseModel):
     jazzids: list[int]
 
@@ -329,6 +351,211 @@ def get_me(
         "is_active": current_user.is_active,
     }
 
+
+@app.post("/api/tenders", status_code=201)
+def create_manual_tender(
+    request: ManualTenderCreateRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    # ---------------------------------------------------------
+    # 1. Validate required text fields
+    # ---------------------------------------------------------
+
+    required_fields = {
+        "tender_name": request.tender_name,
+        "organization": request.organization,
+        "city": request.city,
+    }
+
+    for field, value in required_fields.items():
+        if not value.strip():
+            raise HTTPException(
+                status_code=400,
+                detail=f"{field} cannot be empty.",
+            )
+
+    # ---------------------------------------------------------
+    # 2. Validate source input
+    # ---------------------------------------------------------
+
+    if (
+        request.source_id is not None
+        and request.new_source_name is not None
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either source_id or new_source_name, not both.",
+        )
+
+    if (
+        request.source_id is None
+        and request.new_source_name is None
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Select an existing source or enter a new source name.",
+        )
+
+    if request.new_source_name is not None:
+        source_name = request.new_source_name.strip()
+
+        if not source_name:
+            raise HTTPException(
+                status_code=400,
+                detail="New source name cannot be empty.",
+            )
+    else:
+        source_name = None
+
+    # ---------------------------------------------------------
+    # 3. Validate region before starting database writes
+    # ---------------------------------------------------------
+
+    region = (
+        db.query(Region)
+        .filter(Region.id == request.region_id)
+        .first()
+    )
+
+    if region is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Region not found.",
+        )
+
+    # ---------------------------------------------------------
+    # 4. Create source, tender, and related records
+    #    in one database transaction
+    # ---------------------------------------------------------
+
+    try:
+        # Resolve an existing source or create a new one.
+        if request.source_id is not None:
+            source = (
+                db.query(TenderSource)
+                .filter(TenderSource.id == request.source_id)
+                .first()
+            )
+
+            if source is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Tender source not found.",
+                )
+
+        else:
+            source = (
+                db.query(TenderSource)
+                .filter(
+                    func.lower(TenderSource.name)
+                    == source_name.lower()
+                )
+                .first()
+            )
+
+            if source is None:
+                source = TenderSource(name=source_name)
+                db.add(source)
+                db.flush()
+
+        # Timestamp for the admin assignment.
+        now = datetime.now(timezone.utc)
+
+        # Create the tender.
+        tender = Tender(
+            source_id=source.id,
+            region_id=region.id,
+            web_tender_no=request.web_tender_no,
+            tender_reference_no=request.tender_reference_no,
+            tender_name=request.tender_name.strip(),
+            city=request.city.strip(),
+            organization=request.organization.strip(),
+            authority=request.authority,
+            estimated_value=request.estimated_value,
+            estimated_value_source=(
+                "MANUAL"
+                if request.estimated_value is not None
+                else None
+            ),
+            advertised_date=request.advertised_date,
+            closed_date=request.closed_date,
+            source_detail_url=request.source_detail_url,
+            primary_document_url=request.primary_document_url,
+            raw_data={
+                "created_manually": True,
+                "created_by": current_user.id,
+            },
+        )
+
+        db.add(tender)
+
+        # Generate jazzid before creating related records.
+        db.flush()
+
+        # Record the Admin region assignment.
+        assignment = TenderRegionAssignment(
+            tender_jazzid=tender.jazzid,
+            region_id=region.id,
+            assignment_type="ADMIN",
+            assigned_by=current_user.id,
+            assigned_at=now,
+        )
+        db.add(assignment)
+
+        # Create the initial relevance record.
+        relevance = TenderRelevance(
+            tender_jazzid=tender.jazzid,
+            keyword_score=0,
+            matched_keywords=[],
+            matched_capabilities=[],
+            relevance_reason=(
+                "Manually created by Admin; "
+                "relevance scoring is pending."
+            ),
+        )
+        db.add(relevance)
+
+        # Create a document record if a URL was supplied.
+        if request.primary_document_url:
+            document = TenderDocument(
+                tender_jazzid=tender.jazzid,
+                document_type="PRIMARY",
+                document_name="tender_document.pdf",
+                source_url=request.primary_document_url,
+                download_status="PENDING",
+            )
+            db.add(document)
+
+        # Commit all changes together.
+        db.commit()
+        db.refresh(tender)
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception:
+        db.rollback()
+        raise
+
+    # ---------------------------------------------------------
+    # 5. Return the creation response
+    # ---------------------------------------------------------
+
+    return {
+        "message": "Tender created successfully.",
+        "jazzid": tender.jazzid,
+        "tender_name": tender.tender_name,
+        "source_id": source.id,
+        "source": source.name,
+        "region_id": region.id,
+        "region": region.name,
+        "participation_status": "NOT_REVIEWED",
+        "relevance_score": 0,
+        "assignment_type": "ADMIN",
+        "created_by": current_user.username,
+    }
 
 
 
@@ -611,6 +838,28 @@ def get_tenders(
             "closing_soon": closing_soon_count,
         },
     }
+
+
+
+@app.get("/api/sources")
+def get_sources(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    sources = (
+        db.query(TenderSource)
+        .order_by(TenderSource.name.asc())
+        .all()
+    )
+
+    return [
+        {
+            "id": source.id,
+            "name": source.name,
+        }
+        for source in sources
+    ]
+
 
 
 @app.get("/api/regions")
@@ -2322,3 +2571,189 @@ def import_scraped_tenders(
             "are supported for local scraper import."
         ),
     )
+
+
+@app.post("/api/tenders/{jazzid}/send-assignment-email")
+def send_assignment_email(
+    jazzid: int,
+    current_user: User = Depends(require_coordinator),
+    db: Session = Depends(get_db),
+):
+    # 1. Validate the coordinator and region.
+    coordinator = (
+        db.query(Coordinator)
+        .filter(Coordinator.user_id == current_user.id)
+        .first()
+    )
+
+    if coordinator is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Coordinator region is not configured.",
+        )
+
+    if not current_user.email:
+        raise HTTPException(
+            status_code=400,
+            detail="Coordinator email is not configured.",
+        )
+
+    # 2. Get a relevant tender from this coordinator's region.
+    tender = (
+        db.query(Tender)
+        .filter(
+            Tender.jazzid == jazzid,
+            Tender.region_id == coordinator.region_id,
+        )
+        .first()
+    )
+
+    if tender is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Tender not found in your region.",
+        )
+
+    relevance = (
+        db.query(TenderRelevance)
+        .filter(TenderRelevance.tender_jazzid == jazzid)
+        .first()
+    )
+
+    if relevance is None or relevance.keyword_score <= 0:
+        raise HTTPException(
+            status_code=404,
+            detail="Tender not found or not relevant.",
+        )
+
+    # 3. Confirm that the tender is ENGAGING and has an assigned JBC.
+    participation = (
+        db.query(TenderParticipation)
+        .filter(TenderParticipation.tender_jazzid == jazzid)
+        .first()
+    )
+
+    if participation is None or participation.status != "ENGAGING":
+        raise HTTPException(
+            status_code=400,
+            detail="Only ENGAGING tenders can receive assignment emails.",
+        )
+
+    if participation.delegated_employee_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No JBC is assigned to this tender.",
+        )
+
+    employee = (
+        db.query(Employee)
+        .filter(
+            Employee.id == participation.delegated_employee_id,
+            Employee.region_id == coordinator.region_id,
+            Employee.is_active == True,
+        )
+        .first()
+    )
+
+    if employee is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The assigned JBC is invalid or inactive.",
+        )
+
+    if not employee.email:
+        raise HTTPException(
+            status_code=400,
+            detail="The assigned JBC has no email address configured.",
+        )
+
+    # 4. Read effective tender fields (Admin overrides take precedence).
+    override = (
+        db.query(TenderFieldOverride)
+        .filter(TenderFieldOverride.tender_jazzid == jazzid)
+        .first()
+    )
+
+    def effective(field):
+        override_value = getattr(override, field, None) if override else None
+        return (
+            override_value
+            if override_value is not None
+            else getattr(tender, field, None)
+        )
+
+    def email_value(value):
+        if value is None:
+            return None
+        if isinstance(value, (datetime,)):
+            return value.isoformat()
+        return str(value)
+
+    flow_url = os.getenv("POWER_AUTOMATE_FLOW_URL")
+
+    if not flow_url:
+        raise HTTPException(
+            status_code=500,
+            detail="Power Automate flow URL is not configured.",
+        )
+
+    # 5. Build the payload expected by the Power Automate flow.
+    payload = {
+        "JBCEmail": employee.email,
+        "CoordinatorEmail": current_user.email,
+        "TenderDetails": {
+            "jbc_name": employee.name,
+            "tender_name": email_value(effective("tender_name")),
+            "web_tender_no": email_value(effective("web_tender_no")),
+            "tender_reference_no": email_value(
+                effective("tender_reference_no")
+            ),
+            "organization": email_value(effective("organization")),
+            "city": email_value(effective("city")),
+            "estimated_value": email_value(
+                effective("estimated_value")
+            ),
+            "advertised_date": email_value(
+                effective("advertised_date")
+            ),
+            "closing_date": email_value(effective("closed_date")),
+            "source": tender.source.name if tender.source else None,
+            "source_url": tender.source_detail_url,
+            "document_url": tender.primary_document_url,
+            "coordinator_name": current_user.name,
+        },
+    }
+
+    # 6. Call Power Automate.
+    try:
+        response = httpx.post(
+            flow_url,
+            json=payload,
+            timeout=30.0,
+        )
+        response.raise_for_status()
+
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=504,
+            detail="Power Automate did not respond in time. Check the flow run history before retrying.",
+        )
+
+    except httpx.HTTPStatusError:
+        raise HTTPException(
+            status_code=502,
+            detail="Power Automate returned an unsuccessful response. Check the flow run history.",
+        )
+
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=502,
+            detail="Could not connect to Power Automate.",
+        )
+
+    return {
+        "message": "Assignment email sent successfully.",
+        "jazzid": jazzid,
+        "jbc_name": employee.name,
+        "jbc_email": employee.email,
+    }

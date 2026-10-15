@@ -76,36 +76,41 @@ BALOCHISTAN_INITIAL_START_DATE = (
 )
 
 
-#
-# Always scrape up to today.
-#
 
-TODAY = datetime.today().strftime(
-    "%Y-%m-%d"
-)
+# Date values are refreshed at the start of every scraping run.
 
-FEDERAL_END_DATE = TODAY
-PUNJAB_END_DATE = TODAY
-KP_END_DATE = TODAY
-SINDH_END_DATE = TODAY
+TODAY = None
+
+FEDERAL_END_DATE = None
+PUNJAB_END_DATE = None
+KP_END_DATE = None
+SINDH_END_DATE = None
+BALOCHISTAN_END_DATE = None
 
 
-#
-# Balochistan end date:
-#
-# Today at 00:00 Pakistan time
-# =
-# Previous day at 19:00 UTC
-#
+def refresh_scrape_dates():
+    global TODAY
+    global FEDERAL_END_DATE
+    global PUNJAB_END_DATE
+    global KP_END_DATE
+    global SINDH_END_DATE
+    global BALOCHISTAN_END_DATE
 
-BALOCHISTAN_END_DATE = (
-    datetime.strptime(
-        TODAY,
-        "%Y-%m-%d",
-    ).strftime(
-        "%Y-%m-%dT19:00:00.000Z"
+    TODAY = datetime.today().strftime("%Y-%m-%d")
+
+    FEDERAL_END_DATE = TODAY
+    PUNJAB_END_DATE = TODAY
+    KP_END_DATE = TODAY
+    SINDH_END_DATE = TODAY
+
+    # Balochistan expects today's midnight Pakistan time
+    # as the previous day at 19:00 UTC.
+    BALOCHISTAN_END_DATE = (
+        datetime.strptime(TODAY, "%Y-%m-%d").strftime(
+            "%Y-%m-%dT19:00:00.000Z"
+        )
     )
-)
+
 
 
 # ============================================================
@@ -1550,6 +1555,9 @@ def process_sindh():
 # ============================================================
 
 def main():
+
+    
+    refresh_scrape_dates()
 
     print()
     print("=" * 70)

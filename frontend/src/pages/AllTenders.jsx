@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Trash2,
   Info,
+  Plus,
 } from "lucide-react";
 
 const SCRAPER_PORTALS = [
@@ -41,6 +42,36 @@ const SOURCE_OPTIONS = [
 const PRODUCT_OPTIONS = ["GSM", "CMT", "Fixed Connectivity", "CPaaS", "SI", "Devices", "M2M", "GPU"]
   .map((value) => ({ value, label: value }));
 
+const EMPTY_MANUAL_TENDER = {
+  source_id: "",
+  new_source_name: "",
+  region_id: "",
+  tender_name: "",
+  organization: "",
+  city: "",
+  closed_date: "",
+  web_tender_no: "",
+  tender_reference_no: "",
+  authority: "",
+  estimated_value: "",
+  advertised_date: "",
+  source_detail_url: "",
+  primary_document_url: "",
+};
+
+function apiErrorMessage(error, fallback) {
+  const detail = error.response?.data?.detail;
+  const status = error.response?.status;
+  if (status === 401 || status === 403) {
+    return "Access denied. Check that your account has the required permissions.";
+  }
+  if ((status === 400 || status === 404) && typeof detail === "string") return detail;
+  if ((status === 400 || status === 404) && typeof detail?.message === "string") return detail.message;
+  if (status === 422) return "Some tender fields are invalid. Review the form and try again.";
+  if (!error.response) return "Unable to reach the server. Check your connection and try again.";
+  return fallback;
+}
+
 function MultiSelectFilter({ id, label, placeholder, options, selected, onChange, compact = false, openedFilter, setOpenedFilter }) {
   const open = openedFilter === id;
   const [menuPosition, setMenuPosition] = useState(null);
@@ -68,7 +99,8 @@ function MultiSelectFilter({ id, label, placeholder, options, selected, onChange
       const rect = triggerRef.current.getBoundingClientRect();
       const width = Math.min(Math.max(rect.width, 190), window.innerWidth - 16);
       const top = window.innerHeight - rect.bottom < 240 ? Math.max(8, rect.top - 234) : rect.bottom + 4;
-      setMenuPosition({ left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)), top, width });
+      const preferredLeft = id === "region" ? rect.right - width : rect.left;
+      setMenuPosition({ left: Math.max(8, Math.min(preferredLeft, window.innerWidth - width - 8)), top, width });
     };
     updatePosition();
     window.addEventListener("resize", updatePosition);
@@ -77,10 +109,10 @@ function MultiSelectFilter({ id, label, placeholder, options, selected, onChange
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [open]);
+  }, [id, open]);
 
   return (
-    <div className={`tender-multi-filter${compact ? " tender-multi-filter-compact" : ""}`}>
+    <div className={`tender-multi-filter${compact ? " tender-multi-filter-compact" : ""}${id === "region" ? " tender-multi-filter-region" : ""}`}>
       <button ref={triggerRef} type="button" className="tender-multi-filter-trigger column-filter-input" onClick={() => setOpenedFilter(open ? null : id)} aria-expanded={open} aria-label={`Filter by ${label.toLowerCase()}`}>
         {selected.length === 1 ? (options.find((option) => option.value === selected[0])?.label ?? selected[0]) : selected.length ? `${selected.length} selected` : placeholder}
       </button>
@@ -266,6 +298,16 @@ function AllTenders() {
 
   const [tenders, setTenders] = useState([]);
   const [regions, setRegions] = useState([]);
+  const [sources, setSources] = useState([]);
+  const [manualTenderOpen, setManualTenderOpen] = useState(false);
+  const [manualTenderSaving, setManualTenderSaving] = useState(false);
+  const [manualOptionsLoading, setManualOptionsLoading] = useState(false);
+  const [sourceLoadError, setSourceLoadError] = useState("");
+  const [regionLoadError, setRegionLoadError] = useState("");
+  const [manualTenderError, setManualTenderError] = useState("");
+  const [manualTenderMessage, setManualTenderMessage] = useState("");
+  const [manualSourceMode, setManualSourceMode] = useState("existing");
+  const [manualTenderForm, setManualTenderForm] = useState(EMPTY_MANUAL_TENDER);
   const [page, setPage] = useState(initialTenderState.page);
   const [refreshKey, setRefreshKey] = useState(0);
   const [pagination, setPagination] = useState({ total: 0, total_pages: 1 });
@@ -328,7 +370,7 @@ function AllTenders() {
     api.get("/api/regions").then((response) => {
       if (active) {
         const regionList = Array.isArray(response.data) ? response.data : [];
-        setRegions(regionList.map((region) => ({ value: region.name, label: region.name })));
+        setRegions(regionList);
       }
     }).catch((err) => {
       console.error("Failed to load regions:", err);
@@ -336,6 +378,110 @@ function AllTenders() {
     });
     return () => { active = false; };
   }, []);
+
+  async function loadManualTenderOptions() {
+    setManualOptionsLoading(true);
+    setSourceLoadError("");
+    setRegionLoadError("");
+    const [sourceResult, regionResult] = await Promise.allSettled([
+      api.get("/api/sources"),
+      api.get("/api/regions"),
+    ]);
+    if (sourceResult.status === "fulfilled") {
+      setSources(Array.isArray(sourceResult.value.data) ? sourceResult.value.data : []);
+    } else {
+      setSources([]);
+      setSourceLoadError(apiErrorMessage(sourceResult.reason, "Could not load tender sources."));
+    }
+    if (regionResult.status === "fulfilled") {
+      setRegions(Array.isArray(regionResult.value.data) ? regionResult.value.data : []);
+    } else {
+      setRegions([]);
+      setRegionLoadError(apiErrorMessage(regionResult.reason, "Could not load regions."));
+    }
+    setManualOptionsLoading(false);
+    return {
+      sourceFailed: sourceResult.status === "rejected",
+      regionFailed: regionResult.status === "rejected",
+    };
+  }
+
+  function openManualTenderForm() {
+    setManualTenderError("");
+    setManualTenderMessage("");
+    setManualTenderOpen(true);
+    loadManualTenderOptions();
+  }
+
+  function updateManualTenderField(event) {
+    const { name, value } = event.target;
+    setManualTenderForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function createManualTender(event) {
+    event.preventDefault();
+    if (!isAdmin || manualTenderSaving) return;
+
+    const required = ["tender_name", "organization", "city", "closed_date"];
+    if (required.some((field) => !manualTenderForm[field].trim())) {
+      setManualTenderError("Tender Name, Organization, City, and Closed Date are required.");
+      return;
+    }
+    if (!manualTenderForm.region_id) {
+      setManualTenderError("Select a region.");
+      return;
+    }
+    const newSourceName = manualTenderForm.new_source_name.trim();
+    if (manualSourceMode === "existing" && !manualTenderForm.source_id) {
+      setManualTenderError("Select an existing source or choose Add New Source.");
+      return;
+    }
+    if (manualSourceMode === "new" && !newSourceName) {
+      setManualTenderError("Enter a name for the new source.");
+      return;
+    }
+
+    const payload = {
+      ...(manualSourceMode === "existing"
+        ? { source_id: Number(manualTenderForm.source_id) }
+        : { new_source_name: newSourceName }),
+      region_id: Number(manualTenderForm.region_id),
+      tender_name: manualTenderForm.tender_name.trim(),
+      organization: manualTenderForm.organization.trim(),
+      city: manualTenderForm.city.trim(),
+      closed_date: manualTenderForm.closed_date,
+    };
+    ["web_tender_no", "tender_reference_no", "authority", "source_detail_url", "primary_document_url"].forEach((field) => {
+      const value = manualTenderForm[field].trim();
+      if (value) payload[field] = value;
+    });
+    if (manualTenderForm.estimated_value !== "") {
+      payload.estimated_value = Number(manualTenderForm.estimated_value);
+    }
+    if (manualTenderForm.advertised_date) {
+      payload.advertised_date = manualTenderForm.advertised_date;
+    }
+
+    setManualTenderSaving(true);
+    setManualTenderError("");
+    try {
+      const response = await api.post("/api/tenders", payload);
+      setManualTenderForm(EMPTY_MANUAL_TENDER);
+      setManualSourceMode("existing");
+      setManualTenderOpen(false);
+      setPage(1);
+      setRefreshKey((current) => current + 1);
+      const refreshResult = await loadManualTenderOptions();
+      const refreshNote = refreshResult.sourceFailed || refreshResult.regionFailed
+        ? " Tender was created, but an option list could not be refreshed; reopen the form to retry."
+        : "";
+      setManualTenderMessage(`Tender created successfully${response.data?.jazzid ? `: ${response.data.jazzid}.` : "."}${refreshNote}`);
+    } catch (error) {
+      setManualTenderError(apiErrorMessage(error, "Could not create the tender. Check the entered values and try again."));
+    } finally {
+      setManualTenderSaving(false);
+    }
+  }
 
   const updateQueryState = (setter, value) => {
     setter(value);
@@ -1033,6 +1179,11 @@ function AllTenders() {
 
           {isAdmin && (
             <div className="scraper-button-group">
+              <button type="button" className="run-scraper-button" onClick={openManualTenderForm}>
+                <Plus size={16} />
+                Create Tender
+              </button>
+
               <button
                 type="button"
                 className="run-scraper-button"
@@ -1143,6 +1294,51 @@ function AllTenders() {
         </div>
 
       </div>
+
+      {manualTenderMessage && <div className="manual-tender-success" role="status">{manualTenderMessage}</div>}
+
+      {manualTenderOpen && isAdmin && (
+        <div className="manual-tender-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !manualTenderSaving) setManualTenderOpen(false); }}>
+          <section className="manual-tender-dialog" role="dialog" aria-modal="true" aria-labelledby="manual-tender-title">
+            <div className="manual-tender-heading">
+              <div><h2 id="manual-tender-title">Create Manual Tender</h2><p>Enter the tender details, source, and region.</p></div>
+              <button type="button" className="manual-tender-close" onClick={() => setManualTenderOpen(false)} aria-label="Close form" disabled={manualTenderSaving}><X size={18} /></button>
+            </div>
+
+            {manualOptionsLoading && <p className="manual-tender-loading" role="status">Loading sources and regions...</p>}
+            {manualTenderError && <div className="manual-tender-error" role="alert">{manualTenderError}</div>}
+            {(sourceLoadError || regionLoadError) && <div className="manual-tender-load-errors" role="alert">{sourceLoadError && <p>Sources: {sourceLoadError}</p>}{regionLoadError && <p>Regions: {regionLoadError}</p>}<button type="button" onClick={loadManualTenderOptions} disabled={manualOptionsLoading}>Retry loading options</button></div>}
+
+            <form className="manual-tender-form" onSubmit={createManualTender}>
+              <label className="manual-tender-field"><span>Tender Name *</span><input name="tender_name" value={manualTenderForm.tender_name} onChange={updateManualTenderField} required /></label>
+              <label className="manual-tender-field"><span>Organization *</span><input name="organization" value={manualTenderForm.organization} onChange={updateManualTenderField} required /></label>
+              <label className="manual-tender-field"><span>City *</span><input name="city" value={manualTenderForm.city} onChange={updateManualTenderField} required /></label>
+              <label className="manual-tender-field"><span>Closed Date *</span><input type="datetime-local" name="closed_date" value={manualTenderForm.closed_date} onChange={updateManualTenderField} required /></label>
+              <label className="manual-tender-field"><span>Region *</span><select name="region_id" value={manualTenderForm.region_id} onChange={updateManualTenderField} required disabled={manualOptionsLoading || Boolean(regionLoadError)}><option value="">Select region</option>{regions.map((region) => <option key={region.id} value={region.id}>{region.name}</option>)}</select></label>
+              <label className="manual-tender-field"><span>Tender Source *</span><select value={manualSourceMode === "new" ? "new" : manualTenderForm.source_id} onChange={(event) => {
+                if (event.target.value === "new") {
+                  setManualSourceMode("new");
+                  setManualTenderForm((current) => ({ ...current, source_id: "" }));
+                } else {
+                  setManualSourceMode("existing");
+                  setManualTenderForm((current) => ({ ...current, source_id: event.target.value }));
+                }
+              }} required disabled={manualOptionsLoading}>
+                <option value="">Select existing source</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}<option value="new">Add New Source</option>
+              </select></label>
+              {manualSourceMode === "new" && <label className="manual-tender-field"><span>New Source Name *</span><input name="new_source_name" value={manualTenderForm.new_source_name} onChange={updateManualTenderField} required maxLength={150} /></label>}
+              <label className="manual-tender-field"><span>Web Tender No</span><input name="web_tender_no" value={manualTenderForm.web_tender_no} onChange={updateManualTenderField} /></label>
+              <label className="manual-tender-field"><span>Tender Reference No</span><input name="tender_reference_no" value={manualTenderForm.tender_reference_no} onChange={updateManualTenderField} /></label>
+              <label className="manual-tender-field"><span>Authority</span><input name="authority" value={manualTenderForm.authority} onChange={updateManualTenderField} /></label>
+              <label className="manual-tender-field"><span>Estimated Value</span><input type="number" name="estimated_value" value={manualTenderForm.estimated_value} onChange={updateManualTenderField} min="0" step="any" /></label>
+              <label className="manual-tender-field"><span>Advertised Date</span><input type="datetime-local" name="advertised_date" value={manualTenderForm.advertised_date} onChange={updateManualTenderField} /></label>
+              <label className="manual-tender-field"><span>Source Detail URL</span><input type="url" name="source_detail_url" value={manualTenderForm.source_detail_url} onChange={updateManualTenderField} /></label>
+              <label className="manual-tender-field"><span>Primary Document URL</span><input type="url" name="primary_document_url" value={manualTenderForm.primary_document_url} onChange={updateManualTenderField} /></label>
+              <div className="manual-tender-actions"><button type="button" className="manual-tender-cancel" onClick={() => setManualTenderOpen(false)} disabled={manualTenderSaving}>Cancel</button><button type="submit" className="run-scraper-button" disabled={manualTenderSaving || manualOptionsLoading || Boolean(regionLoadError) || !regions.length}>{manualTenderSaving ? "Creating..." : "Create Tender"}</button></div>
+            </form>
+          </section>
+        </div>
+      )}
 
       {/* =========================
           SCRAPER MESSAGE
@@ -1280,16 +1476,6 @@ function AllTenders() {
               </button>
             )}
 
-            {isAdmin && (
-              <div className="admin-score-filter">
-                <span>Relevance score</span>
-                <input type="number" min="0" value={scoreMin} onChange={(event) => updateQueryState(setScoreMin, event.target.value)} aria-label="Relevance score minimum" placeholder="Min" />
-                <input type="number" min="0" value={scoreMax} onChange={(event) => updateQueryState(setScoreMax, event.target.value)} aria-label="Relevance score maximum" placeholder="Max" />
-              </div>
-            )}
-
-            {isAdmin && <MultiSelectFilter id="region" label="Region" placeholder="All regions" options={regions} selected={regionFilter} onChange={(value) => updateQueryState(setRegionFilter, value)} compact openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />}
-
             <div className="sort-controls">
 
               <ArrowUpDown
@@ -1426,13 +1612,15 @@ function AllTenders() {
               <col className="tender-name-column" />
               <col className="city-column" />
               <col className="organization-column" />
+              <col className="region-column" />
               {isAdmin && <col className="source-column" />}
               <col className="product-column" />
+              <col className="relevance-score-column" />
               {isAdmin && <col className="advertised-date-column" />}
               <col className="submission-date-column" />
               <col className="estimated-value-column" />
               <col className="participation-status-column" />
-              <col className="actions-column" />
+              {!isAdmin && <col className="actions-column" />}
             </colgroup>
 
             <thead>
@@ -1542,6 +1730,11 @@ function AllTenders() {
                   />
                 </th>
 
+                <th className="region-column">
+                  Region
+                  {isAdmin && <MultiSelectFilter id="region" label="Region" placeholder="All regions" options={regions.map((region) => ({ value: region.name, label: region.name }))} selected={regionFilter} onChange={(value) => updateQueryState(setRegionFilter, value)} compact openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />}
+                </th>
+
                 {isAdmin && <th className="source-column">
                   Source
                   <MultiSelectFilter id="source" label="Source" placeholder="All sources" options={SOURCE_OPTIONS} selected={sourceFilter} onChange={(value) => updateQueryState(setSourceFilter, value)} openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />
@@ -1550,6 +1743,14 @@ function AllTenders() {
                 <th className="product-column">
                   Product
                   <MultiSelectFilter id="product" label="Product" placeholder="All products" options={PRODUCT_OPTIONS} selected={productFilter} onChange={(value) => updateQueryState(setProductFilter, value)} openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />
+                </th>
+
+                <th className="relevance-score-column">
+                  Relevance Score
+                  {isAdmin && <div className="column-range-filter">
+                    <input type="number" min="0" value={scoreMin} onChange={(event) => updateQueryState(setScoreMin, event.target.value)} aria-label="Relevance score minimum" placeholder="Min" />
+                    <input type="number" min="0" value={scoreMax} onChange={(event) => updateQueryState(setScoreMax, event.target.value)} aria-label="Relevance score maximum" placeholder="Max" />
+                  </div>}
                 </th>
 
                 {isAdmin && <th className="advertised-date-column">
@@ -1643,9 +1844,7 @@ function AllTenders() {
                   <MultiSelectFilter id="status" label="Status" placeholder="All statuses" options={PARTICIPATION_OPTIONS} selected={participationStatusFilter} onChange={(value) => updateQueryState(setParticipationStatusFilter, value)} openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} />
                 </th>
 
-                <th>
-                  Actions
-                </th>
+                {!isAdmin && <th>Actions</th>}
 
               </tr>
 
@@ -1727,6 +1926,8 @@ function AllTenders() {
                       )}
                     </td>
 
+                    <td className="region-column">{displayValue(tender.region)}</td>
+
                     {isAdmin && <td className="source-column">{displayValue(tender.source)}</td>}
 
                     <td className="product-column">
@@ -1736,6 +1937,8 @@ function AllTenders() {
                           : tender.matched_capabilities
                       )}
                     </td>
+
+                    <td className="relevance-score-column">{displayValue(tender.relevance_score)}</td>
 
                     {isAdmin && <td className="advertised-date-column">{formatDateOnly(tender.advertised_date)}</td>}
 
@@ -1757,7 +1960,7 @@ function AllTenders() {
                       )}
                     </td>
 
-                    <td>
+                    {!isAdmin && <td>
                       <button
                         type="button"
                         className="view-tender-button"
@@ -1769,7 +1972,7 @@ function AllTenders() {
                       >
                         View
                       </button>
-                    </td>
+                    </td>}
 
                   </tr>
                 )

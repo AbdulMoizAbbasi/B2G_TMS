@@ -115,6 +115,14 @@ function TenderDetail() {
   const [participationError, setParticipationError] =
     useState("");
 
+  const [assignmentEmailLoading, setAssignmentEmailLoading] =
+    useState(false);
+
+  const [assignmentEmailSuccess, setAssignmentEmailSuccess] =
+    useState("");
+
+  const assignmentEmailRequestRef = useRef(false);
+
   /*
    * ---------------------------------------------------------
    * Product dropdown
@@ -801,6 +809,46 @@ function TenderDetail() {
       );
     } finally {
       setParticipationLoading(false);
+    }
+  }
+
+  async function handleSendAssignmentEmail() {
+    if (
+      assignmentEmailRequestRef.current ||
+      assignmentEmailLoading ||
+      savedParticipation !== "ENGAGING" ||
+      !delegatedEmployeeId ||
+      !tender?.jazzid
+    ) {
+      return;
+    }
+
+    try {
+      assignmentEmailRequestRef.current = true;
+      setAssignmentEmailLoading(true);
+      setAssignmentEmailSuccess("");
+      setParticipationError("");
+
+      const response = await api.post(
+        `/api/tenders/${encodeURIComponent(tender.jazzid)}/send-assignment-email`
+      );
+
+      setAssignmentEmailSuccess(
+        response.data?.message || "Assignment email sent successfully."
+      );
+    } catch (err) {
+      console.error("Failed to send assignment email:", err);
+
+      setParticipationError(
+        err.response?.data?.detail ||
+          err.response?.data?.message ||
+          (err.response
+            ? `Failed to send assignment email (${err.response.status}).`
+            : "Network error. Could not confirm whether the assignment email was sent; please check before trying again.")
+      );
+    } finally {
+      assignmentEmailRequestRef.current = false;
+      setAssignmentEmailLoading(false);
     }
   }
 
@@ -1710,6 +1758,20 @@ function TenderDetail() {
 
               <div className="participation-summary-actions">
 
+                {savedParticipation === "ENGAGING" &&
+                  delegatedEmployeeId && (
+                    <button
+                      type="button"
+                      className="save-participation-button"
+                      onClick={handleSendAssignmentEmail}
+                      disabled={assignmentEmailLoading}
+                    >
+                      {assignmentEmailLoading
+                        ? "Sending..."
+                        : "Send Assignment Email"}
+                    </button>
+                  )}
+
                 <button
                   type="button"
                   className="edit-participation-button"
@@ -2205,6 +2267,12 @@ function TenderDetail() {
         {participationError && (
           <div className="edit-error">
             {participationError}
+          </div>
+        )}
+
+        {assignmentEmailSuccess && (
+          <div className="assignment-email-success" role="status">
+            {assignmentEmailSuccess}
           </div>
         )}
 

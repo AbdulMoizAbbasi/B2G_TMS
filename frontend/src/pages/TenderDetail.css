@@ -1323,6 +1323,13 @@
   cursor: not-allowed;
 }
 
+.assignment-email-success {
+  margin-top: 12px;
+  color: var(--success-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 /* ---------------------------------------------------------
    Admin / Viewer Read-only Participation
    --------------------------------------------------------- */
