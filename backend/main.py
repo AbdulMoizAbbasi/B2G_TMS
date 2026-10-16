@@ -315,6 +315,27 @@ class ScraperImportRequest(BaseModel):
     tenders: List[Dict[str, Any]]
 
 
+class AdminEmployeeCreateRequest(BaseModel):
+    employee_code: str
+    name: str
+    email: str | None = None
+    region_id: int
+    is_active: bool = True
+
+
+class AdminEmployeeUpdateRequest(BaseModel):
+    employee_code: str | None = None
+    name: str | None = None
+    email: str | None = None
+    region_id: int | None = None
+
+
+class AdminEmployeeStatusRequest(BaseModel):
+    is_active: bool
+
+
+
+
 @app.get("/")
 def root():
     return {
@@ -3197,3 +3218,273 @@ def reset_admin_user_password(
     db.commit()
 
     return {"message": "Password reset successfully."}
+
+
+
+
+# ============================================================
+# ADMIN EMPLOYEE MANAGEMENT
+# ============================================================
+
+def serialize_admin_employee(employee: Employee) -> dict:
+    return {
+        "id": employee.id,
+        "employee_code": employee.employee_code,
+        "name": employee.name,
+        "email": employee.email,
+        "region_id": employee.region_id,
+        "region_name": (
+            employee.region.name if employee.region else None
+        ),
+        "is_active": employee.is_active,
+        "created_at": employee.created_at,
+        "updated_at": employee.updated_at,
+    }
+
+
+def get_admin_employee_query(db: Session):
+    return db.query(Employee).options(
+        joinedload(Employee.region)
+    )
+
+
+@app.get("/api/admin/employees")
+def list_admin_employees(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    employees = (
+        get_admin_employee_query(db)
+        .order_by(Employee.region_id, Employee.name)
+        .all()
+    )
+
+    return [
+        serialize_admin_employee(employee)
+        for employee in employees
+    ]
+
+
+@app.post("/api/admin/employees", status_code=201)
+def create_admin_employee(
+    request: AdminEmployeeCreateRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    employee_code = request.employee_code.strip()
+    name = request.name.strip()
+    email = request.email.strip() if request.email else None
+
+    if not employee_code or not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Employee code and name cannot be blank.",
+        )
+
+    region = (
+        db.query(Region)
+        .filter(Region.id == request.region_id)
+        .first()
+    )
+
+    if region is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Selected region does not exist.",
+        )
+
+    existing = (
+        db.query(Employee)
+        .filter(Employee.employee_code == employee_code)
+        .first()
+    )
+
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="Employee code already exists.",
+        )
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    employee = Employee(
+        employee_code=employee_code,
+        name=name,
+        email=email,
+        region_id=region.id,
+        is_active=request.is_active,
+        created_at=now,
+        updated_at=now,
+    )
+
+    try:
+        db.add(employee)
+        db.commit()
+        employee_id = employee.id
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Employee code conflicts with an existing record.",
+        )
+
+    created_employee = (
+        get_admin_employee_query(db)
+        .filter(Employee.id == employee_id)
+        .first()
+    )
+
+    return serialize_admin_employee(created_employee)
+
+
+
+
+@app.patch("/api/admin/employees/{employee_id}")
+def update_admin_employee(
+    employee_id: int,
+    request: AdminEmployeeUpdateRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    employee = (
+        db.query(Employee)
+        .filter(Employee.id == employee_id)
+        .first()
+    )
+
+    if employee is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Employee not found.",
+        )
+
+    changes = request.dict(exclude_unset=True)
+
+    if not changes:
+        raise HTTPException(
+            status_code=400,
+            detail="No changes provided.",
+        )
+
+    if "employee_code" in changes:
+        value = changes["employee_code"]
+
+        if value is None or not value.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Employee code cannot be blank.",
+            )
+
+        employee_code = value.strip()
+
+        duplicate = (
+            db.query(Employee)
+            .filter(
+                Employee.employee_code == employee_code,
+                Employee.id != employee_id,
+            )
+            .first()
+        )
+
+        if duplicate:
+            raise HTTPException(
+                status_code=409,
+                detail="Employee code already exists.",
+            )
+
+        employee.employee_code = employee_code
+
+    if "name" in changes:
+        value = changes["name"]
+
+        if value is None or not value.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Employee name cannot be blank.",
+            )
+
+        employee.name = value.strip()
+
+    if "email" in changes:
+        value = changes["email"]
+        employee.email = value.strip() if value else None
+
+    if "region_id" in changes:
+        region_id = changes["region_id"]
+
+        if region_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Region cannot be null.",
+            )
+
+        region = (
+            db.query(Region)
+            .filter(Region.id == region_id)
+            .first()
+        )
+
+        if region is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Selected region does not exist.",
+            )
+
+        employee.region_id = region.id
+
+    employee.updated_at = (
+        datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+    try:
+        db.commit()
+
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Employee update conflicts with an existing record.",
+        )
+
+    updated_employee = (
+        get_admin_employee_query(db)
+        .filter(Employee.id == employee_id)
+        .first()
+    )
+
+    return serialize_admin_employee(updated_employee)
+
+
+@app.patch("/api/admin/employees/{employee_id}/status")
+def update_admin_employee_status(
+    employee_id: int,
+    request: AdminEmployeeStatusRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    employee = (
+        db.query(Employee)
+        .filter(Employee.id == employee_id)
+        .first()
+    )
+
+    if employee is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Employee not found.",
+        )
+
+    employee.is_active = request.is_active
+    employee.updated_at = (
+        datetime.now(timezone.utc).replace(tzinfo=None)
+    )
+
+    db.commit()
+    db.refresh(employee)
+
+    return {
+        "id": employee.id,
+        "employee_code": employee.employee_code,
+        "is_active": employee.is_active,
+    }
