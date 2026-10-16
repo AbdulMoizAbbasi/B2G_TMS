@@ -56,3 +56,11 @@
   .um-modal { padding: 18px; }
 }
 @media (max-width: 440px) { .um-form-grid { grid-template-columns: 1fr; } .um-full-width { grid-column: auto; } }
+.jbc-section { margin-top: 22px; }
+.um-heading-actions { display: flex; align-items: center; gap: 9px; }
+.jbc-filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(150px, 220px) minmax(140px, 180px); gap: 13px; padding: 15px 18px; border-bottom: 1px solid var(--border); }
+.jbc-filters label { display: flex; flex-direction: column; gap: 6px; color: var(--text-secondary); font-size: 11px; font-weight: 650; }
+.jbc-filters input, .jbc-filters select { min-height: 38px; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-secondary); color: var(--text-primary); font: inherit; font-size: 12px; }
+.jbc-filters input:focus, .jbc-filters select:focus { border-color: var(--accent); outline: 2px solid var(--accent-soft); }
+.jbc-table { min-width: 630px; }
+@media (max-width: 700px) { .jbc-filters { grid-template-columns: 1fr; padding: 14px; } .um-heading-actions { align-items: flex-end; flex-direction: column-reverse; } }
