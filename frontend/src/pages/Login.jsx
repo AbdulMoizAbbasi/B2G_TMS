@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Sun, Moon } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
-import jazzRadarLogo from "../assets/logo.png";
+import b2gPoster from "../assets/poster.png";
 import "./Login.css";
 
 function Login() {
@@ -57,9 +57,7 @@ function Login() {
       </button>
       <div className="login-card">
         <div className="login-header">
-          <img className="login-brand-logo" src={jazzRadarLogo} alt="Jazz Radar logo" />
-          <h1>Jazz Radar</h1>
-          <p>B2G Tender Portal</p>
+          <img className="login-brand-poster" src={b2gPoster} alt="B2G Initiative and Jazz Radar" />
         </div>
 
         <form onSubmit={handleSubmit}>

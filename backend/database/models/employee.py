@@ -61,3 +61,10 @@ class Employee(Base):
         "TenderParticipation",
         back_populates="delegated_employee",
     )
+
+    designation: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="JBC",
+        server_default="JBC",
+    )

@@ -35,12 +35,12 @@
   margin-bottom: 32px;
 }
 
-.login-brand-logo {
+.login-brand-poster {
   display: block;
-  width: 190px;
+  width: 100%;
   max-width: 100%;
-  height: 120px;
-  margin: 0 auto 12px;
+  height: 132px;
+  margin: 0 auto 18px;
   object-fit: contain;
 }
 

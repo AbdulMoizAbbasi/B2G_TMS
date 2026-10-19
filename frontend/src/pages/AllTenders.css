@@ -1491,6 +1491,21 @@
   font-size: 11px;
 }
 
+.tenders-page .score-range-error,
+.tenders-page .tender-filter-error {
+  margin: 6px 0 0;
+  color: #b42318;
+  font-size: 12px;
+}
+
+.tenders-page .tender-filter-error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #fda29b;
+  border-radius: 6px;
+  background: #fef3f2;
+}
+
 /* Clearer surface contrast across the tender dashboard. */
 .tenders-page .tender-summary-card {
   border-color: var(--border-strong);
@@ -1707,3 +1722,4 @@
 .tenders-page .scraper-checkpoint-error {
   color: var(--danger-text);
 }
+

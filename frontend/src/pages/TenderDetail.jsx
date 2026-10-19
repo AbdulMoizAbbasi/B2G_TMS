@@ -299,7 +299,10 @@ function TenderDetail() {
           "/api/employees"
         );
 
-        setEmployees(response.data);
+        const employeeRecords = Array.isArray(response.data) ? response.data : [];
+        setEmployees(employeeRecords.filter(
+          (employee) => employee.is_active !== false && (employee.designation ?? "JBC") === "JBC"
+        ));
       } catch (err) {
         console.error(
           "Failed to load employees:",
@@ -1925,11 +1928,11 @@ function TenderDetail() {
                         )
                       }
                       disabled={
-                        participationLoading
+                        participationLoading || employees.length === 0
                       }
                     >
                       <option value="">
-                        Select JBC / Employee
+                        {employees.length ? "Select JBC / Employee" : "No active JBC employees available"}
                       </option>
 
                       {employees.map(

@@ -354,6 +354,12 @@ function AllTenders() {
   const [regionFilter, setRegionFilter] = useState(initialTenderState.regionFilter);
   const [scoreMin, setScoreMin] = useState(initialTenderState.scoreMin);
   const [scoreMax, setScoreMax] = useState(initialTenderState.scoreMax);
+  const scoreRangeInvalid = scoreMin !== "" && scoreMax !== "" &&
+    Number.isFinite(Number(scoreMin)) && Number.isFinite(Number(scoreMax)) &&
+    Number(scoreMin) > Number(scoreMax);
+  const scoreRangeError = scoreRangeInvalid
+    ? "Minimum relevance score must be less than or equal to the maximum."
+    : "";
   const [advertisedDateFrom, setAdvertisedDateFrom] = useState(initialTenderState.advertisedDateFrom);
   const [advertisedDateTo, setAdvertisedDateTo] = useState(initialTenderState.advertisedDateTo);
   /*
@@ -594,7 +600,13 @@ function AllTenders() {
    */
   useEffect(() => {
     const fetchTenders = async () => {
+      if (scoreRangeInvalid) {
+        setLoading(false);
+        setError("");
+        return;
+      }
       try {
+        setError("");
         const params = new URLSearchParams();
         const scalarParams = {
           page, page_size: 10, tender_no: tenderNoFilter, tender_name: tenderNameFilter,
@@ -621,17 +633,21 @@ function AllTenders() {
         setSummary(response.data.summary || { total: 0, review_pending: 0, participating: 0, participated: 0, not_participating: 0, closing_soon: 0 });
       } catch (err) {
         console.error(err);
-
-        setError(
-          "Failed to load tenders."
-        );
+        if (err.response?.status === 400) {
+          setTenders([]);
+          setPagination({ total: 0, total_pages: 1 });
+          setSummary({ total: 0, review_pending: 0, participating: 0, participated: 0, not_participating: 0, closing_soon: 0 });
+          setError(apiErrorMessage(err, "The tender filters were rejected. Check the score range and try again."));
+        } else {
+          setError("Failed to load tenders.");
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchTenders();
-  }, [page, tenderNoFilter, tenderNameFilter, cityFilter, organizationFilter, submissionDateFrom, submissionDateTo, estimatedValueMin, estimatedValueMax, participationStatusFilter, productFilter, sourceFilter, regionFilter, scoreMin, scoreMax, advertisedDateFrom, advertisedDateTo, sortBy, sortOrder, refreshKey, isAdmin]);
+  }, [page, tenderNoFilter, tenderNameFilter, cityFilter, organizationFilter, submissionDateFrom, submissionDateTo, estimatedValueMin, estimatedValueMax, participationStatusFilter, productFilter, sourceFilter, regionFilter, scoreMin, scoreMax, advertisedDateFrom, advertisedDateTo, sortBy, sortOrder, refreshKey, isAdmin, scoreRangeInvalid]);
 
   /*
    * Check scraper status.
@@ -1150,7 +1166,7 @@ function AllTenders() {
     );
   }
 
-  if (error) {
+  if (error === "Failed to load tenders.") {
     return <h1>{error}</h1>;
   }
 
@@ -1448,6 +1464,8 @@ function AllTenders() {
       {/* =========================
           TABLE
       ========================== */}
+
+      {error && <div className="tender-filter-error" role="alert">{error}</div>}
 
       <div className="table-section">
 
@@ -1750,9 +1768,10 @@ function AllTenders() {
                 <th className="relevance-score-column">
                   Relevance Score
                   <div className="column-range-filter">
-                    <input type="number" min="0" value={scoreMin} onChange={(event) => updateQueryState(setScoreMin, event.target.value)} aria-label="Relevance score minimum" placeholder="Min" />
-                    <input type="number" min="0" value={scoreMax} onChange={(event) => updateQueryState(setScoreMax, event.target.value)} aria-label="Relevance score maximum" placeholder="Max" />
+                    <input type="number" min="0" value={scoreMin} onChange={(event) => updateQueryState(setScoreMin, event.target.value)} aria-label="Relevance score minimum" aria-invalid={scoreRangeInvalid} aria-describedby={scoreRangeError ? "score-range-error" : undefined} placeholder="Min" />
+                    <input type="number" min="0" value={scoreMax} onChange={(event) => updateQueryState(setScoreMax, event.target.value)} aria-label="Relevance score maximum" aria-invalid={scoreRangeInvalid} aria-describedby={scoreRangeError ? "score-range-error" : undefined} placeholder="Max" />
                   </div>
+                  {scoreRangeError && <p id="score-range-error" className="score-range-error" role="alert">{scoreRangeError}</p>}
                 </th>
 
                 {isAdmin && <th className="advertised-date-column">

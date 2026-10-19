@@ -19,11 +19,6 @@ from tender_scraper.storage.db_mapper import (
 from tender_scraper.storage.mysql_storage import persist_tender
 
 
-from tender_scraper.storage.document_downloader import (
-    download_document,
-)
-
-
 from tender_scraper.storage.checkpoint import (
     update_checkpoint,
 )
@@ -342,42 +337,6 @@ def process_local_punjab_tenders(tenders):
             )
 
             # ------------------------------------------------
-            # Download primary document only for relevant
-            # tenders
-            # ------------------------------------------------
-
-            if keyword_score > 0:
-
-                documents = mapped_tender.get(
-                    "documents",
-                    [],
-                )
-
-                for document in documents:
-
-                    source_url = document.get(
-                        "source_url"
-                    )
-
-                    if not source_url:
-                        continue
-
-                    download_result = download_document(
-                        source_url,
-                        source=PUNJAB_PORTAL,
-                        tender_key=tender.get(
-                            "id"
-                        ),
-                        document_name=(
-                            "bidding_document.pdf"
-                        ),
-                    )
-
-                    document.update(
-                        download_result
-                    )
-
-            # ------------------------------------------------
             # Persist
             # ------------------------------------------------
 
@@ -579,48 +538,6 @@ def process_local_balochistan_tenders(tenders):
                 tender=normalized,
                 relevance_result=analysis,
             )
-
-            # ------------------------------------------------
-            # 4. Download primary document only for relevant
-            # ------------------------------------------------
-
-            if keyword_score > 0:
-
-                documents = mapped_tender.get(
-                    "documents",
-                    [],
-                )
-
-                for document in documents:
-
-                    source_url = document.get(
-                        "source_url"
-                    )
-
-                    if not source_url:
-                        continue
-
-                    tender_key = (
-                        tender.get(
-                            "TSENumber"
-                        )
-                        or str(
-                            tender.get(
-                                "Id"
-                            )
-                        )
-                    )
-
-                    download_result = download_document(
-                        source_url,
-                        source=BALOCHISTAN_PORTAL,
-                        tender_key=tender_key,
-                        document_name="Bidding Document",
-                    )
-
-                    document.update(
-                        download_result
-                    )
 
             # ------------------------------------------------
             # 5. Persist

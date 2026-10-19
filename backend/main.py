@@ -19,6 +19,7 @@ import mimetypes
 import httpx
 import jwt
 import os
+import re
 from database.connection import SessionLocal
 from database.models.user import User
 from database.models.coordinator import Coordinator
@@ -318,9 +319,10 @@ class ScraperImportRequest(BaseModel):
 class AdminEmployeeCreateRequest(BaseModel):
     employee_code: str
     name: str
-    email: str | None = None
+    email: str
     region_id: int
     is_active: bool = True
+    designation: str = "JBC"
 
 
 class AdminEmployeeUpdateRequest(BaseModel):
@@ -328,6 +330,18 @@ class AdminEmployeeUpdateRequest(BaseModel):
     name: str | None = None
     email: str | None = None
     region_id: int | None = None
+    designation: str | None = None
+
+
+def normalize_and_validate_employee_email(email: str | None) -> str:
+    normalized = email.strip() if email is not None else ""
+    email_pattern = r"[A-Za-z0-9.!#$%&'*+/=?^_{}|~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+"
+    if not re.fullmatch(email_pattern, normalized):
+        raise HTTPException(
+            status_code=400,
+            detail="A valid employee email address is required.",
+        )
+    return normalized
 
 
 class AdminEmployeeStatusRequest(BaseModel):
@@ -1339,6 +1353,7 @@ def update_tender_participation(
                 Employee.id == request.employee_id,
                 Employee.is_active == True,
                 Employee.region_id == coordinator.region_id,
+                Employee.designation == "JBC",
             )
             .first()
         )
@@ -1346,7 +1361,7 @@ def update_tender_participation(
         if employee is None:
             raise HTTPException(
                 status_code=400,
-                detail="Employee does not belong to your region or is inactive",
+                detail="Employee must be an active JBC in your region.",
             )
 
         # -----------------------------------------------------
@@ -1457,22 +1472,44 @@ def update_tender_participation(
     }
 
 
+from datetime import date
+
 @app.get("/api/internal/alerts/pending-participation")
 def get_pending_participation_alerts(
     _: bool = Depends(require_alert_service_key),
     db: Session = Depends(get_db),
 ):
-    coordinators = (
-        db.query(Coordinator)
-        .join(User, Coordinator.user_id == User.id)
-        .filter(User.is_active == True)
-        .all()
-    )
+    cutoff_date = date(2026, 10, 15)
 
-    results = []
+    regional_reports = []
 
-    for coordinator in coordinators:
-        user = coordinator.user
+    regions = db.query(Region).order_by(Region.id.asc()).all()
+
+    for region in regions:
+        region_id = region.id
+
+        coordinator = (
+            db.query(Coordinator)
+            .join(User, Coordinator.user_id == User.id)
+            .filter(
+                Coordinator.region_id == region_id,
+                User.is_active == True,
+            )
+            .first()
+        )
+        user = coordinator.user if coordinator else None
+
+        # Find the active Regional Head for this region, if one exists.
+        regional_head = (
+            db.query(Employee)
+            .filter(
+                Employee.region_id == region_id,
+                Employee.designation == "REGIONAL_HEAD",
+                Employee.is_active == True,
+            )
+            .order_by(Employee.id.asc())
+            .first()
+        )
 
         tenders = (
             db.query(Tender)
@@ -1482,37 +1519,30 @@ def get_pending_participation_alerts(
             )
             .join(
                 TenderRelevance,
-                TenderRelevance.tender_jazzid
-                == Tender.jazzid,
+                TenderRelevance.tender_jazzid == Tender.jazzid,
             )
             .outerjoin(
                 TenderParticipation,
-                TenderParticipation.tender_jazzid
-                == Tender.jazzid,
+                TenderParticipation.tender_jazzid == Tender.jazzid,
             )
             .filter(
-                Tender.region_id
-                == coordinator.region_id,
+                Tender.region_id == region_id,
                 TenderRelevance.keyword_score > 0,
+                Tender.advertised_date > cutoff_date,
             )
             .filter(
                 (TenderParticipation.id == None)
-                |
-                (
+                | (
                     TenderParticipation.status.in_(
-                        [
-                            "NOT_REVIEWED",
-                        ]
+                        ["NOT_REVIEWED", "ENGAGING"]
                     )
                 )
             )
-            .order_by(
-                Tender.closed_date.asc()
-            )
+            .order_by(Tender.closed_date.asc())
             .all()
         )
 
-        if not tenders:
+        if coordinator is None and regional_head is None:
             continue
 
         tender_items = []
@@ -1521,8 +1551,7 @@ def get_pending_participation_alerts(
             participation = (
                 db.query(TenderParticipation)
                 .filter(
-                    TenderParticipation.tender_jazzid
-                    == tender.jazzid
+                    TenderParticipation.tender_jazzid == tender.jazzid
                 )
                 .first()
             )
@@ -1533,41 +1562,76 @@ def get_pending_participation_alerts(
                 else "NOT_REVIEWED"
             )
 
+            # Get the assigned JBC name for ENGAGING tenders.
+            jbc_name = None
+
+            if (
+                status == "ENGAGING"
+                and participation
+                and participation.delegated_employee_id
+            ):
+                jbc = (
+                    db.query(Employee)
+                    .filter(
+                        Employee.id
+                        == participation.delegated_employee_id
+                    )
+                    .first()
+                )
+
+                if jbc:
+                    jbc_name = jbc.name
+
             tender_items.append(
                 {
                     "jazzid": tender.jazzid,
                     "web_tender_no": tender.web_tender_no,
-                    "tender_reference_no": (
-                        tender.tender_reference_no
-                    ),
+                    "tender_reference_no": tender.tender_reference_no,
                     "tender_name": tender.tender_name,
                     "source": (
-                        tender.source.name
-                        if tender.source
-                        else None
+                        tender.source.name if tender.source else None
                     ),
+                    "advertised_date": tender.advertised_date,
                     "closed_date": tender.closed_date,
                     "status": status,
+                    "jbc_name": jbc_name,
                 }
             )
 
-        results.append(
+        regional_reports.append(
             {
-                "coordinator_id": coordinator.user_id,
-                "name": user.name,
-                "email": user.email,
-                "region_id": coordinator.region_id,
+                "region_id": region_id,
+                "region_name": region.name,
+                "recipients": {
+                    "coordinator": (
+                        {
+                            "id": coordinator.user_id,
+                            "name": user.name,
+                            "email": user.email,
+                        }
+                        if coordinator
+                        else None
+                    ),
+                    "regional_head": (
+                        {
+                            "id": regional_head.id,
+                            "name": regional_head.name,
+                            "email": regional_head.email,
+                        }
+                        if regional_head
+                        else None
+                    ),
+                },
                 "pending_count": len(tender_items),
                 "tenders": tender_items,
             }
         )
 
     return {
-        "coordinators": results,
-        "total_coordinators": len(results),
+        "regional_reports": regional_reports,
+        "total_regional_reports": len(regional_reports),
         "generated_at": datetime.now(timezone.utc),
     }
-
 
 @app.put("/api/tenders/{jazzid}/participation/delegate")
 def delegate_tender(
@@ -1640,6 +1704,7 @@ def delegate_tender(
             Employee.id == request.employee_id,
             Employee.is_active == True,
             Employee.region_id == coordinator.region_id,
+            Employee.designation == "JBC",
         )
         .first()
     )
@@ -1647,7 +1712,7 @@ def delegate_tender(
     if employee is None:
         raise HTTPException(
             status_code=400,
-            detail="Employee does not belong to your region or is inactive",
+            detail="Employee must be an active JBC in your region.",
         )
 
     participation.delegated_employee_id = employee.id
@@ -1845,18 +1910,10 @@ def update_tender(
                 detail="Tender relevance record not found",
             )
 
-        old_score = relevance.keyword_score
         new_score = update_data["relevance_score"]
 
         relevance.keyword_score = new_score
 
-        # If admin makes a previously irrelevant tender relevant,
-        # download its primary document if available.
-        if old_score <= 0 and new_score > 0:
-            download_tender_document_if_available(
-                db=db,
-                tender=tender,
-            )
     db.commit()
 
     return {
@@ -2167,7 +2224,10 @@ def get_employees(
 ):
     query = (
         db.query(Employee)
-        .filter(Employee.is_active == True)
+        .filter(
+            Employee.is_active == True,
+            Employee.designation == "JBC",
+        )
     )
 
     if current_user.role.name == "COORDINATOR":
@@ -3237,6 +3297,7 @@ def serialize_admin_employee(employee: Employee) -> dict:
             employee.region.name if employee.region else None
         ),
         "is_active": employee.is_active,
+        "designation": employee.designation,
         "created_at": employee.created_at,
         "updated_at": employee.updated_at,
     }
@@ -3273,7 +3334,13 @@ def create_admin_employee(
 ):
     employee_code = request.employee_code.strip()
     name = request.name.strip()
-    email = request.email.strip() if request.email else None
+    email = normalize_and_validate_employee_email(request.email)
+
+    if request.designation not in {"JBC", "REGIONAL_HEAD"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Designation must be JBC or REGIONAL_HEAD.",
+        )
 
     if not employee_code or not name:
         raise HTTPException(
@@ -3313,6 +3380,7 @@ def create_admin_employee(
         email=email,
         region_id=region.id,
         is_active=request.is_active,
+        designation=request.designation,
         created_at=now,
         updated_at=now,
     )
@@ -3367,6 +3435,20 @@ def update_admin_employee(
             detail="No changes provided.",
         )
 
+    if "designation" in changes and changes["designation"] not in {
+        "JBC",
+        "REGIONAL_HEAD",
+    }:
+        raise HTTPException(
+            status_code=400,
+            detail="Designation must be JBC or REGIONAL_HEAD.",
+        )
+
+    if "email" in changes:
+        changes["email"] = normalize_and_validate_employee_email(
+            changes["email"]
+        )
+
     if "employee_code" in changes:
         value = changes["employee_code"]
 
@@ -3407,8 +3489,10 @@ def update_admin_employee(
         employee.name = value.strip()
 
     if "email" in changes:
-        value = changes["email"]
-        employee.email = value.strip() if value else None
+        employee.email = changes["email"]
+
+    if "designation" in changes:
+        employee.designation = changes["designation"]
 
     if "region_id" in changes:
         region_id = changes["region_id"]

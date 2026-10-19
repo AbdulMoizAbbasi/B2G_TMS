@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import { LogOut, Menu, X } from "lucide-react";
 import { ClipboardList, LayoutDashboard, Sun, Moon, Users } from "lucide-react";
 import jazzRadarLogo from "../assets/logo.png";
+import b2gLogo from "../assets/b2g.png";
 
 function Layout() {
   const { user, logout } = useAuth();
@@ -42,9 +43,10 @@ function Layout() {
     <div className={`app-layout ${sidebarOpen ? "" : "sidebar-is-hidden"}`}>
       <aside className="sidebar" aria-hidden={!sidebarOpen} inert={!sidebarOpen}>
         <div className="sidebar-header">
-          <img className="sidebar-brand-logo" src={jazzRadarLogo} alt="Jazz Radar logo" />
-          <h1>Jazz Radar</h1>
-          <span>B2G Tender Portal</span>
+          <img className="sidebar-b2g-logo" src={b2gLogo} alt="B2G Initiative" />
+          <div className="sidebar-secondary-brand">
+            <img className="sidebar-brand-logo" src={jazzRadarLogo} alt="Jazz Radar" />
+          </div>
         </div>
 
         <nav className="sidebar-nav">
@@ -100,6 +102,12 @@ function Layout() {
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
+
+          <div className="top-bar-brand" aria-label="B2G and Jazz Radar">
+            <img className="top-bar-b2g-logo" src={b2gLogo} alt="B2G" />
+            <span className="top-bar-brand-divider" aria-hidden="true" />
+            <img className="top-bar-jazz-logo" src={jazzRadarLogo} alt="Jazz Radar" />
+          </div>
 
           <button
             className="theme-toggle"

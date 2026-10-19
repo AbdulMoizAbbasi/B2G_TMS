@@ -45,6 +45,7 @@ Keywords = {
     "Technology": 20,
     "Tech": 20,
     "IT": 20,
+    "I.T": 20,
     "Information Technology": 20,
     "CCTV": 10,
     "Camera": 10,
