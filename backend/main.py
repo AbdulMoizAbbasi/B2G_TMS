@@ -1479,38 +1479,46 @@ def get_pending_participation_alerts(
     _: bool = Depends(require_alert_service_key),
     db: Session = Depends(get_db),
 ):
+    # Include tenders advertised from 16 October 2026 onward.
+    # This preserves your current cutoff logic.
     cutoff_date = date(2026, 10, 15)
 
     regional_reports = []
 
+    # Process every region in ID order.
     regions = db.query(Region).order_by(Region.id.asc()).all()
 
     for region in regions:
         region_id = region.id
 
+        # Find the active coordinator assigned to this region.
         coordinator = (
             db.query(Coordinator)
             .join(User, Coordinator.user_id == User.id)
             .filter(
                 Coordinator.region_id == region_id,
-                User.is_active == True,
+                User.is_active.is_(True),
             )
             .first()
         )
-        user = coordinator.user if coordinator else None
 
-        # Find the active Regional Head for this region, if one exists.
+        coordinator_user = coordinator.user if coordinator else None
+
+        # Find the active Regional Head assigned to this region.
         regional_head = (
             db.query(Employee)
             .filter(
                 Employee.region_id == region_id,
                 Employee.designation == "REGIONAL_HEAD",
-                Employee.is_active == True,
+                Employee.is_active.is_(True),
             )
             .order_by(Employee.id.asc())
             .first()
         )
 
+        # Fetch relevant tenders that require follow-up.
+        # Include tenders with no participation record as NOT_REVIEWED,
+        # and tenders whose participation status is NOT_REVIEWED or ENGAGING.
         tenders = (
             db.query(Tender)
             .join(
@@ -1531,7 +1539,7 @@ def get_pending_participation_alerts(
                 Tender.advertised_date > cutoff_date,
             )
             .filter(
-                (TenderParticipation.id == None)
+                (TenderParticipation.id.is_(None))
                 | (
                     TenderParticipation.status.in_(
                         ["NOT_REVIEWED", "ENGAGING"]
@@ -1542,12 +1550,15 @@ def get_pending_participation_alerts(
             .all()
         )
 
+        # Skip regions that have neither an active coordinator
+        # nor an active Regional Head.
         if coordinator is None and regional_head is None:
             continue
 
         tender_items = []
 
         for tender in tenders:
+            # Get the participation record for this tender.
             participation = (
                 db.query(TenderParticipation)
                 .filter(
@@ -1556,13 +1567,14 @@ def get_pending_participation_alerts(
                 .first()
             )
 
+            # No participation record means NOT_REVIEWED.
             status = (
                 participation.status
                 if participation
                 else "NOT_REVIEWED"
             )
 
-            # Get the assigned JBC name for ENGAGING tenders.
+            # Include the assigned JBC name for ENGAGING tenders.
             jbc_name = None
 
             if (
@@ -1589,7 +1601,9 @@ def get_pending_participation_alerts(
                     "tender_reference_no": tender.tender_reference_no,
                     "tender_name": tender.tender_name,
                     "source": (
-                        tender.source.name if tender.source else None
+                        tender.source.name
+                        if tender.source
+                        else None
                     ),
                     "advertised_date": tender.advertised_date,
                     "closed_date": tender.closed_date,
@@ -1598,20 +1612,39 @@ def get_pending_participation_alerts(
                 }
             )
 
+        # Calculate the three summary counts.
+        engaging_count = sum(
+            1
+            for tender in tender_items
+            if tender["status"] == "ENGAGING"
+        )
+
+        not_reviewed_count = sum(
+            1
+            for tender in tender_items
+            if tender["status"] == "NOT_REVIEWED"
+        )
+
+        # Total tenders requiring follow-up.
+        pending_count = engaging_count + not_reviewed_count
+
+        # Build the report for this region.
         regional_reports.append(
             {
                 "region_id": region_id,
                 "region_name": region.name,
+
                 "recipients": {
                     "coordinator": (
                         {
-                            "id": coordinator.user_id,
-                            "name": user.name,
-                            "email": user.email,
+                            "id": coordinator_user.id,
+                            "name": coordinator_user.name,
+                            "email": coordinator_user.email,
                         }
-                        if coordinator
+                        if coordinator_user
                         else None
                     ),
+
                     "regional_head": (
                         {
                             "id": regional_head.id,
@@ -1622,11 +1655,18 @@ def get_pending_participation_alerts(
                         else None
                     ),
                 },
-                "pending_count": len(tender_items),
+
+                # Summary values used by Power Automate.
+                "engaging_count": engaging_count,
+                "not_reviewed_count": not_reviewed_count,
+                "pending_count": pending_count,
+
+                # Tender details used to build the HTML email table.
                 "tenders": tender_items,
             }
         )
 
+    # Return the response expected by Power Automate.
     return {
         "regional_reports": regional_reports,
         "total_regional_reports": len(regional_reports),

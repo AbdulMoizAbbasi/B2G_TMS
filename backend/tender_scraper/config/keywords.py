@@ -1,4 +1,9 @@
 Keywords = {
+    "TELECOM":50,
+    "Telecommunications": 50,
+    "Telecommunication": 50,
+    "Mobile Network": 50,
+    "Cellular": 50,
     "GSM": 20,
     "SCADA": 10,
     "Gauging System": 10,
