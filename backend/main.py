@@ -1600,6 +1600,7 @@ def get_pending_participation_alerts(
                     "web_tender_no": tender.web_tender_no,
                     "tender_reference_no": tender.tender_reference_no,
                     "tender_name": tender.tender_name,
+                    "organization": tender.organization,
                     "source": (
                         tender.source.name
                         if tender.source

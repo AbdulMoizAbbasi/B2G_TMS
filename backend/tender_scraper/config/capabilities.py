@@ -1,6 +1,11 @@
 CAPABILITIES = {
     "GSM": {
         "keywords": [
+            "Telecom",
+            "Telecommunications",
+            "Telecommunication",
+            "Mobile Network",
+            "Cellular",
             "5G",
             "4G",
             "SIM",
@@ -23,6 +28,8 @@ CAPABILITIES = {
             "Network",
             "Router",
             "Switch",
+            "Server",
+            "Switches ",
         ],
     },
 
@@ -64,6 +71,9 @@ CAPABILITIES = {
             "Cyber Security",
             "Cybersecurity",
             "Management System",
+            "Digitization",
+            "Digitalization",
+            "Database",
         ],
     },
 
@@ -77,6 +87,10 @@ CAPABILITIES = {
             "Android",
             "iOS",
             "Laptop",
+            "Interactive Panel",
+            "Interactive Display",
+            "Display",
+            "Smart Classroom",
         ],
     },
 

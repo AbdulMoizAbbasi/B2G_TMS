@@ -1,6 +1,9 @@
+
 import re
+
 from tender_scraper.config.keywords import Keywords
 from tender_scraper.config.capabilities import CAPABILITIES
+from tender_scraper.config.remove_keywords import REMOVE_KEYWORDS
 
 
 def normalize_text(text):
@@ -14,7 +17,7 @@ def normalize_text(text):
 
 
 def keyword_exists(text, keyword):
-    pattern = rf"\b{re.escape(keyword.lower())}\b"
+    pattern = rf"\b{re.escape(keyword)}\b"
     return bool(re.search(pattern, text, flags=re.IGNORECASE))
 
 
@@ -22,74 +25,49 @@ def get_all_keywords():
     return sorted(Keywords.keys())
 
 
-# ---------------------------------------------------------
-# Exclusion patterns
-# ---------------------------------------------------------
+def get_suppressed_spans(text, keyword):
+    """
+    Return negative-rule spans that apply to this keyword.
 
-EXCLUSION_PATTERNS = {
-    "GSM": [
-        r"\bgsm\s+(?:paper|papers)\b",
-        r"\b\d+(?:\.\d+)?\s*gsm\b",
-    ],
+    A positive keyword occurrence is suppressed only when its
+    span overlaps an enabled exclusion pattern.
+    """
+    rule = REMOVE_KEYWORDS.get(keyword, {})
 
-    "Fiber": [
-        r"\bfiber\s+(?:reel|reels)\b",
-        r"\bfiber\s+(?:paper|papers)\b",
-        r"\bfiber\s+(?:cheque|cheques)\b",
-        r"\bbiv\+fiber\b",
-    ],
+    if not rule.get("enabled", False):
+        return []
 
-    "Storage": [
-        r"\bcold\s+storage\b",
-        r"\bbonded\s+storage\b",
-        r"\bstorage\s+and\s+courier\b",
-        r"\bstorage\s+services\b",
-        r"\bstorage\s+facility\b",
-        r"\bstorage\s+facilities\b",
-    ],
+    spans = []
 
-    "Computer": [
-        r"\bcomputer\s+numerical\s+control\b",
-        r"\bcomputer\s+numerical\s+controlled\b",
-        r"\bcomputer\s+grinding\s+machine\b",
-        r"\bcnc\b",
-    ],
-}
+    for pattern in rule.get("patterns", []):
+        for match in re.finditer(pattern, text, flags=re.IGNORECASE):
+            spans.append({
+                "start": match.start(),
+                "end": match.end(),
+                "phrase": match.group(0),
+                "reason": rule.get(
+                    "reason",
+                    "Configured negative-keyword rule",
+                ),
+            })
+
+    return spans
 
 
-def is_excluded(text, keyword):
-    patterns = EXCLUSION_PATTERNS.get(keyword, [])
+def get_keyword_occurrences(text, keyword):
+    """Return every whole-word occurrence of a keyword."""
+    pattern = rf"\b{re.escape(keyword)}\b"
 
-    for pattern in patterns:
-        if re.search(pattern, text, flags=re.IGNORECASE):
-            return True
+    return list(
+        re.finditer(pattern, text, flags=re.IGNORECASE)
+    )
 
-    return False
-
-
-# ---------------------------------------------------------
-# Capability mapping
-# ---------------------------------------------------------
 
 def get_capability_matches(matched_keywords):
     """
-    Map matched keywords to the capabilities they belong to.
-
-    Example:
-
-    matched_keywords = ["Computer", "System"]
-
-    returns:
-
-    {
-        "Computing & End-User Devices": 1,
-        "Enterprise Software & ERP": 1
-    }
-
-    The value represents how many matched keywords belong
-    to that capability.
+    Map retained keywords to their capabilities.
+    Each unique keyword is counted once per capability.
     """
-
     capability_matches = {}
 
     matched_set = {
@@ -98,7 +76,6 @@ def get_capability_matches(matched_keywords):
     }
 
     for capability_name, capability_data in CAPABILITIES.items():
-
         capability_keywords = {
             keyword.lower()
             for keyword in capability_data.get("keywords", [])
@@ -114,10 +91,6 @@ def get_capability_matches(matched_keywords):
     return capability_matches
 
 
-# ---------------------------------------------------------
-# Main keyword matching
-# ---------------------------------------------------------
-
 def find_keyword_matches(text):
     normalized_text = normalize_text(text)
 
@@ -127,56 +100,57 @@ def find_keyword_matches(text):
             "keyword_count": 0,
             "keyword_score": 0.0,
             "capability_matches": {},
+            "suppressed_matches": [],
         }
-
-    all_keywords = get_all_keywords()
 
     matched_keywords = []
+    suppressed_matches = []
 
-    for keyword in all_keywords:
+    for keyword in get_all_keywords():
+        occurrences = get_keyword_occurrences(
+            normalized_text,
+            keyword,
+        )
 
-        # Check whether keyword exists as a complete word.
-        if not keyword_exists(normalized_text, keyword):
+        if not occurrences:
             continue
 
-        # Ignore known false-positive contexts.
-        if is_excluded(normalized_text, keyword):
-            continue
+        exclusion_spans = get_suppressed_spans(
+            normalized_text,
+            keyword,
+        )
 
-        matched_keywords.append(keyword)
+        has_retained_occurrence = False
 
-    # No relevant keywords found.
-    if not matched_keywords:
-        return {
-            "matched_keywords": [],
-            "keyword_count": 0,
-            "keyword_score": 0.0,
-            "capability_matches": {},
-        }
+        for occurrence in occurrences:
+            overlapping_rule = next(
+                (
+                    rule
+                    for rule in exclusion_spans
+                    if occurrence.start() < rule["end"]
+                    and occurrence.end() > rule["start"]
+                ),
+                None,
+            )
 
-    # -----------------------------------------------------
-    # Keyword scoring
-    # -----------------------------------------------------
-    #
-    # Each unique matched keyword = 10 points.
-    #
-    # Examples:
-    # 0 keywords = 0
-    # 1 keyword  = 10
-    # 2 keywords = 20
-    # 3 keywords = 30
-    #
-    # The same keyword is counted only once because
-    # matched_keywords contains unique keyword matches.
-    # -----------------------------------------------------
+            if overlapping_rule:
+                suppressed_matches.append({
+                    "keyword": keyword,
+                    "matched_text": occurrence.group(0),
+                    "context": overlapping_rule["phrase"],
+                    "reason": overlapping_rule["reason"],
+                })
+            else:
+                has_retained_occurrence = True
+
+        # Count a keyword if at least one occurrence survives.
+        if has_retained_occurrence:
+            matched_keywords.append(keyword)
+
     keyword_score = sum(
         Keywords[keyword]
         for keyword in matched_keywords
     )
-
-    # -----------------------------------------------------
-    # Capability mapping
-    # -----------------------------------------------------
 
     capability_matches = get_capability_matches(
         matched_keywords
@@ -187,4 +161,5 @@ def find_keyword_matches(text):
         "keyword_count": len(matched_keywords),
         "keyword_score": round(keyword_score, 4),
         "capability_matches": capability_matches,
+        "suppressed_matches": suppressed_matches,
     }
