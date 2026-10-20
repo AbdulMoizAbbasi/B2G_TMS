@@ -1481,7 +1481,7 @@ def get_pending_participation_alerts(
 ):
     # Include tenders advertised from 16 October 2026 onward.
     # This preserves your current cutoff logic.
-    cutoff_date = date(2026, 10, 15)
+    cutoff_date = date(2026, 1, 15)
 
     regional_reports = []
 
