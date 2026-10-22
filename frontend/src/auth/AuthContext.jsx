@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 
@@ -52,6 +52,17 @@ export function AuthProvider({ children }) {
     navigate("/", { replace: true });
   };
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const response = await api.get("/api/auth/me");
+      setUser(response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Failed to refresh authentication:", error);
+      return null;
+    }
+  }, []);
+
   const logout = () => {
     localStorage.removeItem("access_token");
     setUser(null);
@@ -64,6 +75,7 @@ export function AuthProvider({ children }) {
         user,
         loading,
         login,
+        refreshUser,
         logout,
       }}
     >

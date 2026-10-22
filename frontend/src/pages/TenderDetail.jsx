@@ -130,6 +130,8 @@ function TenderDetailContent() {
   const [nonParticipationRemarks, setNonParticipationRemarks] = useState("");
   const [nonParticipationFieldErrors, setNonParticipationFieldErrors] = useState({});
   const nonParticipationDirtyRef = useRef({ reason: false, remarks: false });
+  const participationDirtyRef = useRef(false);
+  const assignmentDirtyRef = useRef(false);
 
   const [assignmentEmailLoading, setAssignmentEmailLoading] =
     useState(false);
@@ -171,6 +173,8 @@ function TenderDetailContent() {
   const [loading, setLoading] =
     useState(true);
 
+  const [loadedTenderId, setLoadedTenderId] = useState(null);
+
   const [error, setError] =
     useState("");
 
@@ -199,25 +203,32 @@ function TenderDetailContent() {
    */
 
   useEffect(() => {
+    let active = true;
     const fetchTender = async () => {
       try {
         const response = await api.get(
           `/api/tenders/${tenderId}`
         );
 
-        setTender(response.data);
+        if (active) {
+          setTender(response.data);
+          setLoadedTenderId(tenderId);
+          setError("");
+        }
       } catch (err) {
         console.error(err);
 
-        setError(
-          "Failed to load tender details."
-        );
+        if (active) {
+          setError(err.response?.data?.detail || "Failed to load tender details.");
+          setLoadedTenderId(tenderId);
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     fetchTender();
+    return () => { active = false; };
   }, [tenderId]);
 
   /*
@@ -250,6 +261,9 @@ function TenderDetailContent() {
 
   useEffect(() => {
     let active = true;
+    participationDirtyRef.current = false;
+    assignmentDirtyRef.current = false;
+    nonParticipationDirtyRef.current = { reason: false, remarks: false };
 
     const fetchParticipation = async () => {
       try {
@@ -260,11 +274,10 @@ function TenderDetailContent() {
         );
 
         if (!active) return;
-
-        setParticipation(
-          response.data.status
-        );
-        setSavedParticipation(response.data.status);
+        if (!participationDirtyRef.current) {
+          setParticipation(response.data.status);
+          setSavedParticipation(response.data.status);
+        }
         if (!nonParticipationDirtyRef.current.reason) {
           setNonParticipationReason(response.data.non_participation_reason ?? "");
         }
@@ -272,26 +285,14 @@ function TenderDetailContent() {
           setNonParticipationRemarks(response.data.non_participation_remarks ?? "");
         }
 
-        setDelegatedEmployeeId(
-          response.data.delegated_employee_id
-        );
-
-        setDelegatedEmployeeName(
-          response.data.delegated_employee_name
-        );
-
-        const productIds =
-          Array.isArray(
-            response.data.product_ids
-          )
-            ? response.data.product_ids.map(
-                (id) => Number(id)
-              )
+        if (!assignmentDirtyRef.current) {
+          setDelegatedEmployeeId(response.data.delegated_employee_id ?? null);
+          setDelegatedEmployeeName(response.data.delegated_employee_name ?? null);
+          const productIds = Array.isArray(response.data.product_ids)
+            ? response.data.product_ids.map((id) => Number(id))
             : [];
-
-        setSelectedProductIds(
-          productIds
-        );
+          setSelectedProductIds(productIds);
+        }
       } catch (err) {
         if (!active) return;
         console.error(
@@ -604,6 +605,9 @@ function TenderDetailContent() {
   }
 
   function cancelParticipationEditing() {
+    participationDirtyRef.current = false;
+    assignmentDirtyRef.current = false;
+    nonParticipationDirtyRef.current = { reason: false, remarks: false };
     const reloadParticipation = async () => {
       try {
         setParticipationError("");
@@ -679,6 +683,8 @@ function TenderDetailContent() {
       return;
     }
 
+    participationDirtyRef.current = true;
+
     if (newStatus === "ENGAGING") {
       setNonParticipationReason("");
       setNonParticipationRemarks("");
@@ -694,15 +700,12 @@ function TenderDetailContent() {
 
     if (newStatus === "NOT_PARTICIPATING") {
       setParticipation(newStatus);
+      setParticipationEditMode(true);
       setNonParticipationFieldErrors({});
       setParticipationError("");
       setProductDropdownOpen(false);
       return;
     }
-
-    setNonParticipationReason("");
-    setNonParticipationRemarks("");
-    setNonParticipationFieldErrors({});
 
     try {
       setParticipationLoading(true);
@@ -719,6 +722,9 @@ function TenderDetailContent() {
         response.data.status
       );
       setSavedParticipation(response.data.status);
+      setNonParticipationReason("");
+      setNonParticipationRemarks("");
+      setNonParticipationFieldErrors({});
 
       if (newStatus !== "PARTICIPATED") {
         setDelegatedEmployeeId(
@@ -981,6 +987,8 @@ function TenderDetailContent() {
       return;
     }
 
+    assignmentDirtyRef.current = true;
+
     if (!employeeId) {
       setDelegatedEmployeeId(null);
       setDelegatedEmployeeName(null);
@@ -1025,6 +1033,8 @@ function TenderDetailContent() {
     if (participationLoading) {
       return;
     }
+
+    assignmentDirtyRef.current = true;
 
     const numericProductId =
       Number(productId);
@@ -1258,7 +1268,7 @@ function TenderDetailContent() {
    * ---------------------------------------------------------
    */
 
-  if (loading) {
+  if (loading || loadedTenderId !== tenderId) {
     return (
       <h1>
         Loading tender...
@@ -2300,6 +2310,7 @@ function TenderDetailContent() {
                       id="non-participation-reason"
                       value={nonParticipationReason}
                       onChange={(event) => {
+                        participationDirtyRef.current = true;
                         nonParticipationDirtyRef.current.reason = true;
                         setNonParticipationReason(event.target.value);
                         setNonParticipationFieldErrors((errors) => ({ ...errors, reason: "" }));
@@ -2325,6 +2336,7 @@ function TenderDetailContent() {
                       id="non-participation-remarks"
                       value={nonParticipationRemarks}
                       onChange={(event) => {
+                        participationDirtyRef.current = true;
                         nonParticipationDirtyRef.current.remarks = true;
                         setNonParticipationRemarks(event.target.value);
                         setNonParticipationFieldErrors((errors) => ({ ...errors, remarks: "" }));

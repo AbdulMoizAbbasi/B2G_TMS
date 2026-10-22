@@ -182,6 +182,256 @@ function participationLabel(status) {
   return displayValue(status);
 }
 
+const INLINE_NON_PARTICIPATION_REASONS = [
+  { value: "IRRELEVANT_TENDER", label: "Irrelevant tender" },
+  { value: "OUT_OF_SCOPE", label: "Out of Scope" },
+  { value: "PRODUCT_LIMITATION", label: "Product Limitation" },
+  { value: "OTHER", label: "Other" },
+];
+
+function ParticipationQuickEdit({ tender, isCoordinator, employees, products, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [detailsLoaded, setDetailsLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState(tender.participation_status || "NOT_REVIEWED");
+  const [savedStatus, setSavedStatus] = useState(tender.participation_status || "NOT_REVIEWED");
+  const [reason, setReason] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
+  const [productIds, setProductIds] = useState([]);
+  const [position, setPosition] = useState(null);
+  const triggerRef = useRef(null);
+  const popupRef = useRef(null);
+
+  const updatePosition = () => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const width = Math.min(320, window.innerWidth - 32);
+    const preferredLeft = rect.left + rect.width / 2 - width / 2;
+    const left = Math.max(16, Math.min(preferredLeft, window.innerWidth - width - 16));
+    const popupHeight = popupRef.current?.getBoundingClientRect().height || 380;
+    const spaceBelow = window.innerHeight - rect.bottom - 8;
+    const spaceAbove = rect.top - 8;
+    const placeAbove = spaceBelow < Math.min(popupHeight, 240) && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(140, Math.min(440, placeAbove ? spaceAbove : spaceBelow));
+    const top = placeAbove
+      ? Math.max(8, rect.top - Math.min(popupHeight, spaceAbove) - 4)
+      : rect.bottom + 4;
+    setPosition({ left, top, width, maxHeight });
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOutside = (event) => {
+      if (!triggerRef.current?.contains(event.target) && !popupRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open]);
+
+  async function openEditor() {
+    setOpen(true);
+    setDetailsLoaded(false);
+    requestAnimationFrame(updatePosition);
+    setLoading(true);
+    setError("");
+    try {
+      const response = await api.get(`/api/tenders/${tender.jazzid}/participation`);
+      const data = response.data || {};
+      const loadedStatus = data.status === "PARTICIPATING" ? "ENGAGING" : (data.status || "NOT_REVIEWED");
+      setStatus(loadedStatus);
+      setSavedStatus(loadedStatus);
+      setReason(data.non_participation_reason || "");
+      setRemarks(data.non_participation_remarks || "");
+      setEmployeeId(data.delegated_employee_id ?? data.employee_id ?? "");
+      setProductIds(Array.isArray(data.product_ids) ? data.product_ids.map(Number) : []);
+      setDetailsLoaded(true);
+    } catch (requestError) {
+      setError(apiErrorMessage(requestError, "Could not load participation details."));
+    } finally {
+      setLoading(false);
+      requestAnimationFrame(updatePosition);
+    }
+  }
+
+  async function saveParticipation(statusOverride) {
+    if (saving || loading) return;
+    const statusToSave = typeof statusOverride === "string" ? statusOverride : status;
+    if (statusToSave === "NOT_PARTICIPATING") {
+      if (!reason) {
+        setError("Select a reason for not participating.");
+        return;
+      }
+      if (!remarks.trim()) {
+        setError("Enter remarks before saving.");
+        return;
+      }
+    }
+    if (statusToSave === "ENGAGING" && !employeeId) {
+      setError("Select a JBC / Employee.");
+      return;
+    }
+    if (statusToSave === "ENGAGING" && productIds.length === 0) {
+      setError("Select at least one product.");
+      return;
+    }
+    if (statusToSave === "PARTICIPATED" && savedStatus !== "ENGAGING") {
+      setError("A tender must be Engaging before it can be marked Participated.");
+      return;
+    }
+
+    const payload = { status: statusToSave };
+    if (statusToSave === "NOT_PARTICIPATING") {
+      payload.non_participation_reason = reason;
+      payload.non_participation_remarks = remarks;
+    }
+    if (statusToSave === "ENGAGING") {
+      payload.employee_id = Number(employeeId);
+      payload.product_ids = productIds.map(Number);
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+      const response = await api.put(
+        `/api/tenders/${tender.jazzid}/participation`,
+        payload
+      );
+      const savedStatus = response.data?.status || statusToSave;
+      setStatus(savedStatus);
+      setSavedStatus(savedStatus);
+      setDetailsLoaded(true);
+      onSaved(tender.jazzid, savedStatus);
+      setOpen(savedStatus === "ENGAGING");
+    } catch (requestError) {
+      console.error("All Tenders participation update failed", {
+        tenderJazzId: tender.jazzid,
+        url: requestError.config?.url,
+        code: requestError.code,
+        message: requestError.message,
+        status: requestError.response?.status,
+      }, requestError);
+      setError(requestError.response
+        ? apiErrorMessage(requestError, "Failed to update participation.")
+        : `Could not save participation (${requestError.code || "network error"}). Check the connection and try again.`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="participation-quick-trigger"
+        onClick={() => (open ? setOpen(false) : openEditor())}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        disabled={!isCoordinator}
+        aria-label={`Update participation for tender ${tender.jazzid}. Current status: ${participationLabel(tender.participation_status)}`}
+      >
+        {participationLabel(tender.participation_status)}
+      </button>
+      {open && position && createPortal(
+        <div ref={popupRef} className="participation-quick-popover" style={{ position: "fixed", left: position.left, top: position.top, width: position.width, maxHeight: position.maxHeight }} role="dialog" aria-label="Update participation">
+          {loading ? <div className="participation-quick-loading">Loading participation…</div> : (
+            <>
+              <label className="participation-quick-field">
+                <span>Participation status</span>
+                <select value={status} disabled={saving} onChange={(event) => {
+                  const nextStatus = event.target.value;
+                  setStatus(nextStatus);
+                  setError("");
+                  if (nextStatus !== "NOT_PARTICIPATING") {
+                    setReason("");
+                    setRemarks("");
+                  }
+                }}>
+                  {PARTICIPATION_OPTIONS.filter((option) => option.value !== "PARTICIPATED").map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                  {savedStatus === "PARTICIPATED" && <option value="PARTICIPATED" disabled>Participated</option>}
+                </select>
+              </label>
+
+              {status === "NOT_PARTICIPATING" && (
+                <>
+                  <label className="participation-quick-field">
+                    <span>Reason for Not Participating</span>
+                    <select value={reason} disabled={saving} onChange={(event) => setReason(event.target.value)}>
+                      <option value="">Select a reason</option>
+                      {INLINE_NON_PARTICIPATION_REASONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="participation-quick-field">
+                    <span>Remarks</span>
+                    <textarea rows={3} value={remarks} disabled={saving} onChange={(event) => setRemarks(event.target.value)} />
+                  </label>
+                </>
+              )}
+
+              {status === "ENGAGING" && (
+                <>
+                  <label className="participation-quick-field">
+                    <span>Assign JBC / Employee</span>
+                    <select value={employeeId} disabled={saving} onChange={(event) => setEmployeeId(event.target.value)}>
+                      <option value="">Select JBC / Employee</option>
+                      {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
+                    </select>
+                  </label>
+                  <fieldset className="participation-quick-products">
+                    <legend>Select Product(s)</legend>
+                    {products.length ? products.map((product) => {
+                      const id = Number(product.id);
+                      return (
+                        <label key={id}>
+                          <input
+                            type="checkbox"
+                            checked={productIds.includes(id)}
+                            disabled={saving}
+                            onChange={() => setProductIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id])}
+                          />
+                          <span>{product.name}</span>
+                        </label>
+                      );
+                    }) : <span>No products available.</span>}
+                  </fieldset>
+                </>
+              )}
+
+              {savedStatus === "ENGAGING" && status === "ENGAGING" && (
+                  <button type="button" className="participation-quick-mark-participated" onClick={() => saveParticipation("PARTICIPATED")} disabled={saving || !detailsLoaded}>
+                  Mark as Participated
+                </button>
+              )}
+
+              {error && <div className="participation-quick-error" role="alert">{error}</div>}
+              <div className="participation-quick-actions">
+                <button type="button" onClick={() => setOpen(false)} disabled={saving}>Cancel</button>
+                <button type="button" onClick={() => saveParticipation()} disabled={saving || !detailsLoaded}>{saving ? "Saving…" : "Save"}</button>
+              </div>
+            </>
+          )}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
 function formatDateOnly(value) {
   if (!value) return "—";
 
@@ -292,11 +542,17 @@ function AllTenders() {
   const [initialTenderState] = useState(() =>
     readTenderStateFromSearch(location.search)
   );
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
-  const isAdmin = user?.role === "ADMIN";
+  const normalizedRole = typeof user?.role === "string"
+    ? user.role.trim().toUpperCase()
+    : "";
+  const isAdmin = normalizedRole === "ADMIN";
+  const isCoordinator = normalizedRole === "COORDINATOR";
 
   const [tenders, setTenders] = useState([]);
+  const [participationEmployees, setParticipationEmployees] = useState([]);
+  const [participationProducts, setParticipationProducts] = useState([]);
   const [regions, setRegions] = useState([]);
   const [sources, setSources] = useState([]);
   const [manualTenderOpen, setManualTenderOpen] = useState(false);
@@ -314,6 +570,28 @@ function AllTenders() {
   const [summary, setSummary] = useState({ total: 0, review_pending: 0, participating: 0, participated: 0, not_participating: 0, closing_soon: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    refreshUser();
+  }, [refreshUser]);
+
+  useEffect(() => {
+    if (!isCoordinator) return undefined;
+    let active = true;
+    Promise.allSettled([api.get("/api/employees"), api.get("/api/products")]).then(([employeeResult, productResult]) => {
+      if (!active) return;
+      if (employeeResult.status === "fulfilled") {
+        const employeeRecords = Array.isArray(employeeResult.value.data) ? employeeResult.value.data : [];
+        setParticipationEmployees(employeeRecords.filter(
+          (employee) => employee.is_active !== false && (employee.designation ?? "JBC") === "JBC"
+        ));
+      }
+      if (productResult.status === "fulfilled") {
+        setParticipationProducts(Array.isArray(productResult.value.data) ? productResult.value.data : []);
+      }
+    });
+    return () => { active = false; };
+  }, [isCoordinator]);
 
   const [selectedTenderIds, setSelectedTenderIds] =
     useState([]);
@@ -599,14 +877,17 @@ function AllTenders() {
    * Fetch tenders
    */
   useEffect(() => {
+    let active = true;
     const fetchTenders = async () => {
       if (scoreRangeInvalid) {
-        setLoading(false);
-        setError("");
+        if (active) {
+          setLoading(false);
+          setError("");
+        }
         return;
       }
       try {
-        setError("");
+        if (active) setError("");
         const params = new URLSearchParams();
         const scalarParams = {
           page, page_size: 10, tender_no: tenderNoFilter, tender_name: tenderNameFilter,
@@ -628,10 +909,12 @@ function AllTenders() {
 
         const response = await api.get(`/api/tenders?${params.toString()}`);
 
+        if (!active) return;
         setTenders(response.data.items || []);
         setPagination(response.data.pagination || { total: 0, total_pages: 1 });
         setSummary(response.data.summary || { total: 0, review_pending: 0, participating: 0, participated: 0, not_participating: 0, closing_soon: 0 });
       } catch (err) {
+        if (!active) return;
         console.error(err);
         if (err.response?.status === 400) {
           setTenders([]);
@@ -642,11 +925,12 @@ function AllTenders() {
           setError("Failed to load tenders.");
         }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     fetchTenders();
+    return () => { active = false; };
   }, [page, tenderNoFilter, tenderNameFilter, cityFilter, organizationFilter, submissionDateFrom, submissionDateTo, estimatedValueMin, estimatedValueMax, participationStatusFilter, productFilter, sourceFilter, regionFilter, scoreMin, scoreMax, advertisedDateFrom, advertisedDateTo, sortBy, sortOrder, refreshKey, isAdmin, scoreRangeInvalid]);
 
   /*
@@ -1070,6 +1354,15 @@ function AllTenders() {
     navigate(
       `/tenders/${encodeURIComponent(tenderId)}${location.search}`
     );
+  }
+
+  function handleInlineParticipationSaved(tenderId, status) {
+    setTenders((current) => current.map((tender) => (
+      String(tender.jazzid) === String(tenderId)
+        ? { ...tender, participation_status: status }
+        : tender
+    )));
+    setRefreshKey((current) => current + 1);
   }
 
   /*
@@ -1975,10 +2268,14 @@ function AllTenders() {
                       )}
                     </td>
 
-                    <td>
-                      {participationLabel(
-                        tender.participation_status
-                      )}
+                    <td className="participation-status-cell">
+                      <ParticipationQuickEdit
+                        tender={tender}
+                        isCoordinator={isCoordinator}
+                        employees={participationEmployees}
+                        products={participationProducts}
+                        onSaved={handleInlineParticipationSaved}
+                      />
                     </td>
 
                     {!isAdmin && <td>
