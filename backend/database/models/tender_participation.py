@@ -1,6 +1,7 @@
+
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, BigInteger, JSON
+from sqlalchemy import DateTime, ForeignKey, String, BigInteger, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.models.base import Base
@@ -44,6 +45,18 @@ class TenderParticipation(Base):
 
     product_ids: Mapped[list[int] | None] = mapped_column(
         JSON,
+        nullable=True,
+    )
+
+    # Reason for not participating in a tender
+    non_participation_reason: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+
+    # Remarks explaining the non-participation decision
+    non_participation_remarks: Mapped[str | None] = mapped_column(
+        Text,
         nullable=True,
     )
 

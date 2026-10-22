@@ -18,6 +18,17 @@ import api from "../api";
 import { useAuth } from "../auth/AuthContext";
 import "./TenderDetail.css";
 
+const NON_PARTICIPATION_REASONS = [
+  { value: "IRRELEVANT_TENDER", label: "Irrelevant tender" },
+  { value: "OUT_OF_SCOPE", label: "Out of Scope" },
+  { value: "PRODUCT_LIMITATION", label: "Product Limitation" },
+  { value: "OTHER", label: "Other" },
+];
+
+function nonParticipationReasonLabel(value) {
+  return NON_PARTICIPATION_REASONS.find((reason) => reason.value === value)?.label || "";
+}
+
 function displayValue(value) {
   if (
     value === null ||
@@ -69,7 +80,7 @@ function toDateInputValue(value) {
   return date.toISOString().split("T")[0];
 }
 
-function TenderDetail() {
+function TenderDetailContent() {
   const { user } = useAuth();
 
   const { tenderId } = useParams();
@@ -114,6 +125,11 @@ function TenderDetail() {
 
   const [participationError, setParticipationError] =
     useState("");
+
+  const [nonParticipationReason, setNonParticipationReason] = useState("");
+  const [nonParticipationRemarks, setNonParticipationRemarks] = useState("");
+  const [nonParticipationFieldErrors, setNonParticipationFieldErrors] = useState({});
+  const nonParticipationDirtyRef = useRef({ reason: false, remarks: false });
 
   const [assignmentEmailLoading, setAssignmentEmailLoading] =
     useState(false);
@@ -233,6 +249,8 @@ function TenderDetail() {
    */
 
   useEffect(() => {
+    let active = true;
+
     const fetchParticipation = async () => {
       try {
         setParticipationError("");
@@ -241,10 +259,18 @@ function TenderDetail() {
           `/api/tenders/${tenderId}/participation`
         );
 
+        if (!active) return;
+
         setParticipation(
           response.data.status
         );
         setSavedParticipation(response.data.status);
+        if (!nonParticipationDirtyRef.current.reason) {
+          setNonParticipationReason(response.data.non_participation_reason ?? "");
+        }
+        if (!nonParticipationDirtyRef.current.remarks) {
+          setNonParticipationRemarks(response.data.non_participation_remarks ?? "");
+        }
 
         setDelegatedEmployeeId(
           response.data.delegated_employee_id
@@ -267,6 +293,7 @@ function TenderDetail() {
           productIds
         );
       } catch (err) {
+        if (!active) return;
         console.error(
           "Failed to load participation:",
           err
@@ -280,6 +307,10 @@ function TenderDetail() {
     };
 
     fetchParticipation();
+
+    return () => {
+      active = false;
+    };
   }, [tenderId]);
 
   /*
@@ -568,6 +599,7 @@ function TenderDetail() {
 
   function startParticipationEditing() {
     setParticipationError("");
+    setNonParticipationFieldErrors({});
     setParticipationEditMode(true);
   }
 
@@ -584,6 +616,8 @@ function TenderDetail() {
           response.data.status
         );
         setSavedParticipation(response.data.status);
+        setNonParticipationReason(response.data.non_participation_reason || "");
+        setNonParticipationRemarks(response.data.non_participation_remarks || "");
 
         setDelegatedEmployeeId(
           response.data.delegated_employee_id
@@ -646,6 +680,9 @@ function TenderDetail() {
     }
 
     if (newStatus === "ENGAGING") {
+      setNonParticipationReason("");
+      setNonParticipationRemarks("");
+      setNonParticipationFieldErrors({});
       setParticipation(
         "ENGAGING"
       );
@@ -654,6 +691,18 @@ function TenderDetail() {
 
       return;
     }
+
+    if (newStatus === "NOT_PARTICIPATING") {
+      setParticipation(newStatus);
+      setNonParticipationFieldErrors({});
+      setParticipationError("");
+      setProductDropdownOpen(false);
+      return;
+    }
+
+    setNonParticipationReason("");
+    setNonParticipationRemarks("");
+    setNonParticipationFieldErrors({});
 
     try {
       setParticipationLoading(true);
@@ -691,6 +740,8 @@ function TenderDetail() {
             : [];
 
         setSelectedProductIds(returnedProductIds);
+      setNonParticipationReason(response.data.non_participation_reason || "");
+      setNonParticipationRemarks(response.data.non_participation_remarks || "");
       }
 
       if (
@@ -716,6 +767,59 @@ function TenderDetail() {
       setParticipationError(
         err.response?.data?.detail ||
           "Failed to update participation status."
+      );
+    } finally {
+      setParticipationLoading(false);
+    }
+  }
+
+  async function handleSaveNonParticipation() {
+    if (participationLoading) return;
+
+    const fieldErrors = {};
+    if (!nonParticipationReason) fieldErrors.reason = "Select a reason for not participating.";
+    if (!nonParticipationRemarks.trim()) fieldErrors.remarks = "Enter remarks before saving.";
+    setNonParticipationFieldErrors(fieldErrors);
+    if (Object.keys(fieldErrors).length) return;
+
+    try {
+      setParticipationLoading(true);
+      setParticipationError("");
+      const response = await api.put(
+        `/api/tenders/${tenderId}/participation`,
+        {
+          status: "NOT_PARTICIPATING",
+          non_participation_reason: nonParticipationReason,
+          non_participation_remarks: nonParticipationRemarks,
+        }
+      );
+      setParticipation(response.data.status);
+      setSavedParticipation(response.data.status);
+      setNonParticipationReason(
+        response.data.non_participation_reason || nonParticipationReason
+      );
+      setNonParticipationRemarks(
+        response.data.non_participation_remarks ?? nonParticipationRemarks
+      );
+      setDelegatedEmployeeId(
+        response.data.delegated_employee_id ??
+          response.data.employee_id ??
+          delegatedEmployeeId
+      );
+      setDelegatedEmployeeName(
+        response.data.delegated_employee_name ||
+          response.data.employee_name ||
+          delegatedEmployeeName ||
+          null
+      );
+      setNonParticipationFieldErrors({});
+      setParticipationEditMode(false);
+    } catch (err) {
+      console.error(err);
+      setParticipationError(
+        err.response?.data?.detail ||
+          err.response?.data?.message ||
+          "Failed to save participation."
       );
     } finally {
       setParticipationLoading(false);
@@ -773,17 +877,26 @@ function TenderDetail() {
         }
       );
 
+      const selectedEmployee = employees.find(
+        (employee) => Number(employee.id) === Number(delegatedEmployeeId)
+      );
+
       setParticipation(
         response.data.status
       );
       setSavedParticipation(response.data.status);
 
       setDelegatedEmployeeId(
-        response.data.delegated_employee_id
+        response.data.delegated_employee_id ??
+          response.data.employee_id ??
+          Number(delegatedEmployeeId)
       );
 
       setDelegatedEmployeeName(
         response.data.delegated_employee_name ||
+          response.data.employee_name ||
+          selectedEmployee?.name ||
+          delegatedEmployeeName ||
           null
       );
 
@@ -794,7 +907,7 @@ function TenderDetail() {
           ? response.data.product_ids.map(
               (id) => Number(id)
             )
-          : [];
+          : selectedProductIds.map((id) => Number(id));
 
       setSelectedProductIds(
         returnedProductIds
@@ -1699,6 +1812,8 @@ function TenderDetail() {
 
                 </div>
 
+                {participation !== "NOT_PARTICIPATING" && (
+                  <>
                 {/* JBC */}
 
                 <div className="participation-summary-item">
@@ -1754,6 +1869,31 @@ function TenderDetail() {
                   )}
 
                 </div>
+                  </>
+                )}
+
+                {participation === "NOT_PARTICIPATING" && (
+                  <>
+                    <div className="participation-summary-item">
+                      <span className="participation-summary-label">Assigned JBC / Employee</span>
+                      <strong className="participation-summary-value">
+                        {delegatedEmployeeName || "Not assigned"}
+                      </strong>
+                    </div>
+                    <div className="participation-summary-item">
+                      <span className="participation-summary-label">Reason for Not Participating</span>
+                      <strong className="participation-summary-value">
+                        {nonParticipationReasonLabel(nonParticipationReason) || "Not provided"}
+                      </strong>
+                    </div>
+                    <div className="participation-summary-item participation-products-item">
+                      <span className="participation-summary-label">Remarks</span>
+                      <strong className="participation-summary-value participation-remarks-value">
+                        {nonParticipationRemarks || "Not provided"}
+                      </strong>
+                    </div>
+                  </>
+                )}
 
               </div>
 
@@ -2152,9 +2292,68 @@ function TenderDetail() {
                 </div>
               )}
 
+              {participation === "NOT_PARTICIPATING" && (
+                <div className="participation-assignment">
+                  <div className="delegation-section">
+                    <label htmlFor="non-participation-reason">Reason for Not Participating</label>
+                    <select
+                      id="non-participation-reason"
+                      value={nonParticipationReason}
+                      onChange={(event) => {
+                        nonParticipationDirtyRef.current.reason = true;
+                        setNonParticipationReason(event.target.value);
+                        setNonParticipationFieldErrors((errors) => ({ ...errors, reason: "" }));
+                      }}
+                      disabled={participationLoading}
+                      aria-invalid={Boolean(nonParticipationFieldErrors.reason)}
+                      aria-describedby={nonParticipationFieldErrors.reason ? "non-participation-reason-error" : undefined}
+                    >
+                      <option value="">Select a reason</option>
+                      {NON_PARTICIPATION_REASONS.map((reason) => (
+                        <option key={reason.value} value={reason.value}>{reason.label}</option>
+                      ))}
+                    </select>
+                    {nonParticipationFieldErrors.reason && (
+                      <span id="non-participation-reason-error" className="participation-field-error" role="alert">
+                        {nonParticipationFieldErrors.reason}
+                      </span>
+                    )}
+                  </div>
+                  <div className="delegation-section">
+                    <label htmlFor="non-participation-remarks">Remarks</label>
+                    <textarea
+                      id="non-participation-remarks"
+                      value={nonParticipationRemarks}
+                      onChange={(event) => {
+                        nonParticipationDirtyRef.current.remarks = true;
+                        setNonParticipationRemarks(event.target.value);
+                        setNonParticipationFieldErrors((errors) => ({ ...errors, remarks: "" }));
+                      }}
+                      disabled={participationLoading}
+                      rows={4}
+                      aria-invalid={Boolean(nonParticipationFieldErrors.remarks)}
+                      aria-describedby={nonParticipationFieldErrors.remarks ? "non-participation-remarks-error" : undefined}
+                    />
+                    {nonParticipationFieldErrors.remarks && (
+                      <span id="non-participation-remarks-error" className="participation-field-error" role="alert">
+                        {nonParticipationFieldErrors.remarks}
+                      </span>
+                    )}
+                  </div>
+                  <div className="participation-save-row">
+                    <button type="button" className="cancel-edit-button" onClick={cancelParticipationEditing} disabled={participationLoading}>
+                      <Ban size={16} /> Cancel
+                    </button>
+                    <button type="button" className="save-participation-button" onClick={handleSaveNonParticipation} disabled={participationLoading}>
+                      <Save size={16} /> {participationLoading ? "Saving..." : "Save Participation"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Cancel editing for non-participating statuses */}
 
-              {!isEngaging() && (
+              {!isEngaging() && participation !== "NOT_PARTICIPATING" && (
                 <div className="participation-save-row">
 
                   <button
@@ -2204,6 +2403,31 @@ function TenderDetail() {
 
               </div>
 
+              {participation === "NOT_PARTICIPATING" && (
+                <>
+                  <div className="participation-summary-item">
+                    <span className="participation-summary-label">Assigned JBC / Employee</span>
+                    <strong className="participation-summary-value">
+                      {delegatedEmployeeName || "Not assigned"}
+                    </strong>
+                  </div>
+                  <div className="participation-summary-item">
+                    <span className="participation-summary-label">Reason for Not Participating</span>
+                    <strong className="participation-summary-value">
+                      {nonParticipationReasonLabel(nonParticipationReason) || "Not provided"}
+                    </strong>
+                  </div>
+                  <div className="participation-summary-item participation-products-item">
+                    <span className="participation-summary-label">Remarks</span>
+                    <strong className="participation-summary-value participation-remarks-value">
+                      {nonParticipationRemarks || "Not provided"}
+                    </strong>
+                  </div>
+                </>
+              )}
+
+              {participation !== "NOT_PARTICIPATING" && (
+                <>
               {/* JBC */}
 
               <div className="participation-summary-item">
@@ -2261,6 +2485,8 @@ function TenderDetail() {
                 )}
 
               </div>
+                </>
+              )}
 
             </div>
 
@@ -2309,6 +2535,11 @@ function TenderDetail() {
 
     </div>
   );
+}
+
+function TenderDetail() {
+  const { tenderId } = useParams();
+  return <TenderDetailContent key={tenderId} />;
 }
 
 export default TenderDetail;

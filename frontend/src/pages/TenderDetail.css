@@ -1045,6 +1045,45 @@
   cursor: not-allowed;
 }
 
+.delegation-section textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.delegation-section textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.delegation-section textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.delegation-section [aria-invalid="true"] {
+  border-color: #dc2626;
+}
+
+.participation-field-error {
+  display: block;
+  margin-top: 6px;
+  color: #dc2626;
+  font-size: 12px;
+}
+
+.participation-remarks-value {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* ---------------------------------------------------------
    Product Multi Select
    --------------------------------------------------------- */

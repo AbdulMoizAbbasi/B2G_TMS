@@ -13,7 +13,7 @@ from pydantic import Field
 
 from database.models.role import Role
 from auth import hash_password
-from sqlalchemy import func, or_, case
+from sqlalchemy import func, or_, case, Text
 from sqlalchemy.orm import Session, joinedload
 import mimetypes
 import httpx
@@ -35,7 +35,7 @@ from database.models.tender_region_assignment import TenderRegionAssignment
 from database.models.region import Region
 from tender_scraper.storage.document_downloader import download_document
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Literal
 from fastapi import BackgroundTasks
@@ -277,6 +277,15 @@ class TenderParticipationRequest(BaseModel):
     ]
     employee_id: int | None = None
     product_ids: list[int] | None = None
+
+    non_participation_reason: Literal[
+        "IRRELEVANT_TENDER",
+        "OUT_OF_SCOPE",
+        "PRODUCT_LIMITATION",
+        "OTHER",
+    ] | None = None
+
+    non_participation_remarks: str | None = None
 
 class TenderDelegationRequest(BaseModel):
     employee_id: int
@@ -1163,6 +1172,7 @@ def get_tender(
     }
 
 
+
 @app.get("/api/tenders/{jazzid}/participation")
 def get_tender_participation(
     jazzid: int,
@@ -1180,6 +1190,10 @@ def get_tender_participation(
             status_code=404,
             detail="Tender not found",
         )
+
+    # ---------------------------------------------------------
+    # Validate coordinator access
+    # ---------------------------------------------------------
 
     if current_user.role.name == "COORDINATOR":
         coordinator = (
@@ -1214,6 +1228,10 @@ def get_tender_participation(
                 detail="Tender not found",
             )
 
+    # ---------------------------------------------------------
+    # Get participation record
+    # ---------------------------------------------------------
+
     participation = (
         db.query(TenderParticipation)
         .filter(
@@ -1221,6 +1239,10 @@ def get_tender_participation(
         )
         .first()
     )
+
+    # ---------------------------------------------------------
+    # Return defaults if no participation record exists
+    # ---------------------------------------------------------
 
     if participation is None:
         return {
@@ -1231,7 +1253,13 @@ def get_tender_participation(
             "delegated_employee_id": None,
             "delegated_employee_name": None,
             "product_ids": None,
+            "non_participation_reason": None,
+            "non_participation_remarks": None,
         }
+
+    # ---------------------------------------------------------
+    # Get delegated employee name
+    # ---------------------------------------------------------
 
     delegated_employee_name = None
 
@@ -1248,6 +1276,10 @@ def get_tender_participation(
         if employee is not None:
             delegated_employee_name = employee.name
 
+    # ---------------------------------------------------------
+    # Return participation details
+    # ---------------------------------------------------------
+
     return {
         "tender_jazzid": jazzid,
         "status": participation.status,
@@ -1256,7 +1288,14 @@ def get_tender_participation(
         "delegated_employee_id": participation.delegated_employee_id,
         "delegated_employee_name": delegated_employee_name,
         "product_ids": participation.product_ids,
+        "non_participation_reason": (
+            participation.non_participation_reason
+        ),
+        "non_participation_remarks": (
+            participation.non_participation_remarks
+        ),
     }
+
 
 @app.put("/api/tenders/{jazzid}/participation")
 def update_tender_participation(
@@ -1272,11 +1311,48 @@ def update_tender_participation(
         "NOT_PARTICIPATING",
     }
 
+    allowed_reasons = {
+        "IRRELEVANT_TENDER",
+        "OUT_OF_SCOPE",
+        "PRODUCT_LIMITATION",
+        "OTHER",
+    }
+
+    # ---------------------------------------------------------
+    # Validate status
+    # ---------------------------------------------------------
+
     if request.status not in allowed_statuses:
         raise HTTPException(
             status_code=400,
             detail="Invalid participation status",
         )
+
+    # ---------------------------------------------------------
+    # Validate non-participation reason and remarks
+    # ---------------------------------------------------------
+
+    if request.status == "NOT_PARTICIPATING":
+        if not request.non_participation_reason:
+            raise HTTPException(
+                status_code=400,
+                detail="A reason is required for not participating.",
+            )
+
+        if request.non_participation_reason not in allowed_reasons:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid non-participation reason.",
+            )
+
+        if (
+            not request.non_participation_remarks
+            or not request.non_participation_remarks.strip()
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Remarks are required for not participating.",
+            )
 
     # ---------------------------------------------------------
     # Get coordinator and region
@@ -1325,28 +1401,37 @@ def update_tender_participation(
         )
 
     # ---------------------------------------------------------
-    # Validate ENGAGING requirements and PARTICIPATED transition
+    # Get existing participation record
     # ---------------------------------------------------------
 
-    employee = None
+    participation = (
+        db.query(TenderParticipation)
+        .filter(
+            TenderParticipation.tender_jazzid == jazzid
+        )
+        .first()
+    )
+
+    # ---------------------------------------------------------
+    # Validate ENGAGING requirements
+    # ---------------------------------------------------------
+
+    product_ids = None
 
     if request.status == "ENGAGING":
 
-        # JBC is required
         if request.employee_id is None:
             raise HTTPException(
                 status_code=400,
                 detail="JBC / Employee is required for participating tenders",
             )
 
-        # At least one product is required
         if not request.product_ids:
             raise HTTPException(
                 status_code=400,
                 detail="At least one product is required for participating tenders",
             )
 
-        # Validate JBC belongs to coordinator's region
         employee = (
             db.query(Employee)
             .filter(
@@ -1363,10 +1448,6 @@ def update_tender_participation(
                 status_code=400,
                 detail="Employee must be an active JBC in your region.",
             )
-
-        # -----------------------------------------------------
-        # Validate products
-        # -----------------------------------------------------
 
         product_ids = list(dict.fromkeys(request.product_ids))
 
@@ -1385,47 +1466,75 @@ def update_tender_participation(
                 detail="One or more selected products are invalid or inactive",
             )
 
+    # ---------------------------------------------------------
+    # Validate PARTICIPATED transition
+    # ---------------------------------------------------------
+
     elif request.status == "PARTICIPATED":
-        # Selection data is retained during the ENGAGING -> PARTICIPATED transition.
-        product_ids = None
 
+        if participation is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Only ENGAGING tenders can transition to PARTICIPATED",
+            )
+
+        if participation.status != "ENGAGING":
+            raise HTTPException(
+                status_code=400,
+                detail="Only ENGAGING tenders can transition to PARTICIPATED",
+            )
+
+        if (
+            participation.delegated_employee_id is None
+            or not participation.product_ids
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="ENGAGING tender must have JBC and products before transition",
+            )
+
+        # Preserve the existing assignments.
+        request.employee_id = participation.delegated_employee_id
+        product_ids = participation.product_ids
+
+    # ---------------------------------------------------------
+    # Prepare non-participation fields
+    # ---------------------------------------------------------
+
+    if request.status == "NOT_PARTICIPATING":
+        non_participation_reason = request.non_participation_reason
+        non_participation_remarks = (
+            request.non_participation_remarks.strip()
+        )
     else:
-        # -----------------------------------------------------
-        # NOT_PARTICIPATING / NOT_REVIEWED
-        # -----------------------------------------------------
-
-        product_ids = None
-        request.employee_id = None
+        non_participation_reason = None
+        non_participation_remarks = None
 
     # ---------------------------------------------------------
     # Get or create participation record
     # ---------------------------------------------------------
 
-    participation = (
-        db.query(TenderParticipation)
-        .filter(
-            TenderParticipation.tender_jazzid == jazzid
-        )
-        .first()
-    )
-
     now = datetime.now(timezone.utc)
 
     if participation is None:
-
-        if request.status == "PARTICIPATED":
-            raise HTTPException(
-                status_code=400,
-                detail="Only ENGAGING tenders can transition to PARTICIPATED",
-            )
 
         participation = TenderParticipation(
             tender_jazzid=jazzid,
             status=request.status,
             decided_by=current_user.id,
             decided_at=now,
-            delegated_employee_id=request.employee_id,
-            product_ids=product_ids,
+            delegated_employee_id=(
+                request.employee_id
+                if request.status == "ENGAGING"
+                else None
+            ),
+            product_ids=(
+                product_ids
+                if request.status == "ENGAGING"
+                else None
+            ),
+            non_participation_reason=non_participation_reason,
+            non_participation_remarks=non_participation_remarks,
             created_at=now,
             updated_at=now,
         )
@@ -1434,32 +1543,53 @@ def update_tender_participation(
 
     else:
 
-        if request.status == "PARTICIPATED":
-            if participation.status != "ENGAGING":
-                raise HTTPException(
-                    status_code=400,
-                    detail="Only ENGAGING tenders can transition to PARTICIPATED",
-                )
-            if (
-                participation.delegated_employee_id is None
-                or not participation.product_ids
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="ENGAGING tender must have JBC and products before transition",
-                )
-            request.employee_id = participation.delegated_employee_id
-            product_ids = participation.product_ids
+        # -----------------------------------------------------
+        # Update status and decision metadata
+        # -----------------------------------------------------
 
         participation.status = request.status
         participation.decided_by = current_user.id
         participation.decided_at = now
-        participation.delegated_employee_id = request.employee_id
-        participation.product_ids = product_ids
         participation.updated_at = now
 
-    db.commit()
-    db.refresh(participation)
+        # ENGAGING: save the newly selected JBC and products.
+        if request.status == "ENGAGING":
+            participation.delegated_employee_id = request.employee_id
+            participation.product_ids = product_ids
+
+        # NOT_REVIEWED: clear JBC and products.
+        elif request.status == "NOT_REVIEWED":
+            participation.delegated_employee_id = None
+            participation.product_ids = None
+
+        # NOT_PARTICIPATING: intentionally preserve JBC and products.
+        # PARTICIPATED: intentionally preserve JBC and products.
+
+        # Update non-participation details.
+        participation.non_participation_reason = (
+            non_participation_reason
+        )
+        participation.non_participation_remarks = (
+            non_participation_remarks
+        )
+
+    # ---------------------------------------------------------
+    # Save changes
+    # ---------------------------------------------------------
+
+    try:
+        db.commit()
+        db.refresh(participation)
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to update tender participation.",
+        )
+
+    # ---------------------------------------------------------
+    # Response
+    # ---------------------------------------------------------
 
     return {
         "message": "Participation updated successfully",
@@ -1469,10 +1599,10 @@ def update_tender_participation(
         "decided_at": participation.decided_at,
         "delegated_employee_id": participation.delegated_employee_id,
         "product_ids": participation.product_ids,
+        "non_participation_reason": participation.non_participation_reason,
+        "non_participation_remarks": participation.non_participation_remarks,
     }
 
-
-from datetime import date
 
 @app.get("/api/internal/alerts/pending-participation")
 def get_pending_participation_alerts(

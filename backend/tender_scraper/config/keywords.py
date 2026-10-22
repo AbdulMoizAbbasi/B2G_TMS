@@ -9,7 +9,7 @@ Keywords = {
     "Interactive Panel": 20,
     "Interactive Display": 20,
     "Display": 10,
-    "mart Classroom": 10,
+    "Smart Classroom": 10,
     "Cellular": 50,
     "GSM": 20,
     "SCADA": 10,
