@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 
@@ -9,6 +9,7 @@ export function AuthProvider({ children }) {
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const authOperationRef = useRef(0);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
@@ -17,18 +18,21 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return;
     }
+    const operation = authOperationRef.current;
 
     const loadUser = async () => {
       try {
         const response = await api.get("/api/auth/me");
+        if (operation !== authOperationRef.current || localStorage.getItem("access_token") !== token) return;
         setUser(response.data);
       } catch (error) {
+        if (operation !== authOperationRef.current || localStorage.getItem("access_token") !== token) return;
         console.error("Failed to restore authentication:", error);
 
         localStorage.removeItem("access_token");
         setUser(null);
       } finally {
-        setLoading(false);
+        if (operation === authOperationRef.current) setLoading(false);
       }
     };
 
@@ -36,34 +40,31 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (username, password) => {
-    const response = await api.post("/api/auth/login", {
-      username,
-      password,
-    });
+    const operation = ++authOperationRef.current;
+    try {
+      const response = await api.post("/api/auth/login", {
+        username,
+        password,
+      });
 
-    const { access_token } = response.data;
+      if (operation !== authOperationRef.current) return;
+      const { access_token } = response.data;
+      localStorage.setItem("access_token", access_token);
 
-    localStorage.setItem("access_token", access_token);
+      const meResponse = await api.get("/api/auth/me");
+      if (operation !== authOperationRef.current || localStorage.getItem("access_token") !== access_token) return;
 
-    const meResponse = await api.get("/api/auth/me");
-
-    setUser(meResponse.data);
-
-    navigate("/", { replace: true });
+      setUser(meResponse.data);
+      setLoading(false);
+      navigate("/", { replace: true });
+    } catch (error) {
+      if (operation === authOperationRef.current) setLoading(false);
+      throw error;
+    }
   };
 
-  const refreshUser = useCallback(async () => {
-    try {
-      const response = await api.get("/api/auth/me");
-      setUser(response.data);
-      return response.data;
-    } catch (error) {
-      console.error("Failed to refresh authentication:", error);
-      return null;
-    }
-  }, []);
-
   const logout = () => {
+    authOperationRef.current += 1;
     localStorage.removeItem("access_token");
     setUser(null);
     navigate("/login", { replace: true });
@@ -75,7 +76,6 @@ export function AuthProvider({ children }) {
         user,
         loading,
         login,
-        refreshUser,
         logout,
       }}
     >

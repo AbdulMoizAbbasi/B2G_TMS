@@ -184,7 +184,7 @@ function participationLabel(status) {
 
 const INLINE_NON_PARTICIPATION_REASONS = [
   { value: "IRRELEVANT_TENDER", label: "Irrelevant tender" },
-  { value: "OUT_OF_SCOPE", label: "Out of Scope" },
+  { value: "TIME_CONSTRAINTS", label: "Time Constraints" },
   { value: "PRODUCT_LIMITATION", label: "Product Limitation" },
   { value: "OTHER", label: "Other" },
 ];
@@ -329,6 +329,8 @@ function ParticipationQuickEdit({ tender, isCoordinator, employees, products, on
     }
   }
 
+  if (!isCoordinator) return <span>{participationLabel(tender.participation_status)}</span>;
+
   return (
     <>
       <button
@@ -338,7 +340,6 @@ function ParticipationQuickEdit({ tender, isCoordinator, employees, products, on
         onClick={() => (open ? setOpen(false) : openEditor())}
         aria-haspopup="dialog"
         aria-expanded={open}
-        disabled={!isCoordinator}
         aria-label={`Update participation for tender ${tender.jazzid}. Current status: ${participationLabel(tender.participation_status)}`}
       >
         {participationLabel(tender.participation_status)}
@@ -542,7 +543,7 @@ function AllTenders() {
   const [initialTenderState] = useState(() =>
     readTenderStateFromSearch(location.search)
   );
-  const { user, refreshUser } = useAuth();
+  const { user } = useAuth();
 
   const normalizedRole = typeof user?.role === "string"
     ? user.role.trim().toUpperCase()
@@ -570,10 +571,6 @@ function AllTenders() {
   const [summary, setSummary] = useState({ total: 0, review_pending: 0, participating: 0, participated: 0, not_participating: 0, closing_soon: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    refreshUser();
-  }, [refreshUser]);
 
   useEffect(() => {
     if (!isCoordinator) return undefined;

@@ -280,7 +280,7 @@ class TenderParticipationRequest(BaseModel):
 
     non_participation_reason: Literal[
         "IRRELEVANT_TENDER",
-        "OUT_OF_SCOPE",
+        "TIME_CONSTRAINTS",
         "PRODUCT_LIMITATION",
         "OTHER",
     ] | None = None
@@ -1313,7 +1313,7 @@ def update_tender_participation(
 
     allowed_reasons = {
         "IRRELEVANT_TENDER",
-        "OUT_OF_SCOPE",
+        "TIME_CONSTRAINTS",
         "PRODUCT_LIMITATION",
         "OTHER",
     }

@@ -20,7 +20,7 @@ import "./TenderDetail.css";
 
 const NON_PARTICIPATION_REASONS = [
   { value: "IRRELEVANT_TENDER", label: "Irrelevant tender" },
-  { value: "OUT_OF_SCOPE", label: "Out of Scope" },
+  { value: "TIME_CONSTRAINTS", label: "Time Constraints" },
   { value: "PRODUCT_LIMITATION", label: "Product Limitation" },
   { value: "OTHER", label: "Other" },
 ];
