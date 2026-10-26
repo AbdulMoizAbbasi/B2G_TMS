@@ -13,7 +13,7 @@ from pydantic import Field
 
 from database.models.role import Role
 from auth import hash_password
-from sqlalchemy import func, or_, case, Text
+from sqlalchemy import func, or_, case, Text,and_
 from sqlalchemy.orm import Session, joinedload
 import mimetypes
 import httpx
@@ -668,7 +668,7 @@ def get_tenders(
         raise HTTPException(status_code=400, detail="Page size must be between 1 and 100.")
 
     # Validate sorting
-    allowed_sort_fields = {"submissionDate", "estimatedValue", "tenderName", "city"}
+    allowed_sort_fields = {"advertisedDate", "submissionDate", "estimatedValue", "tenderName", "city"}
     if sort_by not in allowed_sort_fields:
         raise HTTPException(status_code=400, detail=f"Invalid sort field: {sort_by}")
     if sort_order not in {"asc", "desc"}:
@@ -814,6 +814,7 @@ def get_tenders(
 
     # Sorting
     sort_columns = {
+        "advertisedDate": effective_advertised_date,
         "submissionDate": effective_closed_date,
         "estimatedValue": effective_estimated_value,
         "tenderName": effective_tender_name,
@@ -1609,7 +1610,7 @@ def get_pending_participation_alerts(
     _: bool = Depends(require_alert_service_key),
     db: Session = Depends(get_db),
 ):
-    # Include tenders advertised from 16 October 2026 onward.
+    # Include tenders advertised from 15 January 2026 onward.
     # This preserves your current cutoff logic.
     cutoff_date = date(2026, 1, 15)
 
@@ -1669,10 +1670,16 @@ def get_pending_participation_alerts(
                 Tender.advertised_date > cutoff_date,
             )
             .filter(
-                (TenderParticipation.id.is_(None))
-                | (
-                    TenderParticipation.status.in_(
-                        ["NOT_REVIEWED", "ENGAGING"]
+                (TenderParticipation.status == "ENGAGING")
+                |
+                (
+                    (
+                        TenderParticipation.id.is_(None)
+                        | (TenderParticipation.status == "NOT_REVIEWED")
+                    )
+                    & (
+                        Tender.closed_date.is_(None)
+                        | (Tender.closed_date >= date.today())
                     )
                 )
             )

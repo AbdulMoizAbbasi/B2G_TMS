@@ -1446,6 +1446,12 @@
   word-break: normal;
 }
 
+.tenders-page .tenders-table td.product-column {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .tenders-page .tenders-table th.web-tender-no-column,
 .tenders-page .tenders-table td.web-tender-no-column {
   width: 120px;

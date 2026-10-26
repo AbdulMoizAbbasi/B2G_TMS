@@ -522,9 +522,9 @@ function readTenderStateFromSearch(search) {
     scoreMax: params.get("score_max") || "",
     advertisedDateFrom: params.get("advertised_date_from") || "",
     advertisedDateTo: params.get("advertised_date_to") || "",
-    sortBy: ["submissionDate", "estimatedValue", "tenderName", "city"].includes(requestedSortBy)
+    sortBy: ["advertisedDate", "submissionDate", "estimatedValue", "tenderName", "city"].includes(requestedSortBy)
       ? requestedSortBy
-      : "submissionDate",
+      : "advertisedDate",
     sortOrder: ["asc", "desc"].includes(requestedSortOrder)
       ? requestedSortOrder
       : "desc",
@@ -799,8 +799,8 @@ function AllTenders() {
     setRepeated("region", regionFilter, isAdmin);
     setOrRemove("score_min", scoreMin);
     setOrRemove("score_max", scoreMax);
-    setOrRemove("advertised_date_from", isAdmin ? advertisedDateFrom : "");
-    setOrRemove("advertised_date_to", isAdmin ? advertisedDateTo : "");
+    setOrRemove("advertised_date_from", advertisedDateFrom);
+    setOrRemove("advertised_date_to", advertisedDateTo);
     params.set("sort_by", sortBy);
     params.set("sort_order", sortOrder);
 
@@ -893,8 +893,8 @@ function AllTenders() {
           estimated_value_min: estimatedValueMin, estimated_value_max: estimatedValueMax,
           sort_by: sortBy, sort_order: sortOrder,
           score_min: scoreMin, score_max: scoreMax,
-          advertised_date_from: isAdmin ? advertisedDateFrom : "",
-          advertised_date_to: isAdmin ? advertisedDateTo : "",
+          advertised_date_from: advertisedDateFrom,
+          advertised_date_to: advertisedDateTo,
         };
         Object.entries(scalarParams).forEach(([key, value]) => {
           if (value !== "" && value !== undefined && value !== null) params.append(key, String(value));
@@ -1237,7 +1237,7 @@ function AllTenders() {
     setScoreMax("");
     setAdvertisedDateFrom("");
     setAdvertisedDateTo("");
-    setSortBy("submissionDate");
+    setSortBy("advertisedDate");
     setSortOrder("desc");
     setPage(1);
   }
@@ -1300,7 +1300,7 @@ function AllTenders() {
     participationStatusFilter.length > 0 ||
     productFilter.length > 0 ||
     scoreMin !== "" || scoreMax !== "" ||
-    (isAdmin && (sourceFilter.length > 0 || advertisedDateFrom || advertisedDateTo));
+    (isAdmin && sourceFilter.length > 0) || advertisedDateFrom || advertisedDateTo;
 
   const hasOtherFilters =
     tenderNoFilter ||
@@ -1312,7 +1312,7 @@ function AllTenders() {
     estimatedValueMax !== "" ||
     productFilter.length > 0 ||
     scoreMin !== "" || scoreMax !== "" ||
-    (isAdmin && (sourceFilter.length > 0 || advertisedDateFrom || advertisedDateTo));
+    (isAdmin && sourceFilter.length > 0) || advertisedDateFrom || advertisedDateTo;
 
   function isSummaryFilterActive(filter) {
     if (filter === "ALL") {
@@ -1806,6 +1806,10 @@ function AllTenders() {
                   )
                 }
               >
+                <option value="advertisedDate">
+                  Advertised Date
+                </option>
+
                 <option value="submissionDate">
                   Submission Date
                 </option>
@@ -1926,7 +1930,7 @@ function AllTenders() {
               {isAdmin && <col className="source-column" />}
               <col className="product-column" />
               <col className="relevance-score-column" />
-              {isAdmin && <col className="advertised-date-column" />}
+              <col className="advertised-date-column" />
               <col className="submission-date-column" />
               <col className="estimated-value-column" />
               <col className="participation-status-column" />
@@ -2064,13 +2068,13 @@ function AllTenders() {
                   {scoreRangeError && <p id="score-range-error" className="score-range-error" role="alert">{scoreRangeError}</p>}
                 </th>
 
-                {isAdmin && <th className="advertised-date-column">
+                <th className="advertised-date-column">
                   Advertised Date
                   <div className="column-range-filter">
                     <input type="date" value={advertisedDateFrom} onChange={(event) => updateQueryState(setAdvertisedDateFrom, event.target.value)} aria-label="Advertised date from" />
                     <input type="date" value={advertisedDateTo} onChange={(event) => updateQueryState(setAdvertisedDateTo, event.target.value)} aria-label="Advertised date to" />
                   </div>
-                </th>}
+                </th>
 
                 <th>
                   Submission Date
@@ -2251,7 +2255,7 @@ function AllTenders() {
 
                     <td className="relevance-score-column">{displayValue(tender.relevance_score)}</td>
 
-                    {isAdmin && <td className="advertised-date-column">{formatDateOnly(tender.advertised_date)}</td>}
+                    <td className="advertised-date-column">{formatDateOnly(tender.advertised_date)}</td>
 
                     <td>
                       {formatDateOnly(
