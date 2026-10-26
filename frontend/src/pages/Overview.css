@@ -30,6 +30,8 @@
 .overview-date-filter > span, .overview-filter-label { display: flex; align-items: center; gap: 6px; color: var(--text-primary); font-size: 11px; font-weight: 700; }
 .overview-date-filter label { display: grid; gap: 4px; color: var(--text-muted); font-size: 10px; }
 .overview-date-filter input { width: 100%; min-width: 0; padding: 8px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-primary); color: var(--text-primary); font-size: 11px; }
+.overview-jbc-filter { display: grid; gap: 7px; margin-bottom: 17px; color: var(--text-primary); font-size: 11px; font-weight: 700; }
+.overview-jbc-filter select { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-primary); color: var(--text-secondary); font-size: 11px; }
 .overview-filter-group { position: relative; margin: 0 0 16px; }
 .overview-filter-label { margin-bottom: 7px; }
 .overview-filter-label { justify-content: space-between; }

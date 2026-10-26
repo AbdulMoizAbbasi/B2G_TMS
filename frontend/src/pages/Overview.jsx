@@ -40,6 +40,7 @@ function MultiSelect({ title, icon: Icon, options, selected, onChange, placehold
 function Overview() {
   const [overview, setOverview] = useState(null);
   const [products, setProducts] = useState([]);
+  const [jbcs, setJbcs] = useState([]);
   const [regions, setRegions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -50,6 +51,7 @@ function Overview() {
   const [selectedScores, setSelectedScores] = useState([]);
   const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [selectedRegions, setSelectedRegions] = useState([]);
+  const [selectedJbc, setSelectedJbc] = useState("");
   const [openFilter, setOpenFilter] = useState(null);
   const [regionalParticipationStatus, setRegionalParticipationStatus] = useState("ALL");
   const [regionalRegion, setRegionalRegion] = useState("ALL");
@@ -61,6 +63,16 @@ function Overview() {
     }).catch(() => {
       if (active) setProducts([]);
     }).finally(() => { if (active) setProductsLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    api.get("/api/employees").then((response) => {
+      if (active) setJbcs(Array.isArray(response.data) ? response.data : []);
+    }).catch(() => {
+      if (active) setJbcs([]);
+    });
     return () => { active = false; };
   }, []);
 
@@ -82,6 +94,7 @@ function Overview() {
     if (advertisedRange.from) params.append("advertised_date_from", advertisedRange.from);
     if (advertisedRange.to) params.append("advertised_date_to", advertisedRange.to);
     selectedProducts.forEach((value) => params.append("product_id", value));
+    if (selectedJbc) params.set("jbc_id", selectedJbc);
     selectedStatuses.forEach((value) => params.append("status", value));
     selectedRegions.forEach((value) => params.append("region", value));
     const bands = selectedScores.map((id) => SCORE_BANDS.find((band) => band.id === id)).filter(Boolean);
@@ -90,7 +103,7 @@ function Overview() {
       params.append("score_max", Math.max(...bands.map((band) => band.max)));
     }
     return params;
-  }, [closingRange, advertisedRange, selectedProducts, selectedStatuses, selectedRegions, selectedScores]);
+  }, [closingRange, advertisedRange, selectedProducts, selectedStatuses, selectedRegions, selectedScores, selectedJbc]);
 
   useEffect(() => {
     let active = true;
@@ -134,7 +147,7 @@ function Overview() {
   const chartMax = Math.max(1, ...monthly.map((item) => item.total ?? (item.engaging + item.participated + item.notParticipating + item.notReviewed)));
   const clearFilters = () => {
     setClosingRange({ from: "", to: "" }); setAdvertisedRange({ from: "", to: "" });
-    setSelectedProducts([]); setSelectedScores([]); setSelectedStatuses([]); setSelectedRegions([]);
+    setSelectedProducts([]); setSelectedScores([]); setSelectedStatuses([]); setSelectedRegions([]); setSelectedJbc("");
   };
 
   return <div className="overview-page">
@@ -153,6 +166,7 @@ function Overview() {
         <div className="overview-filter-header"><div><span className="overview-panel-icon"><Filter size={17} /></span><h2>Filters</h2></div><button type="button" onClick={clearFilters}>Clear all</button></div>
         <div className="overview-date-filter"><div className="overview-date-heading"><span>Closing date</span><button className="overview-filter-clear" type="button" onClick={() => setClosingRange({ from: "", to: "" })} disabled={!closingRange.from && !closingRange.to}>Clear</button></div><label>From<input type="date" value={closingRange.from} onChange={(event) => setClosingRange((value) => ({ ...value, from: event.target.value }))} /></label><label>To<input type="date" value={closingRange.to} onChange={(event) => setClosingRange((value) => ({ ...value, to: event.target.value }))} /></label></div>
         <div className="overview-date-filter"><div className="overview-date-heading"><span>Advertised date</span><button className="overview-filter-clear" type="button" onClick={() => setAdvertisedRange({ from: "", to: "" })} disabled={!advertisedRange.from && !advertisedRange.to}>Clear</button></div><label>From<input type="date" value={advertisedRange.from} onChange={(event) => setAdvertisedRange((value) => ({ ...value, from: event.target.value }))} /></label><label>To<input type="date" value={advertisedRange.to} onChange={(event) => setAdvertisedRange((value) => ({ ...value, to: event.target.value }))} /></label></div>
+        <label className="overview-jbc-filter">JBC<select value={selectedJbc} onChange={(event) => setSelectedJbc(event.target.value)}><option value="">All JBCs</option>{jbcs.map((jbc) => <option key={jbc.id} value={jbc.id}>{jbc.name}</option>)}</select></label>
         <MultiSelect title="Region" icon={Filter} placeholder="Select regions" options={regions.map((value) => ({ value, label: value }))} selected={selectedRegions} onChange={setSelectedRegions} open={openFilter === "region"} setOpen={(open) => setOpenFilter(open ? "region" : null)} />
         <MultiSelect title="Products" icon={Package} placeholder={productsLoading ? "Loading products…" : "Select products"} disabled={productsLoading} options={products.map((product) => ({ value: String(product.id), label: product.name }))} selected={selectedProducts} onChange={setSelectedProducts} open={openFilter === "products"} setOpen={(open) => setOpenFilter(open ? "products" : null)} />
         <MultiSelect title="Relevance score" icon={Target} placeholder="Select score range" options={SCORE_BANDS.map(({ id, label }) => ({ value: id, label }))} selected={selectedScores} onChange={setSelectedScores} open={openFilter === "score"} setOpen={(open) => setOpenFilter(open ? "score" : null)} />

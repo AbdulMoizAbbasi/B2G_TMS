@@ -784,7 +784,6 @@ function TenderDetailContent() {
 
     const fieldErrors = {};
     if (!nonParticipationReason) fieldErrors.reason = "Select a reason for not participating.";
-    if (!nonParticipationRemarks.trim()) fieldErrors.remarks = "Enter remarks before saving.";
     setNonParticipationFieldErrors(fieldErrors);
     if (Object.keys(fieldErrors).length) return;
 
@@ -2343,14 +2342,7 @@ function TenderDetailContent() {
                       }}
                       disabled={participationLoading}
                       rows={4}
-                      aria-invalid={Boolean(nonParticipationFieldErrors.remarks)}
-                      aria-describedby={nonParticipationFieldErrors.remarks ? "non-participation-remarks-error" : undefined}
                     />
-                    {nonParticipationFieldErrors.remarks && (
-                      <span id="non-participation-remarks-error" className="participation-field-error" role="alert">
-                        {nonParticipationFieldErrors.remarks}
-                      </span>
-                    )}
                   </div>
                   <div className="participation-save-row">
                     <button type="button" className="cancel-edit-button" onClick={cancelParticipationEditing} disabled={participationLoading}>

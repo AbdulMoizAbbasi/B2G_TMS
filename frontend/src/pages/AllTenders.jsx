@@ -272,10 +272,6 @@ function ParticipationQuickEdit({ tender, isCoordinator, employees, products, on
         setError("Select a reason for not participating.");
         return;
       }
-      if (!remarks.trim()) {
-        setError("Enter remarks before saving.");
-        return;
-      }
     }
     if (statusToSave === "ENGAGING" && !employeeId) {
       setError("Select a JBC / Employee.");

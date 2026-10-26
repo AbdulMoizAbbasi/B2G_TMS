@@ -1330,7 +1330,7 @@ def update_tender_participation(
         )
 
     # ---------------------------------------------------------
-    # Validate non-participation reason and remarks
+    # Validate non-participation reason
     # ---------------------------------------------------------
 
     if request.status == "NOT_PARTICIPATING":
@@ -1344,15 +1344,6 @@ def update_tender_participation(
             raise HTTPException(
                 status_code=400,
                 detail="Invalid non-participation reason.",
-            )
-
-        if (
-            not request.non_participation_remarks
-            or not request.non_participation_remarks.strip()
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail="Remarks are required for not participating.",
             )
 
     # ---------------------------------------------------------
@@ -1504,9 +1495,7 @@ def update_tender_participation(
 
     if request.status == "NOT_PARTICIPATING":
         non_participation_reason = request.non_participation_reason
-        non_participation_remarks = (
-            request.non_participation_remarks.strip()
-        )
+        non_participation_remarks = (request.non_participation_remarks or "").strip() or None
     else:
         non_participation_reason = None
         non_participation_remarks = None
@@ -2564,7 +2553,7 @@ def view_tender_document(
 
 
 
-def apply_overview_filters(query, *, region: list[str] | None = None, status: list[str] | None = None, advertised_date_from: str | None = None, advertised_date_to: str | None = None, closing_date_from: str | None = None, closing_date_to: str | None = None, score_min: float | None = None, score_max: float | None = None, product_id: list[int] | None = None):
+def apply_overview_filters(query, *, region: list[str] | None = None, status: list[str] | None = None, advertised_date_from: str | None = None, advertised_date_to: str | None = None, closing_date_from: str | None = None, closing_date_to: str | None = None, score_min: float | None = None, score_max: float | None = None, product_id: list[int] | None = None, jbc_id: int | None = None):
     """Apply Overview filters using OR within each filter and AND across filters."""
 
     if region:
@@ -2602,6 +2591,10 @@ def apply_overview_filters(query, *, region: list[str] | None = None, status: li
         product_conditions = [func.JSON_CONTAINS(TenderParticipation.product_ids, func.JSON_ARRAY(pid)) == 1 for pid in product_id]
         query = query.filter(or_(*product_conditions))
 
+    if jbc_id is not None:
+        # The participation row is unique per tender; this also excludes unassigned tenders.
+        query = query.filter(TenderParticipation.delegated_employee_id == jbc_id)
+
     return query
 
 
@@ -2620,6 +2613,7 @@ def get_overview(
     score_min: float | None = Query(default=None),
     score_max: float | None = Query(default=None),
     product_id: list[int] | None = Query(default=None),
+    jbc_id: int | None = Query(default=None, gt=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -2655,6 +2649,17 @@ def get_overview(
             raise HTTPException(status_code=403, detail="Coordinator region is not configured")
         coordinator_region_id = coordinator.region_id
 
+    if jbc_id is not None:
+        eligible_jbc = db.query(Employee.id).filter(
+            Employee.id == jbc_id,
+            Employee.is_active == True,
+            Employee.designation == "JBC",
+        )
+        if coordinator_region_id is not None:
+            eligible_jbc = eligible_jbc.filter(Employee.region_id == coordinator_region_id)
+        if eligible_jbc.first() is None:
+            raise HTTPException(status_code=403, detail="JBC is not eligible for the current user")
+
     # Base query
     base_query = (
         db.query(Tender)
@@ -2679,6 +2684,7 @@ def get_overview(
         score_min=score_min,
         score_max=score_max,
         product_id=product_id,
+        jbc_id=jbc_id,
     )
 
     # Effective participation status
