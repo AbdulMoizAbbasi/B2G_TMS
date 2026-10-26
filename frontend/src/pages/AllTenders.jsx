@@ -1272,6 +1272,10 @@ function AllTenders() {
         filter === "PARTICIPATED" ||
         filter === "NOT_PARTICIPATING") {
       updateQueryState(setParticipationStatusFilter, [filter]);
+      if (filter === "NOT_REVIEWED") {
+        // Match the pending summary count: the score column is NUMERIC(10, 4).
+        updateQueryState(setScoreMin, "0.0001");
+      }
       return;
     }
 
@@ -1307,7 +1311,6 @@ function AllTenders() {
     estimatedValueMin !== "" ||
     estimatedValueMax !== "" ||
     productFilter.length > 0 ||
-    scoreMin !== "" || scoreMax !== "" ||
     (isAdmin && sourceFilter.length > 0) || advertisedDateFrom || advertisedDateTo;
 
   function isSummaryFilterActive(filter) {
@@ -1321,6 +1324,7 @@ function AllTenders() {
       return Boolean(
         !hasOtherFilters &&
         participationStatusFilter.length === 0 &&
+        scoreMin === "" && scoreMax === "" &&
         submissionDateFrom === range.from &&
         submissionDateTo === range.to
       );
@@ -1330,6 +1334,9 @@ function AllTenders() {
       !hasOtherFilters &&
       !submissionDateFrom &&
       !submissionDateTo &&
+      (filter === "NOT_REVIEWED"
+        ? scoreMin === "0.0001" && scoreMax === ""
+        : scoreMin === "" && scoreMax === "") &&
       participationStatusFilter.length === 1 && participationStatusFilter[0] === filter
     );
   }

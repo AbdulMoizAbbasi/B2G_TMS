@@ -881,10 +881,13 @@ def get_tenders(
         )
 
     summary_total = summary_query.with_entities(func.count(Tender.jazzid)).scalar() or 0
-    review_pending_count = summary_query.filter(or_(
-        TenderParticipation.id.is_(None),
-        TenderParticipation.status == "NOT_REVIEWED",
-    )).with_entities(func.count(Tender.jazzid)).scalar() or 0
+    review_pending_count = summary_query.filter(
+        TenderRelevance.keyword_score > 0,
+        or_(
+            TenderParticipation.id.is_(None),
+            TenderParticipation.status == "NOT_REVIEWED",
+        ),
+    ).with_entities(func.count(func.distinct(Tender.jazzid))).scalar() or 0
     participating_count = summary_query.filter(
         TenderParticipation.status.in_(["ENGAGING", "PARTICIPATED"])
     ).with_entities(func.count(Tender.jazzid)).scalar() or 0
@@ -2697,14 +2700,17 @@ def get_overview(
     # Summary / KPI
     summary_row = base_query.with_entities(
         func.count(Tender.jazzid).label("total"),
-        func.sum(case((effective_status == "NOT_REVIEWED", 1), else_=0)).label("pending"),
         func.sum(case((effective_status == "ENGAGING", 1), else_=0)).label("engaging"),
         func.sum(case((effective_status == "PARTICIPATED", 1), else_=0)).label("participated"),
         func.sum(case((effective_status == "NOT_PARTICIPATING", 1), else_=0)).label("not_participating"),
     ).first()
 
     total = int(summary_row.total or 0)
-    pending = int(summary_row.pending or 0)
+    pending = base_query.filter(
+        effective_status == "NOT_REVIEWED",
+        TenderRelevance.keyword_score > 0,
+    ).with_entities(func.count(func.distinct(Tender.jazzid))).scalar() or 0
+    pending = int(pending)
     engaging = int(summary_row.engaging or 0)
     participated = int(summary_row.participated or 0)
     not_participating = int(summary_row.not_participating or 0)
