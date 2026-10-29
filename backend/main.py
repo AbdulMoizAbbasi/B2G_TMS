@@ -1,11 +1,9 @@
 from fastapi import FastAPI, HTTPException, Depends, Query
-from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import threading
 from fastapi import Header
-from pathlib import Path
 from config.paths import (DATA_DIR, DOCUMENTS_DIR, CHECKPOINT_FILE,)
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
@@ -15,12 +13,14 @@ from database.models.role import Role
 from auth import hash_password
 from sqlalchemy import func, or_, case, Text,and_
 from sqlalchemy.orm import Session, joinedload
-import mimetypes
 import httpx
 import jwt
 import os
 import re
+from uuid import uuid4
+from sqlalchemy import update
 from database.connection import SessionLocal
+from database.models.auth_session import AuthSession
 from database.models.user import User
 from database.models.coordinator import Coordinator
 from database.models.tender_source import TenderSource
@@ -33,7 +33,6 @@ from database.models.employee import Employee
 from database.models.product import Product
 from database.models.tender_region_assignment import TenderRegionAssignment
 from database.models.region import Region
-from tender_scraper.storage.document_downloader import download_document
 
 from datetime import datetime, timezone, timedelta, date
 from decimal import Decimal
@@ -52,13 +51,13 @@ from auth import (
     verify_password,
     create_access_token,
     decode_access_token,
+    IDLE_SESSION_TIMEOUT_SECONDS,
+    utcnow_naive,
 )
 
 # ============================================================
 # SCRAPER EXECUTION STATE
 # ============================================================
-document_download_locks = {}
-document_download_locks_lock = threading.Lock()
 scraper_lock = threading.Lock()
 scraper_running = False
 
@@ -111,14 +110,6 @@ def require_alert_service_key(
     return True
 
 
-def get_document_download_lock(jazzid: int):
-    with document_download_locks_lock:
-        if jazzid not in document_download_locks:
-            document_download_locks[jazzid] = threading.Lock()
-
-        return document_download_locks[jazzid]
-    
-
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -132,42 +123,99 @@ def get_current_user(
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=401,
-            detail="Token has expired",
+            detail={"code": "token_expired", "message": "Token has expired. Please sign in again."},
         )
 
     except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=401,
-            detail="Invalid token",
+            detail={"code": "invalid_token", "message": "Invalid token."},
         )
 
     user_id = payload.get("sub")
+    session_id = payload.get("sid")
 
-    if not user_id:
+    if not user_id or not session_id:
         raise HTTPException(
             status_code=401,
-            detail="Invalid token payload",
+            detail={"code": "session_required", "message": "A new login is required."},
+        )
+
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "invalid_token", "message": "Invalid token."},
         )
 
     user = (
         db.query(User)
-        .filter(User.id == int(user_id))
+        .filter(User.id == user_id)
         .first()
     )
 
     if user is None:
         raise HTTPException(
             status_code=401,
-            detail="User not found",
+            detail={"code": "user_not_found", "message": "User not found."},
         )
 
     if not user.is_active:
         raise HTTPException(
             status_code=403,
-            detail="User account is inactive",
+            detail={"code": "user_inactive", "message": "User account is inactive."},
+        )
+
+    auth_session = db.query(AuthSession).filter(
+        AuthSession.session_id == session_id,
+        AuthSession.user_id == user.id,
+    ).first()
+
+    if auth_session is None:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "session_invalid", "message": "This session is no longer valid."},
+        )
+    if auth_session.revoked_at is not None:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "session_revoked", "message": "This session has been revoked."},
+        )
+    if utcnow_naive() - auth_session.last_activity_at >= timedelta(seconds=IDLE_SESSION_TIMEOUT_SECONDS):
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "session_idle_expired", "message": "This session expired after inactivity."},
         )
 
     return user
+
+
+def _token_payload_or_401(token: str) -> dict:
+    try:
+        return decode_access_token(token)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "token_expired", "message": "Token has expired. Please sign in again."},
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "invalid_token", "message": "Invalid token."},
+        )
+
+
+def _issue_session(db: Session, user: User) -> str:
+    now = utcnow_naive()
+    session_id = str(uuid4())
+    db.add(AuthSession(
+        session_id=session_id,
+        user_id=user.id,
+        created_at=now,
+        last_activity_at=now,
+    ))
+    return create_access_token(user.id, user.username, user.role.name, session_id)
 
 def require_admin(
     current_user: User = Depends(get_current_user),
@@ -255,6 +303,14 @@ class AdminUserPasswordResetRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class ReauthenticateRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+
+
+class ActivityRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
 class TenderUpdateRequest(BaseModel):
     web_tender_no: str | None = None
@@ -397,11 +453,8 @@ def login(
             detail="Invalid username or password",
         )
 
-    token = create_access_token(
-        user_id=user.id,
-        username=user.username,
-        role=user.role.name,
-    )
+    token = _issue_session(db, user)
+    db.commit()
 
     return {
         "access_token": token,
@@ -413,6 +466,139 @@ def login(
             "role": user.role.name,
         },
     }
+
+
+@app.post("/api/auth/activity")
+def record_auth_activity(
+    request: ActivityRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Record an explicit interaction signal; ordinary API calls never update idle time."""
+    payload = _token_payload_or_401(credentials.credentials)
+    session_id = payload.get("sid")
+    if not session_id:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "session_required", "message": "A new login is required."},
+        )
+
+    now = utcnow_naive()
+    cutoff = now - timedelta(seconds=IDLE_SESSION_TIMEOUT_SECONDS)
+    result = db.execute(
+        update(AuthSession)
+        .where(
+            AuthSession.session_id == session_id,
+            AuthSession.user_id == current_user.id,
+            AuthSession.revoked_at.is_(None),
+            AuthSession.last_activity_at > cutoff,
+        )
+        .values(last_activity_at=now)
+    )
+    if result.rowcount != 1:
+        db.rollback()
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "session_idle_expired", "message": "This session expired after inactivity."},
+        )
+    db.commit()
+    return {"status": "ok"}
+
+
+@app.post("/api/auth/reauthenticate")
+def reauthenticate(
+    request: ReauthenticateRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+):
+    """Replace an idle session after verifying the current user's password."""
+    payload = _token_payload_or_401(credentials.credentials)
+    user_id = payload.get("sub")
+    session_id = payload.get("sid")
+    if not user_id or not session_id:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "session_required", "message": "A new login is required."},
+        )
+
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "invalid_token", "message": "Invalid token."},
+        )
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "user_not_found", "message": "User not found."},
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "user_inactive", "message": "User account is inactive."},
+        )
+    if not verify_password(request.password, user.password_hash):
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "invalid_credentials", "message": "Invalid password."},
+        )
+
+    now = utcnow_naive()
+    revoke_result = db.execute(
+        update(AuthSession)
+        .where(
+            AuthSession.session_id == session_id,
+            AuthSession.user_id == user.id,
+            AuthSession.revoked_at.is_(None),
+        )
+        .values(revoked_at=now, revocation_reason="reauthenticated")
+    )
+    if revoke_result.rowcount != 1:
+        db.rollback()
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "session_revoked", "message": "This session has been revoked."},
+        )
+
+    new_token = _issue_session(db, user)
+    db.commit()
+
+    return {
+        "access_token": new_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "name": user.name,
+            "role": user.role.name,
+        },
+    }
+
+
+@app.post("/api/auth/logout")
+def revoke_auth_session(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    payload = _token_payload_or_401(credentials.credentials)
+    session_id = payload.get("sid")
+    now = utcnow_naive()
+    db.execute(
+        update(AuthSession)
+        .where(
+            AuthSession.session_id == session_id,
+            AuthSession.user_id == current_user.id,
+            AuthSession.revoked_at.is_(None),
+        )
+        .values(revoked_at=now, revocation_reason="logout")
+    )
+    db.commit()
+    return {"status": "ok"}
 
 
 @app.get("/api/auth/me")
@@ -1898,99 +2084,6 @@ def delegate_tender(
         "delegated_employee_name": employee.name,
     }
 
-def download_tender_document_if_available(
-    db: Session,
-    tender: Tender,
-):
-    """
-    Download the tender's primary document if a source URL exists
-    and the document has not already been downloaded.
-    """
-
-    if not tender.primary_document_url:
-        return False
-
-    download_lock = get_document_download_lock(
-        tender.jazzid
-    )
-
-    if not download_lock.acquire(blocking=False):
-        raise HTTPException(
-            status_code=409,
-            detail="Document download is already in progress.",
-        )
-
-    try:
-        # Check whether the primary document is already downloaded.
-        document = (
-            db.query(TenderDocument)
-            .filter(
-                TenderDocument.tender_jazzid == tender.jazzid,
-                TenderDocument.document_type == "PRIMARY",
-            )
-            .first()
-        )
-
-        if document and document.download_status == "DOWNLOADED":
-            return False
-
-        # Get the source name from the relationship.
-        source_name = tender.source.name
-
-        tender_key = (
-            tender.web_tender_no
-            or str(tender.jazzid)
-        )
-
-        document_name = (
-            document.document_name
-            if document and document.document_name
-            else "tender_document.pdf"
-        )
-
-        download_result = download_document(
-            tender.primary_document_url,
-            source=source_name,
-            tender_key=tender_key,
-            document_name=document_name,
-        )
-
-        if document is None:
-            document = TenderDocument(
-                tender_jazzid=tender.jazzid,
-                document_type="PRIMARY",
-                document_name=document_name,
-                source_url=tender.primary_document_url,
-                download_status=download_result["download_status"],
-                local_path=download_result["local_path"],
-                file_size=download_result["file_size"],
-                downloaded_at=download_result["downloaded_at"],
-            )
-            db.add(document)
-
-        else:
-            document.source_url = tender.primary_document_url
-            document.download_status = (
-                download_result["download_status"]
-            )
-            document.local_path = (
-                download_result["local_path"]
-            )
-            document.file_size = (
-                download_result["file_size"]
-            )
-            document.downloaded_at = (
-                download_result["downloaded_at"]
-            )
-
-        return (
-            download_result["download_status"]
-            == "DOWNLOADED"
-        )
-
-    finally:
-        download_lock.release()
-
 @app.put("/api/tenders/{jazzid}")
 def update_tender(
     jazzid: int,
@@ -2092,64 +2185,6 @@ def update_tender(
         "updated_by": current_user.username,
     }
 
-
-@app.post("/api/tenders/{jazzid}/document/download")
-def download_tender_document(
-    jazzid: int,
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    tender = (
-        db.query(Tender)
-        .filter(Tender.jazzid == jazzid)
-        .first()
-    )
-
-    if tender is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Tender not found",
-        )
-
-    if not tender.primary_document_url:
-        raise HTTPException(
-            status_code=404,
-            detail="Document not available",
-        )
-
-    document = (
-        db.query(TenderDocument)
-        .filter(
-            TenderDocument.tender_jazzid == jazzid,
-            TenderDocument.document_type == "PRIMARY",
-        )
-        .first()
-    )
-
-    # Prevent downloading an already downloaded document.
-    if document and document.download_status == "DOWNLOADED":
-        raise HTTPException(
-            status_code=409,
-            detail="Document has already been downloaded",
-        )
-
-    downloaded = download_tender_document_if_available(
-        db=db,
-        tender=tender,
-    )
-
-    if not downloaded:
-        raise HTTPException(
-            status_code=409,
-            detail="Document download was not performed.",
-        )
-
-    db.commit()
-
-    return {
-        "message": "Tender document downloaded successfully",
-        "jazzid": jazzid,
-    }
 
 def delete_tender_records(
     jazzids: list[int],
@@ -2354,7 +2389,9 @@ def get_scraper_status(
 
 
 @app.get("/api/admin/scraper/checkpoint")
-def get_scraper_checkpoint():
+def get_scraper_checkpoint(
+    current_user: User = Depends(require_admin),
+):
     checkpoint_file = CHECKPOINT_FILE
 
     if not checkpoint_file.exists():
@@ -2457,97 +2494,6 @@ def get_products(
         }
         for product in products
     ]
-
-
-@app.get("/api/tenders/{jazzid}/document")
-def view_tender_document(
-    jazzid: int,
-    db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    tender = (
-        db.query(Tender)
-        .filter(Tender.jazzid == jazzid)
-        .first()
-    )
-
-    if tender is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Tender not found",
-        )
-
-    # Coordinator access control
-    if current_user.role.name == "COORDINATOR":
-        coordinator = (
-            db.query(Coordinator)
-            .filter(Coordinator.user_id == current_user.id)
-            .first()
-        )
-
-        if coordinator is None:
-            raise HTTPException(
-                status_code=403,
-                detail="Coordinator region is not configured",
-            )
-
-        relevance = (
-            db.query(TenderRelevance)
-            .filter(TenderRelevance.tender_jazzid == jazzid)
-            .first()
-        )
-
-        if (
-            tender.region_id != coordinator.region_id
-            or relevance is None
-            or relevance.keyword_score <= 0
-        ):
-            raise HTTPException(
-                status_code=404,
-                detail="Tender not found",
-            )
-
-    document = (
-        db.query(TenderDocument)
-        .filter(
-            TenderDocument.tender_jazzid == jazzid,
-            TenderDocument.document_type == "PRIMARY",
-            TenderDocument.download_status == "DOWNLOADED",
-        )
-        .first()
-    )
-
-    if document is None or not document.local_path:
-        raise HTTPException(
-            status_code=404,
-            detail="Document not available",
-        )
-
-    document_path = (DATA_DIR / document.local_path).resolve()
-    documents_root = DOCUMENTS_DIR.resolve()
-
-    # Prevent path traversal outside data/documents
-    try:
-        document_path.relative_to(documents_root)
-    except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Document not available",
-        )
-
-    if not document_path.is_file():
-        raise HTTPException(
-            status_code=404,
-            detail="Document file not found",
-        )
-
-    media_type, _ = mimetypes.guess_type(document_path.name)
-
-    return FileResponse(
-        path=document_path,
-        filename=document.document_name or document_path.name,
-        media_type=media_type or "application/octet-stream",
-    )
 
 
 # ============================================================
@@ -2843,6 +2789,7 @@ def get_overview(
 @app.post("/api/scraper/import")
 def import_scraped_tenders(
     payload: ScraperImportRequest,
+    current_user: User = Depends(require_admin),
 ):
     """
     Receive raw tender data from locally running

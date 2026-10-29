@@ -7,6 +7,7 @@ from database.models.tender_document import TenderDocument
 from database.models.tender_participation import TenderParticipation
 from database.models.role import Role
 from database.models.user import User
+from database.models.auth_session import AuthSession
 from database.models.employee import Employee
 from database.models.coordinator import Coordinator
 from database.models.tender_field_override import TenderFieldOverride

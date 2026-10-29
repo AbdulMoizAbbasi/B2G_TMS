@@ -17,4 +17,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const requestUrl = error.config?.url || "";
+    const isCredentialSubmission = /\/api\/auth\/(login|reauthenticate)$/.test(requestUrl);
+    const code = error.response?.data?.detail?.code;
+
+    if (!isCredentialSubmission && code) {
+      window.dispatchEvent(new CustomEvent("auth:api-error", {
+        detail: { code, status: error.response?.status },
+      }));
+    }
+    return Promise.reject(error);
+  },
+);
+
 export default api;
